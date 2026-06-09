@@ -1,0 +1,64 @@
+name: S07 eval
+
+# EVAL_PLAN.md Tier 1 CI integration.
+# Triggers on PRs that could change S07 output quality.
+on:
+  pull_request:
+    paths:
+      - "prompts/s07/**"
+      - "eval/s07-analysis/**"
+      - "backend/**/analysis/**"   # adjust to the real analysis service path in W4
+
+jobs:
+  s07-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # need history to fetch the main baseline
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install anthropic
+
+      - name: Locate latest main baseline artifact
+        id: baseline
+        run: |
+          # Most recent run artifact committed on main, if any.
+          BASE=$(git ls-tree -r --name-only origin/main -- eval/runs \
+                 | sort | tail -n 1 || true)
+          echo "path=${BASE}" >> "$GITHUB_OUTPUT"
+          echo "Baseline: ${BASE:-<none>}"
+
+      - name: Run S07 eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "${{ steps.baseline.outputs.path }}" ] \
+             && git show origin/main:${{ steps.baseline.outputs.path }} > /tmp/baseline.json 2>/dev/null; then
+            python eval/s07-analysis/run_eval.py --baseline /tmp/baseline.json | tee /tmp/eval_out.txt
+          else
+            echo "No baseline found; running without regression gate."
+            python eval/s07-analysis/run_eval.py | tee /tmp/eval_out.txt
+          fi
+
+      - name: Post result as PR comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = '### S07 eval result\n```\n'
+              + fs.readFileSync('/tmp/eval_out.txt', 'utf8')
+              + '\n```';
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

@@ -1,0 +1,198 @@
+{
+  "schema_note": "Structure defined in EVAL_PLAN.md Tier 1. Owner-authored starter set of 12 cases (W1-3). Expand toward ~30 by W12. 'id' is stable and never renumbered.",
+  "cases": [
+    {
+      "id": "s07_001",
+      "input_text": "친구한테 서운한 마음을 정중하게 표현하고 싶어요",
+      "tone_intent": "정중한",
+      "category": "emotional_expression",
+      "expected_behaviors": [
+        "All 3 variants are grammatically correct American English",
+        "Variant 1 matches the requested polite tone",
+        "At least one variant preserves the mild '서운함' nuance rather than flattening to strong anger",
+        "Cultural tip names who/when, not generic advice"
+      ],
+      "expected_failure_modes": [
+        "All variants reduce '서운하다' to 'I am disappointed' with no nuance",
+        "Variant 1 is too casual for a polite intent",
+        "Cultural tip is generic ('use politely')"
+      ]
+    },
+    {
+      "id": "s07_002",
+      "input_text": "아이 학교 선생님한테 우리 아이가 따돌림 당하는 것 같다고 조심스럽게 말하고 싶어요",
+      "tone_intent": "조심스러운",
+      "category": "school_parenting",
+      "expected_behaviors": [
+        "Tone is careful and collaborative, not accusatory",
+        "Register is appropriate for a first conversation with a teacher",
+        "Cultural tip reflects US parent-teacher communication norms"
+      ],
+      "expected_failure_modes": [
+        "Variant sounds like an accusation against the teacher or school",
+        "Too casual for a teacher relationship",
+        "Cultural tip ignores the sensitivity of the bullying topic"
+      ]
+    },
+    {
+      "id": "s07_003",
+      "input_text": "병원에서 증상을 설명하는데 영어로 어떻게 말해야 할지 모르겠어요. 가슴이 답답하고 숨이 차요",
+      "tone_intent": null,
+      "category": "healthcare",
+      "expected_behaviors": [
+        "Variants describe the symptom clearly enough for a clinician",
+        "Uses everyday symptom vocabulary an American patient would use",
+        "Pronunciation tip targets a genuinely hard sound in the expression"
+      ],
+      "expected_failure_modes": [
+        "Overly clinical/textbook phrasing a patient wouldn't say",
+        "Ambiguous wording that a doctor could misread",
+        "Direct translation of '답답하다' that loses meaning"
+      ]
+    },
+    {
+      "id": "s07_004",
+      "input_text": "식당에서 음식이 잘못 나왔는데 직원한테 무례하지 않게 바꿔달라고 하고 싶어요",
+      "tone_intent": "정중한",
+      "category": "service_interaction",
+      "expected_behaviors": [
+        "Polite but clear request to correct the order",
+        "Variant 1 is the most courteous option",
+        "Cultural tip reflects normal US restaurant service interaction"
+      ],
+      "expected_failure_modes": [
+        "Sounds demanding or rude",
+        "Over-apologetic to the point of being unclear about the problem",
+        "Literal translation that sounds unnatural"
+      ]
+    },
+    {
+      "id": "s07_005",
+      "input_text": "직장 동료가 자꾸 내 일까지 떠넘기는데 단호하게 선을 긋고 싶어요",
+      "tone_intent": "단호한",
+      "category": "professional",
+      "expected_behaviors": [
+        "Variant 1 sets a firm boundary without being hostile",
+        "Workplace-appropriate register",
+        "Variants differ in firmness level"
+      ],
+      "expected_failure_modes": [
+        "Too aggressive for a coworker relationship",
+        "Too soft to actually set a boundary",
+        "All three are the same firmness"
+      ]
+    },
+    {
+      "id": "s07_006",
+      "input_text": "고마운 마음을 진심으로 표현하고 싶은데 'thank you'만 반복하게 돼요",
+      "tone_intent": "진심 어린",
+      "category": "emotional_expression",
+      "expected_behaviors": [
+        "Variants go beyond bare 'thank you' with genuine warmth",
+        "Natural, not greeting-card cliche",
+        "Three distinct ways to express sincere gratitude"
+      ],
+      "expected_failure_modes": [
+        "Just rephrased 'thank you very much' three times",
+        "Overly formal or stiff",
+        "Sounds insincere or exaggerated"
+      ]
+    },
+    {
+      "id": "s07_007",
+      "input_text": "집주인한테 수리를 빨리 해달라고 요청하는데 강하게 들리지 않으면서도 분명하게 말하고 싶어요",
+      "tone_intent": "분명한",
+      "category": "service_interaction",
+      "expected_behaviors": [
+        "Clear request with a sense of urgency but not aggressive",
+        "Register fits a tenant-landlord relationship in the US",
+        "Cultural tip addresses follow-up expectations"
+      ],
+      "expected_failure_modes": [
+        "Either too passive or too confrontational",
+        "Missing the urgency entirely",
+        "Generic cultural tip"
+      ]
+    },
+    {
+      "id": "s07_008",
+      "input_text": "새로 이사 온 동네에서 이웃에게 가볍게 인사하며 친해지고 싶어요",
+      "tone_intent": "가벼운",
+      "category": "social",
+      "expected_behaviors": [
+        "Friendly, low-pressure opener",
+        "Natural American small-talk register",
+        "Cultural tip explains US neighbor norms"
+      ],
+      "expected_failure_modes": [
+        "Too formal for a casual neighbor hello",
+        "Awkward or overly eager phrasing",
+        "Textbook 'How do you do?' style"
+      ]
+    },
+    {
+      "id": "s07_009",
+      "input_text": "회의에서 동의하지 않는다는 의견을 예의 있게 내고 싶어요",
+      "tone_intent": "정중한",
+      "category": "professional",
+      "expected_behaviors": [
+        "Disagrees while preserving collegiality",
+        "Variant 1 is the most diplomatic",
+        "Professional meeting register"
+      ],
+      "expected_failure_modes": [
+        "Sounds dismissive of others' ideas",
+        "Too hedged to register actual disagreement",
+        "Unnatural business-jargon phrasing"
+      ]
+    },
+    {
+      "id": "s07_010",
+      "input_text": "전화로 인터넷이 안 된다고 고객센터에 문제를 설명하고 해결을 요청하고 싶어요",
+      "tone_intent": null,
+      "category": "service_interaction",
+      "expected_behaviors": [
+        "Clearly states the problem and the desired outcome",
+        "Phone-call appropriate phrasing",
+        "Pronunciation tip targets a hard sound for phone clarity"
+      ],
+      "expected_failure_modes": [
+        "Vague about what is actually wrong",
+        "Too long/rambling for a phone call",
+        "Literal translation that confuses the agent"
+      ]
+    },
+    {
+      "id": "s07_011",
+      "input_text": "친구가 힘든 일을 겪고 있어서 위로하고 싶은데 어색하지 않게 말하고 싶어요",
+      "tone_intent": "따뜻한",
+      "category": "emotional_expression",
+      "expected_behaviors": [
+        "Comforting without being cliche or hollow",
+        "Natural register a close friend would use",
+        "Cultural tip notes what Americans typically say/avoid in condolence"
+      ],
+      "expected_failure_modes": [
+        "Empty cliche ('everything happens for a reason')",
+        "Too formal for a friend",
+        "Awkward direct translation of Korean comfort phrases"
+      ]
+    },
+    {
+      "id": "s07_012",
+      "input_text": "약속에 늦어서 미안하다고 너무 굽신거리지 않으면서 사과하고 싶어요",
+      "tone_intent": "담백한",
+      "category": "emotional_expression",
+      "expected_behaviors": [
+        "Sincere but not excessively self-deprecating apology",
+        "Variant 1 strikes the balanced, non-groveling tone",
+        "Register fits the relationship implied (peer/friend)"
+      ],
+      "expected_failure_modes": [
+        "Over-apologizing repeatedly",
+        "Too curt to read as a real apology",
+        "Unnatural phrasing"
+      ]
+    }
+  ]
+}

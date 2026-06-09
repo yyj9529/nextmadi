@@ -1,0 +1,1173 @@
+openapi: 3.1.0
+info:
+  title: PhraseLog API
+  version: 1.0.0
+  description: |
+    REST API for PhraseLog v1 — Spring Boot backend serving the Next.js frontend.
+
+    All authenticated endpoints require `Authorization: Bearer <jwt>` where the JWT
+    is issued by NextAuth on the Next.js side and shares a signing secret with the
+    backend.
+
+    Schema source of truth: data-model.md. AI behavior: AI_PIPELINE.md. Per-screen
+    flow: docs/screens/sNN.md.
+
+servers:
+  - url: https://api.phraselog.app/api/v1
+    description: Production
+  - url: http://localhost:8080/api/v1
+    description: Local dev
+
+tags:
+  - name: auth
+    description: Current user, account lifecycle.
+  - name: landing
+    description: S01 public landing data.
+  - name: analysis
+    description: S02 / S04 → S07 AI analysis.
+  - name: expressions
+    description: S07 save, S08 library, S09 detail and soft delete.
+  - name: review
+    description: S10 spaced review queue and submissions.
+  - name: practice
+    description: S12 roleplay sessions, turns, and S12b result.
+  - name: coaches
+    description: S03b coach catalog.
+  - name: home
+    description: S04 aggregated dashboard.
+  - name: usage
+    description: S11 daily usage stats.
+  - name: tts
+    description: Audio playback for S07 / S09 / S12 / S12b.
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Landing (S01)
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /landing/examples:
+    get:
+      tags: [landing]
+      summary: Random sample of active landing examples
+      description: Returns 3 active examples sampled at random. Public; no auth required.
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  examples:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LandingExample"
+                    minItems: 0
+                    maxItems: 3
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Analysis (S02 / S04 → S07)
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /analysis:
+    post:
+      tags: [analysis]
+      summary: Submit a Korean situation for AI analysis
+      description: |
+        Creates an `analysis_requests` row, calls the S07 LLM pipeline, returns the
+        analysis with 3 variants. Auth optional — pre-signup S02 calls include
+        `X-Session-Token` instead of bearer token, and are subject to
+        `anonymous_analysis_usage` rate limits.
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [input_text]
+              properties:
+                input_text:
+                  type: string
+                  maxLength: 500
+                  description: Korean situation text. Hard cap 500 chars per data-model.md.
+                landing_example_id:
+                  type: string
+                  format: uuid
+                  description: Optional reference if user clicked an S01 example card.
+      responses:
+        "201":
+          description: Analysis created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisRequest"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          description: |
+            Pre-signup rate limit exceeded (2 per IP per day) — response includes
+            CTA to sign up. Bearer-authenticated requests do not return this.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /analysis/{analysis_request_id}:
+    get:
+      tags: [analysis]
+      summary: Read a previously created analysis
+      description: |
+        S07 page entry. Returns the input + 3 variants. Auth-flexible: matches by
+        `user_id` if authenticated, or by `X-Session-Token` for pre-signup access.
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/AnalysisRequestId"
+        - $ref: "#/components/parameters/SessionToken"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Auth / Current user (S03 / S03b / S11)
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /me:
+    get:
+      tags: [auth]
+      summary: Current user profile and selected coach
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    patch:
+      tags: [auth]
+      summary: Update profile and onboarding state
+      description: |
+        Used by S03b (coach selection completion sets `is_onboarded=true`) and S11
+        (display name update, coach change).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name:
+                  type: string
+                  maxLength: 100
+                selected_coach_id:
+                  type: string
+                  format: uuid
+                is_onboarded:
+                  type: boolean
+                  description: Set true on S03b completion. Cannot be set false via API.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    delete:
+      tags: [auth]
+      summary: Schedule account deletion
+      description: |
+        Sets `scheduled_deletion_at = now() + 14 days`. Account is hard-deleted by
+        daily job after grace period. Cancelable via POST /me/cancel-deletion
+        within the window.
+      responses:
+        "204":
+          description: Scheduled
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /me/cancel-deletion:
+    post:
+      tags: [auth]
+      summary: Cancel scheduled account deletion
+      description: Clears `scheduled_deletion_at`. No-op if not scheduled.
+      responses:
+        "204":
+          description: Cancelled
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Coaches (S03b)
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /coaches:
+    get:
+      tags: [coaches]
+      summary: List all coach profiles
+      description: Seed data — Mia, David, Sarah. Used by S03b card render.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  coaches:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Coach"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Home (S04)
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /home/dashboard:
+    get:
+      tags: [home]
+      summary: Aggregated S04 home data
+      description: |
+        Single call that returns user + coach + bookshelf count + recent expressions
+        (2) + due review count + today's roleplay session count. Replaces multiple
+        round trips during S04 first paint.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+                  coach:
+                    $ref: "#/components/schemas/Coach"
+                  bookshelf_count:
+                    type: integer
+                    description: Active (non-deleted) expressions count.
+                  recent_expressions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ExpressionListItem"
+                    maxItems: 2
+                  due_review_count:
+                    type: integer
+                  today_roleplay_session_count:
+                    type: integer
+                  daily_roleplay_limit:
+                    type: integer
+                    description: 2 in v1.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Expressions (S07 save / S08 library / S09 detail / S09 delete)
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /expressions:
+    post:
+      tags: [expressions]
+      summary: Save an analysis result to the library
+      description: |
+        Creates one `expressions` row plus 3 `expression_variants` rows plus one
+        `review_cards` row in a single transaction. Idempotent: re-posting the same
+        `analysis_request_id` returns the existing expression (409 with location)
+        rather than duplicating.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [analysis_request_id]
+              properties:
+                analysis_request_id:
+                  type: string
+                  format: uuid
+                selected_variant_order:
+                  type: integer
+                  enum: [1, 2, 3]
+                  default: 1
+                  description: Which variant becomes the default. Default 1.
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expression"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: analysis_request_id not found or not owned by user
+        "409":
+          description: Already saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  existing:
+                    $ref: "#/components/schemas/Expression"
+
+    get:
+      tags: [expressions]
+      summary: List user's saved expressions (paginated)
+      description: |
+        S08 library. Supports keyword search via `q` (matches against English text
+        and Korean original situation). Sorted by `created_at` DESC.
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: Optional keyword filter (Korean or English)
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ExpressionListItem"
+                  next_cursor:
+                    type: string
+                    nullable: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /expressions/{expression_id}:
+    get:
+      tags: [expressions]
+      summary: Full detail of one expression with all variants
+      parameters:
+        - $ref: "#/components/parameters/ExpressionId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expression"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [expressions]
+      summary: Soft-delete an expression
+      description: "Sets `expressions.deleted_at = now()`. Cascade behavior: removes from library, review queue, and bookshelf count. No undo UI in v1."
+      parameters:
+        - $ref: "#/components/parameters/ExpressionId"
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Review (S10 / S09 queue removal)
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /review/today:
+    get:
+      tags: [review]
+      summary: Today's due review cards
+      description: |
+        Cards where `next_review_at <= now()` AND `removed_from_queue_at IS NULL`
+        AND parent expression not soft-deleted. Returns first batch of up to N.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+        - in: query
+          name: exclude_ids
+          description: Comma-separated review_card_id list already loaded in this session
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cards:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ReviewCard"
+                  total_due:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /review/{review_card_id}/submit:
+    post:
+      tags: [review]
+      summary: Submit a rating for a review card
+      description: |
+        Writes one `review_attempts` row (history) and updates `review_cards`
+        (latest state). Returns the computed next interval.
+      parameters:
+        - in: path
+          name: review_card_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating]
+              properties:
+                rating:
+                  type: string
+                  enum: [hard, good, easy]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  review_card_id:
+                    type: string
+                    format: uuid
+                  previous_interval_days:
+                    type: integer
+                  next_interval_days:
+                    type: integer
+                  next_review_at:
+                    type: string
+                    format: date-time
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /review/{review_card_id}/remove-from-queue:
+    post:
+      tags: [review]
+      summary: Remove an expression from the review queue without deleting it
+      description: |
+        Triggered from S09 detail. Sets `removed_from_queue_at = now()`. Expression
+        remains in library and bookshelf count.
+      parameters:
+        - in: path
+          name: review_card_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Practice / Roleplay (S12 / S12b)
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /practice/sessions:
+    post:
+      tags: [practice]
+      summary: Start a roleplay session
+      description: |
+        Creates a `practice_sessions` row and calls the LLM session-init prompt to
+        decide `planned_turns` (3-10). Returns session + first coach turn (the
+        scenario opening utterance). Subject to daily limit (2 per user per day).
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expression_id]
+              properties:
+                expression_id:
+                  type: string
+                  format: uuid
+                coach_id:
+                  type: string
+                  format: uuid
+                  description: Defaults to user's selected_coach_id if omitted.
+      responses:
+        "201":
+          description: Started
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PracticeSession"
+                  - type: object
+                    properties:
+                      opening_turn:
+                        $ref: "#/components/schemas/PracticeTurn"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          description: Daily limit reached (2 sessions)
+
+  /practice/sessions/{session_id}:
+    get:
+      tags: [practice]
+      summary: Get session state with all turns
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /practice/sessions/{session_id}/turns:
+    post:
+      tags: [practice]
+      summary: Submit a user turn, receive coach response + optional feedback card
+      description: |
+        Accepts user input (voice via audio upload, or text). Runs STT if audio,
+        then LLM coach response, then Haiku feedback evaluation, then TTS for coach
+        audio. Returns the coach turn and feedback card (if shown).
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                audio:
+                  type: string
+                  format: binary
+                  description: WebM/Opus audio from MediaRecorder. Either audio OR text_content required.
+                text_content:
+                  type: string
+                  description: Direct text input when user uses keyboard fallback.
+          application/json:
+            schema:
+              type: object
+              properties:
+                text_content:
+                  type: string
+      responses:
+        "200":
+          description: OK — coach turn (and feedback if applicable)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_turn:
+                    $ref: "#/components/schemas/PracticeTurn"
+                  coach_turn:
+                    $ref: "#/components/schemas/PracticeTurn"
+                  feedback:
+                    nullable: true
+                    $ref: "#/components/schemas/TurnFeedback"
+                  session_status:
+                    type: string
+                    enum: [active, completed]
+                    description: completed when planned_turns reached after this turn.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /practice/sessions/{session_id}/result:
+    post:
+      tags: [practice]
+      summary: Generate (or fetch) the S12b roleplay result
+      description: |
+        Calls Sonnet result prompt once, stores `result_json` on the session. Re-invocation
+        returns cached result without re-charging.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Result available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Session not yet completed
+
+  /practice/sessions/{session_id}/save-expression:
+    post:
+      tags: [practice]
+      summary: Save a recommended expression from S12b result
+      description: |
+        Creates one `expressions` row (source_type=roleplay_result) plus 3 `expression_variants`
+        plus one `review_cards`. Same return shape as POST /expressions.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recommended_expression_index]
+              properties:
+                recommended_expression_index:
+                  type: integer
+                  minimum: 0
+                  description: Index into result_json.recommended_expressions array.
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expression"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Usage stats (S11)
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /usage/today:
+    get:
+      tags: [usage]
+      summary: Today's usage counters
+      description: For S11 display. Roleplay session count and analysis count.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  roleplay_session_count:
+                    type: integer
+                  daily_roleplay_limit:
+                    type: integer
+                  analysis_count:
+                    type: integer
+                  analysis_limit:
+                    type: integer
+                    nullable: true
+                    description: null = unlimited in v1.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # TTS playback (S07 / S09 / S12 / S12b)
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /tts/playback:
+    post:
+      tags: [tts]
+      summary: Request TTS audio for a given text and voice
+      description: |
+        Looks up tts_audio_cache. Cache miss → calls OpenAI TTS, writes S3 + cache
+        row, returns signed URL. Cache hit returns existing signed URL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text, voice_id]
+              properties:
+                text:
+                  type: string
+                voice_id:
+                  type: string
+                  description: From coach_profiles.tts_voice_id.
+                expression_variant_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Optional — when set, backend persists tts_audio_cache_id link on the variant.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  audio_url:
+                    type: string
+                    format: uri
+                    description: S3 signed URL, 7-day expiry.
+                  duration_ms:
+                    type: integer
+                  cache_status:
+                    type: string
+                    enum: [hit, miss]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    SessionToken:
+      in: header
+      name: X-Session-Token
+      schema:
+        type: string
+        maxLength: 64
+      description: Pre-signup attribution token.
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      schema:
+        type: string
+        format: uuid
+      description: Client-generated UUID to deduplicate POST retries.
+    Cursor:
+      in: query
+      name: cursor
+      schema:
+        type: string
+      description: Opaque pagination cursor returned by previous response.
+    Limit:
+      in: query
+      name: limit
+      schema:
+        type: integer
+        default: 20
+        maximum: 100
+    AnalysisRequestId:
+      in: path
+      name: analysis_request_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ExpressionId:
+      in: path
+      name: expression_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SessionId:
+      in: path
+      name: session_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found or not owned by current user
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ValidationError:
+      description: Request body or parameters failed validation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+
+    Error:
+      type: object
+      required: [error_code, message]
+      properties:
+        error_code:
+          type: string
+          example: validation_failed
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    LandingExample:
+      type: object
+      required: [id, korean_text]
+      properties:
+        id:
+          type: string
+          format: uuid
+        korean_text:
+          type: string
+
+    Coach:
+      type: object
+      required: [id, slug, display_name, persona_summary, tts_voice_id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          enum: [mia, david, sarah]
+        display_name:
+          type: string
+        persona_summary:
+          type: string
+        tts_voice_id:
+          type: string
+
+    User:
+      type: object
+      required: [id, email, is_onboarded, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+          nullable: true
+        selected_coach_id:
+          type: string
+          format: uuid
+          nullable: true
+        is_onboarded:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        scheduled_deletion_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set when account deletion is scheduled. null = active.
+
+    ExpressionVariant:
+      type: object
+      required: [id, variant_order, english_text]
+      properties:
+        id:
+          type: string
+          format: uuid
+        variant_order:
+          type: integer
+          enum: [1, 2, 3]
+        tone_label:
+          type: string
+          nullable: true
+          description: AI-generated dynamic Korean phrase. NOT a fixed enum.
+        english_text:
+          type: string
+        ipa:
+          type: string
+          nullable: true
+        korean_pronunciation:
+          type: string
+          nullable: true
+        pronunciation_tip:
+          type: string
+          nullable: true
+        cultural_tip:
+          type: string
+          nullable: true
+        tts_audio_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Convenience — signed URL if TTS already cached for this variant.
+
+    AnalysisRequest:
+      type: object
+      required: [id, input_text, variants, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        input_text:
+          type: string
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExpressionVariant"
+          minItems: 3
+          maxItems: 3
+        prompt_version:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Expression:
+      type: object
+      required: [id, source_type, original_situation, variants, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        source_type:
+          type: string
+          enum: [analysis, roleplay_result]
+        analysis_request_id:
+          type: string
+          format: uuid
+          nullable: true
+        practice_session_id:
+          type: string
+          format: uuid
+          nullable: true
+        original_situation:
+          type: string
+        selected_variant_id:
+          type: string
+          format: uuid
+          nullable: true
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExpressionVariant"
+          minItems: 3
+          maxItems: 3
+        review_card_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: null if removed_from_queue.
+        next_review_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ExpressionListItem:
+      type: object
+      description: Compact projection used by S04 home and S08 library list.
+      required: [id, original_situation, english_text, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        original_situation:
+          type: string
+        english_text:
+          type: string
+          description: From selected_variant.
+        tone_label:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ReviewCard:
+      type: object
+      required: [id, expression_id, next_review_at, current_interval_days]
+      properties:
+        id:
+          type: string
+          format: uuid
+        expression_id:
+          type: string
+          format: uuid
+        next_review_at:
+          type: string
+          format: date-time
+        last_reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_rating:
+          type: string
+          enum: [hard, good, easy]
+          nullable: true
+        current_interval_days:
+          type: integer
+        original_situation:
+          type: string
+        variant:
+          $ref: "#/components/schemas/ExpressionVariant"
+          description: The selected variant for review front/back rendering.
+
+    PracticeSession:
+      type: object
+      required: [id, status, planned_turns, started_at, coach_id, expression_id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [active, completed, abandoned]
+        planned_turns:
+          type: integer
+          minimum: 3
+          maximum: 10
+        coach_id:
+          type: string
+          format: uuid
+        expression_id:
+          type: string
+          format: uuid
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        turns:
+          type: array
+          items:
+            $ref: "#/components/schemas/PracticeTurn"
+          description: Included on GET /practice/sessions/{id}, omitted on POST /sessions response.
+
+    PracticeTurn:
+      type: object
+      required: [id, turn_number, speaker, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        turn_number:
+          type: integer
+        speaker:
+          type: string
+          enum: [user, coach]
+        text_content:
+          type: string
+          nullable: true
+        tts_audio_url:
+          type: string
+          format: uri
+          nullable: true
+        stt_confidence:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 1
+        feedback_shown:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    TurnFeedback:
+      type: object
+      description: Haiku-generated per-turn feedback card. See AI_PIPELINE.md roleplay_turn_feedback_v1.
+      properties:
+        show_feedback:
+          type: boolean
+        natural_alternative:
+          type: string
+          nullable: true
+        korean_comment:
+          type: string
+          nullable: true
+
+    PracticeResult:
+      type: object
+      description: Sonnet-generated session summary. See AI_PIPELINE.md roleplay_result_v1.
+      properties:
+        recommended_expressions:
+          type: array
+          items:
+            type: object
+            properties:
+              english:
+                type: string
+              tone_label:
+                type: string
+              ipa:
+                type: string
+              korean_pronunciation:
+                type: string
+              pronunciation_tip:
+                type: string
+              cultural_tip:
+                type: string
+        awkward_pairs:
+          type: array
+          items:
+            type: object
+            properties:
+              user_said:
+                type: string
+              natural_version:
+                type: string
+              comment:
+                type: string
+        pronunciation_focus_words:
+          type: array
+          items:
+            type: string
+        coach_encouragement:
+          type: string

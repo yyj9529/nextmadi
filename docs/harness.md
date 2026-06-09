@@ -1,0 +1,174 @@
+# PhraseLog AI development harness
+
+Status: Proposed. Composition is settled; command availability and tool behaviors
+remain to be confirmed by installation (see "Open items"). Supersedes the v1 harness
+draft. Skill descriptions were verified against the EveryInc/compound-engineering-plugin
+and obra/superpowers repos on 2026-05-30.
+
+This is the operational guide for how agents work on PhraseLog. The composition
+rationale and the cross-validation that produced it are recorded in
+`docs/harness-investigation.md`. Specific sub-decisions are ADR-008 (AGENTS.md
+canonical) and ADR-009 (eval trial repetition).
+
+## 1. Composition
+
+- **Spine — Compound Engineering (installed).** Multi-harness (Claude Code, Codex,
+  Cursor), matching the CC + Codex environment. Commands by role:
+  strategy `/ce-strategy`; planning-phase doc review `/ce-doc-review` + reviewer
+  agents; feature loop `/ce-brainstorm` → `/ce-plan` → `/ce-work` → `/ce-code-review`;
+  UI `/ce-test-browser`; AI quality `/ce-optimize`; debugging `/ce-debug`; knowledge
+  capture `/ce-compound` (+ `/ce-compound-refresh`); operation `/ce-product-pulse`
+  (post-launch only).
+- **Principles — Superpowers (absorbed, not installed).** TDD for behavior changes;
+  two-gate review (spec compliance, then code quality). Not installed because its
+  "1% chance a skill applies, you must invoke it" rule over-proceduralizes simple
+  tasks and collides with the CE spine.
+- **Deferred — gstack.** Auto-edits source. Use only after a stable staging URL,
+  `/qa-only` first, on a clean branch, never production, no auto-merge.
+
+## 2. Design principles
+
+1. One spine, no competing loops.
+2. The harness packages methodology; `CLAUDE.md` / `AGENTS.md` still govern.
+3. Fit-to-task over popularity.
+4. Comprehension over raw velocity.
+5. Read-only and no-auto-merge by default.
+
+## 3. Layered structure
+
+- **Layer 1 — always loaded.** `CLAUDE.md`, `START_HERE.md`, `SECURITY.md`, current
+  sprint goal, recent ADR summaries.
+- **Layer 2 — canonical project artifacts.** `PROJECT_CONTEXT.md`, `PRD.md`,
+  `docs/architecture.md`, `docs/data-model.md`, `docs/AI_PIPELINE.md`,
+  `docs/screens/sNN.md`, `docs/api/openapi.yaml`, `docs/decisions/`.
+- **Layer 3 — execution artifacts.** `docs/exec-plans/`, `docs/reviews/`,
+  `docs/solutions/`, `eval/runs/`.
+- **Layer 4 — verification.** Unit/integration tests, S07 mini eval, browser checks,
+  `ai_request_logs`, `.github/workflows/eval.yml`.
+- **Layer 5 — future observability.** `/ce-product-pulse`, Langfuse/Braintrust/custom
+  dashboard, human annotation, S12 roleplay eval.
+
+## 4. Context loading policy
+
+Paste into `CLAUDE.md` (and therefore `AGENTS.md` per ADR-008). Extends the existing
+"Session entry sequence".
+
+```
+## Context loading policy
+Always load (inject at session start):
+- CLAUDE.md, START_HERE.md
+- Current goal / active sprint
+- Recent accepted ADR summaries
+- SECURITY.md (forbidden areas, approval matrix)
+
+Load on demand (fetch only when the task needs it):
+- Full screen specs (docs/screens/sNN.md)
+- Full architecture / data-model / AI_PIPELINE
+- Long logs and stack traces
+- External API references
+- Test and eval results
+```
+
+Reason: context is a finite resource; high-signal-at-start plus fetch-on-demand keeps
+the working context in its effective range rather than filling the window.
+
+## 5. Cross-verification (selective)
+
+For risky changes only — AI pipeline, auth, DB migration, payment, roleplay state —
+run a manual handoff: Claude Code implements and writes tests, Codex reviews the diff
+independently (different model, different blind spot), Claude Code does the local final
+check and merge judgment. Not every task; not automated; no parallel-agent pipeline.
+Requires ADR-008 so Codex reviews against the same rules.
+
+## 6. Error response contract
+
+Backend errors carry a fix hint, so an agent debugging from a log knows what to change:
+
+```json
+{
+  "error_code": "s07_schema_validation_failed",
+  "user_message": "분석 결과를 만드는 중 문제가 생겼어요. 다시 시도해주세요.",
+  "developer_hint": "LLM response missed variants[2].cultural_tip. Check prompt version s07-v2.",
+  "retryable": true,
+  "request_correlation_id": "…"
+}
+```
+
+`user_message` is Korean and user-safe; `developer_hint` names the likely fix; the
+correlation id ties the error to its `ai_request_logs` rows.
+
+## 7. Development workflow
+
+- **Planning (now, W1–3):** `/ce-doc-review` on PRD/ADR/screen specs before they are
+  considered stable.
+- **Feature (W4–8):** `/ce-brainstorm` → write exec-plan (`docs/exec-plans/`) →
+  `/ce-plan` → failing test (TDD) → `/ce-work` → `/ce-code-review` (two gates) →
+  `/ce-test-browser` if UI → `/ce-optimize` + S07/S12 eval if AI → quality gate
+  (`docs/quality-gates.md`) → `/ce-compound`. Risky change → section 5 handoff.
+- **Operate (W13+):** weekly `/ce-product-pulse 7d`; periodic `/ce-compound-refresh`;
+  consider Langfuse and gstack `/qa-only` per their triggers.
+
+### 7.1 Task routing
+
+Which files to pull for which task, and how to invoke the tools. Always-load files
+(`CLAUDE.md`/`AGENTS.md`, `START_HERE.md`, `PROJECT_CONTEXT.md`, `SECURITY.md`,
+`docs/decisions/INDEX.md`) load automatically — do not attach them. In Claude Code,
+`@path` attaches a file's contents; Codex reads repo files by path and `AGENTS.md`
+automatically. Prompts are written naturally (Korean in practice); only the `@`-paths
+and the command are shown here.
+
+| Task | Load on demand | Produces / updates | How to invoke |
+|------|----------------|--------------------|---------------|
+| Plan a screen (W1–3) | relevant PRD scope | `sNN.md`, maybe an ADR | CC: `@PRD.md` → draft `@docs/screens/s07.md`, then `/ce-doc-review` |
+| Implement a screen (W4–8) | `sNN.md`, `openapi.yaml`, `data-model.md` | exec-plan, tests, review | CC: plan with `@docs/exec-plans/exec-plan-template.md`, then implement against `@docs/screens/s07.md @docs/api/openapi.yaml @data-model.md` |
+| S07 / analysis change | `AI_PIPELINE.md`, `prompts/s07/`, `EVAL_PLAN.md` | `eval/runs/`, S07 gate | CC: edit `@AI_PIPELINE.md @prompts/s07/v2.md`, then `/ce-optimize` against `@EVAL_PLAN.md` |
+| S12 / roleplay | `s12`, `s12b`, `AI_PIPELINE.md`, `data-model.md` | exec-plan | CC: implement turn logic against `@docs/screens/s12.md @docs/screens/s12b.md` |
+| Backend / DB / auth | `architecture.md`, `data-model.md`, `openapi.yaml` | migration, error contract, review | CC: write migration against `@data-model.md @architecture.md`; risky → request approval |
+| Bug fix (W4+) | relevant `sNN.md`, logs, recent diff | `solutions/` | CC: paste log + `@docs/screens/s08.md`, then `/ce-debug` |
+| Record a decision | relevant docs, `harness.md` | new ADR + `INDEX.md` line | CC: write ADR in the `@docs/decisions/007-documentation-structure.md` shape, add one `INDEX.md` line |
+| Cross-verify a risky change | (SECURITY auto) | verdict in `docs/reviews/` | After CC implements → Codex: review the diff against `@docs/screens/s07.md` using `@docs/reviews/review-template.md` |
+| Operate (W13+) | `ai_request_logs` | `docs/pulse-reports/` | CC: `/ce-product-pulse 7d` |
+
+For screen work, `docs/screens/sNN.md` is the source of truth — pull it, not the full
+`PRD.md`. The cross-verify row is the team handoff: the reviewer is the tool that did
+not write the code (section 5), and it already shares the goal and rules via the
+always-load set.
+
+## 8. What each cycle leaves behind
+
+Exec-plan + retro (`docs/exec-plans/`), failing-then-passing tests, two-gate review
+trail (`docs/reviews/`), eval run with per-trial scores and process metadata
+(`eval/runs/`), one durable learning note (`docs/solutions/`). Eval runs store
+metadata and summarized rationale only — never raw user text (see `SECURITY.md`).
+
+Process metadata recorded per eval run (reason: regression and variance tracing, not
+presentation):
+
+```json
+{
+  "task_id": "s07_001",
+  "prompt_version": "s07-v2",
+  "model_name": "claude-sonnet-…",
+  "trials": 3,
+  "score_mean": {"naturalness": 4.0, "accuracy": 4.7, "cultural": 4.0, "tone_match": 4.7},
+  "score_variance": {"naturalness": 0.2},
+  "harness_path": "ce-plan -> ce-work -> ce-code-review -> ce-optimize",
+  "outcome": "pass"
+}
+```
+
+## 9. Open items
+
+1. `STRATEGY.md` vs `PROJECT_CONTEXT.md` canonical source — pick one.
+2. Confirm every section 1 command via `/help` in both Claude Code and Codex after
+   install; the plugin README skill table is not exhaustive (see investigation log).
+3. ADR-008 mechanism — confirm Codex AGENTS.md read behavior before choosing pointer
+   vs generated.
+4. gstack `/qa` auto-edit behavior — confirm against the skill file before any use.
+5. ADR-009 N and variance threshold — confirm after first multi-trial run.
+
+## Related
+
+- ADR-008 — AGENTS.md canonical.
+- ADR-009 — eval trial repetition.
+- `docs/quality-gates.md`, `SECURITY.md`, `EVAL_PLAN.md`, `docs/harness-investigation.md`.
