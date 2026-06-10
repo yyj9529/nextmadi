@@ -1,7 +1,7 @@
 # Decision Backlog - Resolve Before The Blocked Story Starts
 
-Last updated: 2026-06-10 (P0 resolved)
-Status: P1/P2 open. Owner decides; AI agents do not resolve these unilaterally.
+Last updated: 2026-06-11 (S03 auth P1 resolved)
+Status: P1/P2 open except resolved items below. Owner decides; AI agents do not resolve these unilaterally.
 
 Every "TBD before W4" scattered across the specs, consolidated. Each item lists
 the source doc and the story it blocks. Convert each row into a `type:spike`
@@ -20,12 +20,18 @@ story. **P2** can be decided during implementation without rework risk.
 | 2 | S02 voice submission | **Two-step**: `POST /transcriptions` (STT) -> user confirms/edits -> `POST /analysis` (text-only JSON). S12 turns stay one-shot multipart. |
 | 3 | Review interval initial | **Immediate due + base interval 1**: `next_review_at = now()`, `current_interval_days = 1`. Interval 0 rejected because 0 x 2 = 0 creates permanently-due cards. |
 
+## S03 Auth P1 - Resolved 2026-06-11
+
+| # | Decision | Resolution |
+|---|---|---|
+| 4 | Account linking policy (same email, different provider) | **No automatic same-email OAuth linking while signed out.** Existing active email + unlinked Google/Kakao identity shows account-linking guidance; email magic-link can sign in by verified mailbox ownership. Source: `docs/screens/s03.md`, `docs/data-model.md`. |
+| 5 | Legal docs paths + actual ToS/Privacy Policy content | **Paths are `/terms` and `/privacy`.** Before W12 launch, both pages need owner-approved actual content; non-production placeholders may exist only as route scaffolding and are not shippable. Source: `docs/screens/s03.md`, `docs/PRD.md`. |
+| 15 | SMTP provider for email magic link | **Amazon SES SMTP via Auth.js Nodemailer provider.** SES setup requires verified sender identity, SMTP credentials, and production access before public launch. Source: `docs/architecture.md`. |
+
 ## P1 - Decide Before The Blocked Story Enters A Sprint
 
 | # | Decision | Source | Blocks |
 |---|---|---|---|
-| 4 | Account linking policy (same email, different provider): prompt path is the v1 default; confirm. | `docs/screens/s03.md` | S03 login story |
-| 5 | Legal docs paths + actual ToS/Privacy Policy content. | `docs/screens/s03.md`; `docs/PRD.md` | S03 story; W12 launch |
 | 6 | Whether `abandoned` roleplay sessions count toward the daily cap of 2. | `docs/screens/s12.md`; `docs/data-model.md` | S12 session lifecycle story |
 | 7 | S12 entry gate destination when user has zero saved expressions. | `docs/screens/s12.md` | S12 entry story |
 | 8 | S07 saved-then-soft-deleted revisit behavior: re-create / un-delete / restore CTA. | `docs/screens/s07.md`; `docs/screens/s12b.md` | S07 save story; S12b save story |
@@ -35,7 +41,6 @@ story. **P2** can be decided during implementation without rework risk.
 | 12 | S06 retry idempotency: confirm client re-sends the same `Idempotency-Key` and backend dedupes. | `docs/screens/s06.md`; `docs/api/openapi.yaml` | S06 story; `/analysis` backend story |
 | 13 | `anonymous_analysis_usage` retention window (default 30 days; confirm). | `docs/data-model.md` | Cleanup job story |
 | 14 | `tts_audio_cache` expiry: no expiry vs 90 days. | `docs/data-model.md` | TTS cache story; jobs story |
-| 15 | SMTP provider for email magic link. | `docs/architecture.md` | S03 email auth story |
 
 ## P2 - Decide During Implementation
 
@@ -53,4 +58,4 @@ story. **P2** can be decided during implementation without rework risk.
 - Coach illustration assets for Mia, David, and Sarah.
 - AWS provisioning: VPC, ALB, ACM cert, domain, RDS, S3 buckets.
 - Slack webhook provisioning for alerts.
-- ToS / Privacy Policy authoring (pairs with decision #5).
+- ToS / Privacy Policy authoring for `/terms` and `/privacy` before W12 launch.
