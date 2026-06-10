@@ -29,7 +29,7 @@ v1 must achieve all of the following:
 - `ai_request_logs` writes on every AI call
 - Authentication works for Google + Kakao + email
 - Private validation cycles surface no unresolved blockers
-- Terms of Service and Privacy Policy are published and linked from S03
+- Terms of Service and Privacy Policy are owner-approved, published at `/terms` and `/privacy`, and linked from S03; non-production placeholders are not launchable
 - Seed data is loaded: `coach_profiles` (Mia/David/Sarah) and `landing_examples`
 
 Additional criteria TBD by W3.

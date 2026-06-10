@@ -56,7 +56,7 @@ CREATE TABLE users (
 CREATE UNIQUE INDEX idx_users_email_active ON users(email) WHERE deleted_at IS NULL;
 ```
 
-`auth_provider` is no longer a column on `users`; provider information lives in `user_auth_identities` (one row per linked provider). This supports a single user linking multiple providers without account duplication.
+`auth_provider` is no longer a column on `users`; provider information lives in `user_auth_identities` (one row per linked provider). This schema permits a single user to have multiple identities without account duplication, but it does not authorize automatic same-email OAuth linking. S03 is the behavioral source of truth for unauthenticated callback conflicts.
 
 `is_onboarded` gates the one-time S03b coach selection. Behavior: `docs/screens/s03b.md`.
 
@@ -78,7 +78,7 @@ CREATE TABLE user_auth_identities (
 CREATE INDEX idx_auth_identities_user ON user_auth_identities(user_id);
 ```
 
-NextAuth-standard Account table pattern. One row per (user, provider) link. A single user can have multiple identities (e.g., signed up with Google, later linked Kakao). The `(provider, provider_user_id)` unique constraint ensures the same external account cannot link to two PhraseLog users.
+NextAuth-standard Account table pattern. One row per (user, provider) link. A single user can have multiple identities after an explicit link flow or verified email magic-link sign-in. v1 does not auto-link an unlinked Google/Kakao identity by `provider_email` while the user is signed out. The `(provider, provider_user_id)` unique constraint ensures the same external account cannot link to two PhraseLog users.
 
 `provider_email` is the email returned by the provider at link time and may differ from `users.email` (the display/contact email).
 

@@ -9,8 +9,9 @@ file must be corrected.
 ## Forbidden (never, without exception)
 
 - Print, log, or commit secrets. Secrets live in AWS Secrets Manager (Anthropic API
-  key, OpenAI API key, JWT signing secret, DB credentials, OAuth client secrets) and
-  Vercel env vars — never in source or committed `.env`.
+  key, OpenAI API key, JWT signing secret, DB credentials, OAuth client secrets)
+  and Vercel env vars (including Amazon SES SMTP credentials and sender address)
+  — never in source or committed `.env`.
 - Log raw user conversation text, or identifiable family/medical/school/financial
   context, into any artifact that can reach the public repo (`eval/runs/`, commits,
   PR descriptions, `docs/`).
@@ -24,7 +25,7 @@ file must be corrected.
 - DB schema migration.
 - Deploy to Vercel or EC2.
 - Dependency install or version bump.
-- Any change to OAuth / NextAuth / JWT handling.
+- Any change to OAuth / NextAuth / JWT handling or email magic-link delivery provider.
 - Changes that affect AI cost (new model calls, removed caching, loop changes).
 - Bulk file deletion or rename across many files.
 
@@ -39,7 +40,7 @@ file must be corrected.
 ## Permission posture
 
 Default: manual approval plus sandbox. The project holds API keys, AWS, RDS, S3,
-OAuth, user data, and a live AI cost surface, so the cost of an unreviewed
+OAuth, SMTP, user data, and a live AI cost surface, so the cost of an unreviewed
 destructive action is high. Skip-permissions mode is not used in normal work; if
 ever used, it is time-boxed, on a throwaway branch, never touching secrets,
 production, or migrations, and the diff is reviewed before merge.

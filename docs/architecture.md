@@ -39,7 +39,7 @@ Source of truth for PhraseLog v1 system architecture: frontend, backend, persist
    └──────────┘     └──────────┘     └──────────────┘  └─────────────┘
 ```
 
-OAuth identity providers (Google, Kakao) are invoked by NextAuth on the Next.js side and not by the Spring Boot backend directly. Email magic-link is also a NextAuth provider.
+OAuth identity providers (Google, Kakao) are invoked by NextAuth on the Next.js side and not by the Spring Boot backend directly. Email magic-link is also a NextAuth provider, delivered through Amazon SES SMTP.
 
 ## Frontend layer
 
@@ -52,6 +52,8 @@ Frontend framework. App-router-based pages map directly to the screen IDs in `do
 | `/`                                 | S01 Landing |
 | `/try`                              | S02 Try without login |
 | `/login`                            | S03 Login |
+| `/terms`                            | Legal Terms of Service |
+| `/privacy`                          | Legal Privacy Policy |
 | `/welcome/coach`                    | S03b Coach selection |
 | `/home`                             | S04 Home |
 | `/save/result/:analysis_request_id` | S07 Analysis result |
@@ -81,6 +83,8 @@ Explicitly **not** in v1 PWA scope:
 ### NextAuth on Next.js
 
 OAuth (Google, Kakao) and email magic-link flow lives entirely on the Next.js side. The browser never calls Spring Boot directly (BFF, ADR-010): Next.js route handlers validate the NextAuth session server-side and proxy to Spring Boot with a signed internal token. The NextAuth session cookie itself is never sent to Spring Boot.
+
+Email magic-link delivery uses the Auth.js Nodemailer provider with Amazon SES SMTP in v1. Official docs verified 2026-06-11: Auth.js Nodemailer sends magic links through SMTP and requires a database-backed verification-token store; Amazon SES provides an SMTP interface, requires SES SMTP credentials, requires a verified sender identity, and requires production access before sending to arbitrary recipients outside the sandbox. Sources: https://authjs.dev/getting-started/providers/nodemailer, https://docs.aws.amazon.com/ses/latest/dg/send-email-smtp.html, https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html.
 
 ## Backend layer
 
@@ -156,9 +160,11 @@ Rollback strategy: forward-only migrations (no DOWN scripts). Recovery via RDS p
 | OpenAI API       | Whisper STT, TTS              | 99.9% target          |
 | Google OAuth     | Authentication                | 99.9% baseline        |
 | Kakao OAuth      | Authentication                | 99% baseline (lower)  |
-| SMTP (email)     | Magic-link delivery           | provider-dependent    |
+| Amazon SES SMTP  | Magic-link delivery           | provider-dependent    |
 
 Failure handling and retry policies for AI/STT/TTS calls live in `AI_PIPELINE.md`. Auth provider failures route the user to the alternative provider screen.
+
+SMTP decision (2026-06-11): v1 uses Amazon SES SMTP rather than adding a separate transactional-email vendor. This keeps auth email inside the existing AWS operations surface while still fitting Auth.js's SMTP-based Nodemailer provider. Amazon SES pricing is planning-grade and must be re-verified before W4 implementation; official pricing page verified 2026-06-11 lists outbound email at $0.10 per 1,000 emails, plus data/add-on charges where applicable: https://aws.amazon.com/ses/pricing/.
 
 ## Authentication and authorization
 
@@ -169,8 +175,8 @@ browser -> Next.js route handler -> Spring Boot.
 ### Flow
 
 1. User initiates login on `/login` (S03)
-2. NextAuth handles OAuth dance with chosen provider (Google / Kakao), or sends magic link (email)
-3. On callback, NextAuth creates or finds a `users` row and links the provider via `user_auth_identities` (provider, provider_user_id)
+2. NextAuth handles OAuth dance with chosen provider (Google / Kakao), or sends magic link through Amazon SES SMTP (email)
+3. On callback, NextAuth finds an existing linked identity, creates a new `users` row, or signs in to an existing email user after email magic-link verification. Unlinked Google/Kakao same-email callbacks are not auto-linked while signed out; S03 shows account-linking guidance instead.
 4. NextAuth issues its default encrypted (JWE) session, stored in an HTTP-only cookie (`__Host-` prefix, `Secure`, `SameSite=Lax`)
 5. Browser calls Next.js route handlers (`/api/*`). The handler validates the NextAuth session server-side and resolves authenticated `user_id` or anonymous `session_token`
 6. The handler calls Spring Boot over HTTPS with a short-lived signed (JWS) internal token in the `X-Internal-Auth` header. The token binds `user_id` or anonymous `session_token` as claims, signed with `INTERNAL_AUTH_SECRET` shared only between Next.js server and Spring Boot
@@ -234,7 +240,7 @@ Pre-signup users on S07 who click Save:
 
 - Stored in **AWS Secrets Manager**: Anthropic API key, OpenAI API key, database credentials, OAuth client secrets, and the internal-token signing secret (`INTERNAL_AUTH_SECRET`, shared Next.js -> Spring Boot)
 - Spring Boot reads secrets at startup via AWS SDK using IAM role attached to EC2 instance
-- Vercel environment variables: NextAuth secret (`AUTH_SECRET`), OAuth client IDs and secrets, backend base URL, and the internal-token signing secret (`INTERNAL_AUTH_SECRET`, shared Next.js -> Spring Boot)
+- Vercel environment variables: NextAuth secret (`AUTH_SECRET`), OAuth client IDs and secrets, Amazon SES SMTP host/user/password/from address, backend base URL, and the internal-token signing secret (`INTERNAL_AUTH_SECRET`, shared Next.js -> Spring Boot)
 - No secrets in source code or `.env` files committed to git
 
 ### CORS
