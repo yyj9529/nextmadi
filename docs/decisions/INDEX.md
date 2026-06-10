@@ -19,6 +19,7 @@ line here. One line each — if a summary needs more than one line, it is too lo
 | 007 | Accepted | Single-source-of-truth doc structure; public repo layout plus Notion for private content. |
 | 008 | Proposed | CLAUDE.md is the single authored source; AGENTS.md is Codex's entrypoint (pointer or generated), kept in mechanical sync. |
 | 009 | Proposed | Each eval case runs N trials (start N=3) to measure variance; per-trial scores are stored. |
+| 010 | Accepted | Auth handoff is BFF: browser → Next.js → Spring Boot with signed internal token; openapi.yaml is the internal contract. |
 
 ## Related
 

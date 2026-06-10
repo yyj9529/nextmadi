@@ -38,7 +38,13 @@ Every external API call writes a row to `ai_request_logs` (see Logging Contract 
 
 Provider: OpenAI Whisper.
 
-Used by: S02 try-without-login voice input, S05a voice input from home, S12 roleplay user turns.
+Used by: S02 try-without-login voice input and S04 home mic via the standalone
+`POST /transcriptions` endpoint (two-step flow: transcribe -> user
+confirms/edits transcript -> text-only `POST /analysis`), and S12 roleplay user
+turns inline within `POST /practice/sessions/{id}/turns` (one-shot;
+conversation flow does not pause for transcript editing). Every STT call,
+standalone or inline, logs one `ai_request_logs` row with purpose
+`stt_transcription`.
 
 Input: audio file (WebM/Opus from browser MediaRecorder), max 60 seconds (S12 turn cap).
 
@@ -280,7 +286,7 @@ Token counts below are project assumptions, to be replaced with measured values 
 - Sonnet 4.6: ~900 input + ~270 output tokens
 - Cost: (900 × $3 + 270 × $15) ÷ 1,000,000 = $0.00675 ≈ **$0.007 per analysis**
 
-**S07 analysis (voice input, ≤30 seconds audio)**
+**S02/S04 transcription step (voice input, ≤30 seconds audio)**
 - Whisper STT: 0.5 min × $0.006 = $0.003
 - Sonnet 4.6 analysis: $0.007
 - **Total: ~$0.010 per voice analysis**

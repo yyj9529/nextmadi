@@ -1,7 +1,9 @@
-# Auth handoff — decision required before W4
+# Auth handoff — decided
 
-Status: **Open decision (resolve before W4).** This document exists because
-`architecture.md` currently describes a handoff that does not match Auth.js defaults.
+Status: **Decided 2026-06-10 — Option 1 (BFF). See ADR-010.** This document
+records the problem, the options considered, and the chosen mechanism.
+`architecture.md` (Authentication section) is the source of truth for
+implementation detail.
 
 ## The problem
 
@@ -38,19 +40,39 @@ So the current design will not work as written. We must pick one mechanism.
 4. **Provider token verification.** Verify Google/Kakao provider tokens at the backend.
    More moving parts; usually unnecessary if 1 or 2 covers it.
 
-## Recommended default (confirm at W4)
+## Decision (2026-06-10)
 
-**Option 2 (backend-owned token)** for v1, because Spring Boot is the API authority and
-should verify a token it fully understands (a plain signed JWT), avoiding JWE decryption
-in Java. **Option 1 (BFF)** is the simpler fallback if you'd rather not build token
-issuance for the MVP. Decide after you've read the tradeoffs — do not lock this in from
-this document alone.
+**Option 1 (BFF)**, superseding the earlier tentative lean toward Option 2.
+Full rationale lives in ADR-010. Summary: v1 has exactly one client, the
+Next.js app, so a browser-facing token system is surface area without a
+consumer. BFF keeps tokens out of the browser, eliminates product CORS, and
+removes token storage/refresh design from the v1 critical path. Option 2 remains
+the documented upgrade path if a native app or external API consumer appears;
+that would need a new ADR.
 
-## Required architecture.md change once decided
+### Hardening requirements
 
-Replace the "shared secret signature" wording with the chosen mechanism. Until then,
-`architecture.md` step 6 must say: "Auth handoff mechanism TBD — see docs/auth.md
-(resolve before W4)." so no one implements the incorrect shared-secret-verify path.
+- Next.js -> Spring Boot requests carry a short-lived signed (JWS) internal
+  token in `X-Internal-Auth`, binding `user_id` or anonymous S02
+  `session_token` as claims.
+- A static key plus plaintext `X-User-Id` header is rejected because any key
+  holder could impersonate any user.
+- Network allowlisting is not a substitute for the signed token. Vercel function
+  egress IP behavior must be verified against official docs at W4 before
+  relying on any allowlist.
+- Cookie security on the NextAuth session: `__Host-` prefix, `Secure`,
+  `HttpOnly`, `SameSite=Lax`.
+- CSRF protection lives at the Next.js layer: NextAuth built-ins for its own
+  routes, Origin/Referer checks for custom state-changing route handlers.
+- Spring Boot still performs resource-level authorization on every request. The
+  internal token authenticates caller/user context; it does not replace row
+  ownership checks.
+
+### Contract consequence
+
+`docs/api/openapi.yaml` is the internal Next.js BFF -> Spring Boot contract.
+Its security scheme is `internalAuth`, carried in `X-Internal-Auth`, not a
+browser-facing token scheme.
 
 ## Related
 
