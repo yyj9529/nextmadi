@@ -13,6 +13,8 @@ out/
 
 .DS_Store
 
+# Local eval runs are ignored by default. Promote reviewed baselines with
+# `git add -f eval/runs/<artifact>.json` after confirming they contain no raw user text.
 eval/runs/*.json
 !eval/runs/.gitkeep
 
