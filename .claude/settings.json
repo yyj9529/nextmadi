@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\ywj95\\Desktop\\nextmadi\\.claude\\check-dev-log.ps1"
+          }
+        ]
+      }
+    ]
+  }
+}

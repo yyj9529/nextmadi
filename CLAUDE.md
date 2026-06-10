@@ -35,6 +35,7 @@ Strategic context: `PROJECT_CONTEXT.md`. Current scope: `docs/PRD.md`. Key decis
 - **Source citation with date.** Pricing, model names, library versions, regulations — cite source URL and verification date in the doc.
 - **Cross-validation for strong claims.** Before accepting external feedback as "valuable" (especially from ChatGPT/Gemini suggestions), apply 3-axis validation below.
 - **Decision-logged > implementation-pre-specified.** Document decisions made. Don't pre-spec implementation details that should be discovered during coding (e.g., exact JWT claim structure, specific error strings, library version pins).
+- **Session log on task completion.** At the end of any work session involving code changes, decisions, errors, or debugging — write a log file to `C:\Users\ywj95\Desktop\dev-logs\` named `YYYYMMDD_HHMM_<short-title>.md`. Cover: decisions made and why, commands run, errors encountered and how they were fixed. Skip only for trivial one-liner answers with no side effects.
 
 ### ADR style
 - 300–500 words. Drew DeVault sourcehut style: short, decision-focused.
