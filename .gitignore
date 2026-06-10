@@ -20,5 +20,8 @@ eval/runs/*.json
 
 *.log
 
+# Local Claude/Codex permission allowlists are machine-specific.
+**/.claude/settings.local.json
+
 .playwright-mcp/
 docs/.playwright-mcp/
