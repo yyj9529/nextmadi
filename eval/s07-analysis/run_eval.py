@@ -151,7 +151,7 @@ def validate_schema(output: dict) -> list[str]:  # 모델 출력 딕셔너리를
 def generate(client: Anthropic, system_prompt: str, input_text: str) -> tuple[str, float]:  # S07 모델을 호출해 응답 텍스트와 비용을 묶음으로 반환하는 함수
     resp = client.messages.create(  # Anthropic 메시지 API를 호출해 응답 객체 받기
         model=GEN_MODEL,            # 사용할 생성 모델 ID 지정
-        max_tokens=1500,            # 응답 최대 토큰 수 제한 (이 이상 생성 안 함)
+        max_tokens=2048,            # 응답 최대 토큰 수 제한 (이 이상 생성 안 함)
         system=system_prompt,       # 시스템 프롬프트 전달 (S07 동작 지침)
         messages=[{"role": "user", "content": input_text}],  # 유저 입력 메시지를 리스트 형태로 전달
     )
