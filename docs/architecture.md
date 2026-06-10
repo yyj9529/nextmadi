@@ -19,7 +19,7 @@ Source of truth for PhraseLog v1 system architecture: frontend, backend, persist
                     │  │ Pages / app dir│  │ NextAuth route handler│  │
                     │  └────────────────┘  └──────────────────────┘  │
                     └────────────────┬───────────────────────────────┘
-                                     │ HTTPS (auth handoff TBD — see docs/auth.md)
+                                     │ HTTPS (BFF: signed internal token — see docs/auth.md)
                                      ▼
                     ┌────────────────────────────────────────────────┐
                     │  Spring Boot on AWS EC2                        │
@@ -80,7 +80,7 @@ Explicitly **not** in v1 PWA scope:
 
 ### NextAuth on Next.js
 
-OAuth (Google, Kakao) and email magic-link flow lives entirely on the Next.js side. How the browser-to-backend credential reaches Spring Boot depends on the auth handoff mechanism selected in `docs/auth.md` (resolve before W4) — do not assume the NextAuth session token is sent directly to Spring Boot.
+OAuth (Google, Kakao) and email magic-link flow lives entirely on the Next.js side. The browser never calls Spring Boot directly (BFF, ADR-010): Next.js route handlers validate the NextAuth session server-side and proxy to Spring Boot with a signed internal token. The NextAuth session cookie itself is never sent to Spring Boot.
 
 ## Backend layer
 
@@ -90,7 +90,7 @@ REST API server. Three-layer organization (Controller → Service → Repository
 
 ```
 src/main/java/com/phraselog/
-├── auth/         — auth handoff validation (mechanism TBD, see docs/auth.md), user_auth_identities linking
+├── auth/         — internal JWS token verification (BFF, see docs/auth.md), user_auth_identities linking
 ├── analysis/     — S07 analysis (calls AI_PIPELINE.md s07_analysis)
 ├── expression/   — Save / Library / Detail / soft delete
 ├── review/       — review_cards updates, review_attempts history
@@ -108,7 +108,7 @@ src/main/java/com/phraselog/
 - Resource-oriented routes (`/api/v1/expressions/:id`, `/api/v1/practice/:session_id/turns`)
 - JSON request/response, snake_case field names
 - Pagination via `limit` + `cursor` (next_cursor returned in response), not page numbers
-- All authenticated endpoints require the selected auth handoff credential; the final header/cookie/session mechanism is TBD in `docs/auth.md`
+- All authenticated endpoints require a valid `X-Internal-Auth` JWS token minted by the Next.js BFF (docs/auth.md, ADR-010)
 - Idempotency for unsafe operations via `Idempotency-Key` header (Save Expression, Start Roleplay Session — prevents duplicate rows on retry)
 - API contracts live in `docs/api/*.yaml` (OpenAPI 3.x)
 
@@ -162,32 +162,57 @@ Failure handling and retry policies for AI/STT/TTS calls live in `AI_PIPELINE.md
 
 ## Authentication and authorization
 
+**Decided: BFF (Backend-for-Frontend) handoff — see `docs/auth.md` and ADR-010.**
+The browser never calls Spring Boot directly. All API traffic flows
+browser -> Next.js route handler -> Spring Boot.
+
 ### Flow
 
 1. User initiates login on `/login` (S03)
 2. NextAuth handles OAuth dance with chosen provider (Google / Kakao), or sends magic link (email)
 3. On callback, NextAuth creates or finds a `users` row and links the provider via `user_auth_identities` (provider, provider_user_id)
-4. NextAuth issues a JWT session token, stored in HTTP-only cookie
-5. Client API calls carry the auth handoff credential to Spring Boot (exact form TBD — see `docs/auth.md`)
-6. Auth handoff mechanism TBD — see `docs/auth.md` (resolve before W4). NextAuth's default session is an ENCRYPTED JWE, not a shared-secret-signed JWT, so "validate JWT signature with shared secret" does not work as written. Do not implement the backend auth path until `docs/auth.md` is decided.
+4. NextAuth issues its default encrypted (JWE) session, stored in an HTTP-only cookie (`__Host-` prefix, `Secure`, `SameSite=Lax`)
+5. Browser calls Next.js route handlers (`/api/*`). The handler validates the NextAuth session server-side and resolves authenticated `user_id` or anonymous `session_token`
+6. The handler calls Spring Boot over HTTPS with a short-lived signed (JWS) internal token in the `X-Internal-Auth` header. The token binds `user_id` or anonymous `session_token` as claims, signed with `INTERNAL_AUTH_SECRET` shared only between Next.js server and Spring Boot
+7. Spring Boot verifies the JWS signature and expiry, extracts claims, and performs resource-level authorization (row ownership checks) as usual
+
+Why not network-level trust: Vercel function egress IPs are not fixed, so an IP
+allowlist in front of the ALB cannot substitute for the signed token. Verify
+current Vercel egress behavior against official docs at W4 before relying on
+any allowlist.
+
+### CSRF and cookie security
+
+The BFF authenticates the browser via cookies, so CSRF defenses apply to the
+Next.js layer: NextAuth's built-in CSRF protection covers its own routes;
+custom route handlers use `SameSite=Lax` plus an Origin/Referer check for
+state-changing requests. Spring Boot needs no browser-cookie CSRF handling
+because it never sees a browser cookie.
 
 ### Session lifetime
 
-- **NextAuth session (front-end):** the encrypted JWE session cookie; lifetime configured in NextAuth (target 7 days).
-- **Backend credential (Spring Boot side):** lifetime depends on the auth handoff mechanism chosen in `docs/auth.md` — TBD. Target also ~7 days with sliding renewal once decided.
-- Sliding expiration: any authenticated request within the window resets the clock.
-- Logout: client clears the cookie; whether a server-side revocation/blacklist is also needed depends on the chosen mechanism (short-lived credentials make it acceptable to skip for v1).
+- **NextAuth session (browser -> Next.js):** encrypted JWE cookie; lifetime configured in NextAuth (target 7 days), sliding renewal on activity.
+- **Internal token (Next.js -> Spring Boot):** minted per request, short-lived (minutes). No refresh flow, no revocation list; expiry bounds exposure.
+- Logout: client session cookie cleared by NextAuth; internal tokens expire on their own.
 
-### Pending save flow (PRD §5.2)
+### Consequence for the API contract
+
+`docs/api/openapi.yaml` describes the internal Next.js BFF -> Spring Boot
+contract, not a browser-facing API. Its security scheme is the internal token,
+not a browser-held token. Browser-facing paths are Next.js route handlers
+mirroring these operations.
+
+### Pending save flow (PRD section 5.2)
 
 Pre-signup users on S07 who click Save:
 
 1. Client stores `analysis_request_id` + variant selection in sessionStorage under key `pending_save`
 2. Client redirects to `/login`
-3. After successful auth + S03b coach selection, NextAuth callback reads `pending_save` from sessionStorage
-4. Client posts the save request to the backend
-5. Backend resolves `analysis_request_id` by matching either `user_id` (if already claimed) or `session_token` (anonymous → claim now)
-6. sessionStorage `pending_save` is cleared on success
+3. After successful auth + S03b coach selection, the client reads `pending_save` from sessionStorage
+4. Client posts the save request to the Next.js route handler
+5. Next.js calls Spring Boot with `X-Internal-Auth` claims for the authenticated `user_id` and the original anonymous `session_token`
+6. Backend resolves `analysis_request_id` by matching either `user_id` (if already claimed) or `session_token` (anonymous -> claim now)
+7. sessionStorage `pending_save` is cleared on success
 
 ## Networking and security
 
@@ -207,15 +232,16 @@ Pre-signup users on S07 who click Save:
 
 ### Secrets
 
-- Stored in **AWS Secrets Manager**: Anthropic API key, OpenAI API key, database credentials, OAuth client secrets, and any auth-handoff key material (TBD — see `docs/auth.md`)
+- Stored in **AWS Secrets Manager**: Anthropic API key, OpenAI API key, database credentials, OAuth client secrets, and the internal-token signing secret (`INTERNAL_AUTH_SECRET`, shared Next.js -> Spring Boot)
 - Spring Boot reads secrets at startup via AWS SDK using IAM role attached to EC2 instance
-- Vercel environment variables: NextAuth secret (`AUTH_SECRET`), OAuth client IDs and secrets, backend base URL, and any auth-handoff key material (TBD — see `docs/auth.md`)
+- Vercel environment variables: NextAuth secret (`AUTH_SECRET`), OAuth client IDs and secrets, backend base URL, and the internal-token signing secret (`INTERNAL_AUTH_SECRET`, shared Next.js -> Spring Boot)
 - No secrets in source code or `.env` files committed to git
 
 ### CORS
 
-- Spring Boot accepts requests only from configured Vercel origin (`https://phraselog.vercel.app` or custom domain)
-- Credentials allowed for cookie-based session
+- Product traffic avoids browser-to-Spring CORS because the browser calls only the Next.js origin.
+- Spring Boot accepts server-to-server requests from the Next.js BFF carrying `X-Internal-Auth`.
+- If a future browser-facing or external API is added, define a new CORS policy with a new ADR.
 
 ## Deployment topology
 
@@ -240,6 +266,27 @@ The v1 choice is deliberate: solo-developer MVPs gain little from zero-downtime 
 
 - Frontend: Vercel keeps history; rollback via dashboard or `vercel rollback` CLI
 - Backend: previous JAR remains in S3 artifact bucket; redeploy by referencing previous artifact version
+
+## Scheduled jobs
+
+Consolidates the daily jobs that `data-model.md` references individually. All
+run as Spring `@Scheduled` tasks inside the existing backend process. At v1
+single-instance scale, a separate scheduler adds operational surface without
+clear benefit. If the backend scales past one instance, add `@SchedulerLock`
+(ShedLock) or move to EventBridge; not a v1 concern.
+
+| Job | Action | Source of truth |
+|---|---|---|
+| Account hard-delete | Hard-delete `users` rows where `scheduled_deletion_at < now()` (cascades per FK rules). | `data-model.md` users; `docs/screens/s11.md` |
+| Anonymous usage cleanup | Delete `anonymous_analysis_usage` rows older than the retention window (default 30 days, retention TBD). | `data-model.md` anonymous_analysis_usage |
+| TTS cache expiry | Delete expired `tts_audio_cache` rows and corresponding S3 objects only if the expiry policy lands on the 90-day option. No-expiry option means no job. | `data-model.md` tts_audio_cache |
+
+Operational requirements for every job:
+
+- Idempotent: safe to re-run after a missed or duplicate trigger.
+- Logged: start, row counts affected, duration, failure cause -> CloudWatch Logs.
+- Scheduled at low-traffic UTC hours; exact times decided at implementation.
+- Failure does not page in v1; daily jobs tolerate a one-day delay. Add a CloudWatch alarm on two consecutive failures.
 
 ## Observability
 
@@ -289,7 +336,7 @@ GitHub Actions workflows under `.github/workflows/`:
 Resolve before launch:
 
 1. **PWA service worker caching strategy** — exact cache scope (UI shell only? icons/fonts?). Affects bundle size and update behavior.
-2. **Auth handoff key/secret rotation** — depends on the mechanism chosen in `docs/auth.md`; manual annual vs scheduled. v1 acceptable to defer; document the rotation procedure once the mechanism is decided.
+2. **`INTERNAL_AUTH_SECRET` rotation** — manual annual rotation acceptable for v1 (tokens are minutes-lived, so a leaked old secret ages out fast once rotated). Document the two-secret overlap procedure before first rotation.
 3. **S3 lifecycle policy** — 180-day Glacier transition is a default; confirm based on TTS reuse patterns.
 4. **Custom domain vs Vercel default** — `phraselog.app` (or similar) requires DNS setup. Vercel-provided URL works for v1.
 5. **Slack webhook for alerts** — workspace provisioning needed.

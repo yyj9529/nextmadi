@@ -29,6 +29,8 @@ v1 must achieve all of the following:
 - `ai_request_logs` writes on every AI call
 - Authentication works for Google + Kakao + email
 - Private validation cycles surface no unresolved blockers
+- Terms of Service and Privacy Policy are published and linked from S03
+- Seed data is loaded: `coach_profiles` (Mia/David/Sarah) and `landing_examples`
 
 Additional criteria TBD by W3.
 
@@ -181,13 +183,13 @@ Resolve by W3 unless noted.
 2. **Additional launch criteria** beyond the core set (3.1)
 3. **Success metric thresholds** — pre-launch baseline vs post-launch (3.2)
 4. **Private validation participants** — count and recruitment method
-5. **`current_interval` initial value for newly saved review cards** — 1 day default vs 0 (data-model.md; affects docs/screens/s10.md)
+5. ~~**`current_interval` initial value for newly saved review cards**~~ — Resolved 2026-06-10: immediate first due (`next_review_at = now()`) with `current_interval_days = 1` (data-model.md, docs/screens/s10.md)
 
 ## 10. Related documents
 
 - START_HERE.md — entry point for AI collaborators
 - PROJECT_CONTEXT.md — product identity, user pain, positioning
-- docs/decisions/001~009 — ADRs
+- docs/decisions/001-010 — ADRs
 - data-model.md — DB schema and ERD
 - AI_PIPELINE.md — pipeline detailed spec
 - EVAL_PLAN.md — eval system spec

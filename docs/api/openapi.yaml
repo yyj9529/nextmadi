@@ -3,11 +3,15 @@ info:
   title: PhraseLog API
   version: 1.0.0
   description: |
-    REST API for PhraseLog v1 — Spring Boot backend serving the Next.js frontend.
+    Internal REST contract for PhraseLog v1 — the Next.js BFF ↔ Spring Boot
+    interface (ADR-010). Browsers never call this API directly; they call
+    Next.js route handlers, which validate the NextAuth session or anonymous
+    session state and proxy here.
 
-    All authenticated endpoints require `Authorization: Bearer <jwt>` where the JWT
-    is issued by NextAuth on the Next.js side and shares a signing secret with the
-    backend.
+    Non-public endpoints require `X-Internal-Auth`: a short-lived signed (JWS)
+    token minted per request by the Next.js server, carrying either the
+    authenticated `user_id` or anonymous S02 `session_token` as claims.
+    See docs/auth.md and ADR-010.
 
     Schema source of truth: data-model.md. AI behavior: AI_PIPELINE.md. Per-screen
     flow: docs/screens/sNN.md.
@@ -23,6 +27,8 @@ tags:
     description: Current user, account lifecycle.
   - name: landing
     description: S01 public landing data.
+  - name: transcriptions
+    description: Standalone STT for S02 / S04 voice input (transcript confirm-and-edit flow).
   - name: analysis
     description: S02 / S04 → S07 AI analysis.
   - name: expressions
@@ -41,7 +47,7 @@ tags:
     description: Audio playback for S07 / S09 / S12 / S12b.
 
 security:
-  - bearerAuth: []
+  - internalAuth: []
 
 paths:
 
@@ -74,20 +80,72 @@ paths:
   # Analysis (S02 / S04 → S07)
   # ───────────────────────────────────────────────────────────────────────────
 
+  /transcriptions:
+    post:
+      tags: [transcriptions]
+      summary: Transcribe a voice recording (STT only, no analysis)
+      description: |
+        Voice-input first step (decided 2026-06-10, s02.md): audio is
+        transcribed here, the transcript is shown to the user for confirmation
+        and editing, and the final text is submitted via `POST /analysis`
+        (JSON). This keeps `/analysis` text-only and avoids spending an LLM
+        analysis call on a mis-transcription. Roleplay turns (S12)
+        intentionally do not use this endpoint; conversational flow uses
+        one-shot multipart on `POST /practice/sessions/{id}/turns`.
+
+        The Next.js BFF supplies `X-Internal-Auth` for both signed-in and
+        pre-signup callers. Signed-in calls carry `user_id`; pre-signup S02
+        calls carry `session_token`.
+        Each call logs one `ai_request_logs` row with purpose
+        `stt_transcription`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [audio]
+              properties:
+                audio:
+                  type: string
+                  format: binary
+                  description: |
+                    WebM/Opus from MediaRecorder, max 60 seconds. Because this
+                    upload crosses the BFF boundary, verify Vercel function
+                    request-body limits against real device recordings at W4.
+      responses:
+        "200":
+          description: Transcript
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [transcript]
+                properties:
+                  transcript:
+                    type: string
+                  stt_confidence:
+                    type: number
+                    nullable: true
+                    description: Model-dependent; null when unavailable (AI_PIPELINE.md).
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          description: Pre-signup rate limit shared with /analysis usage rules.
+
   /analysis:
     post:
       tags: [analysis]
       summary: Submit a Korean situation for AI analysis
       description: |
         Creates an `analysis_requests` row, calls the S07 LLM pipeline, returns the
-        analysis with 3 variants. Auth optional — pre-signup S02 calls include
-        `X-Session-Token` instead of bearer token, and are subject to
-        `anonymous_analysis_usage` rate limits.
+        analysis with 3 variants. The Next.js BFF supplies `X-Internal-Auth`.
+        Signed-in calls carry `user_id`; pre-signup S02 calls carry
+        `session_token` and are subject to `anonymous_analysis_usage` rate
+        limits.
       security:
-        - bearerAuth: []
-        - {}
+        - internalAuth: []
       parameters:
-        - $ref: "#/components/parameters/SessionToken"
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
@@ -117,7 +175,7 @@ paths:
         "429":
           description: |
             Pre-signup rate limit exceeded (2 per IP per day) — response includes
-            CTA to sign up. Bearer-authenticated requests do not return this.
+            CTA to sign up. Authenticated `user_id` requests do not return this.
           content:
             application/json:
               schema:
@@ -128,14 +186,13 @@ paths:
       tags: [analysis]
       summary: Read a previously created analysis
       description: |
-        S07 page entry. Returns the input + 3 variants. Auth-flexible: matches by
-        `user_id` if authenticated, or by `X-Session-Token` for pre-signup access.
+        S07 page entry. Returns the input + 3 variants. Spring Boot authorizes by
+        `user_id` claim when authenticated, or by `session_token` claim for
+        pre-signup access.
       security:
-        - bearerAuth: []
-        - {}
+        - internalAuth: []
       parameters:
         - $ref: "#/components/parameters/AnalysisRequestId"
-        - $ref: "#/components/parameters/SessionToken"
       responses:
         "200":
           description: OK
@@ -512,6 +569,33 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /review/{review_card_id}/re-add-to-queue:
+    post:
+      tags: [review]
+      summary: Re-add a previously removed expression to the review queue
+      description: |
+        Inverse of remove-from-queue. Triggered from S09 detail when the card was
+        previously removed (`removed_from_queue_at IS NOT NULL`). Clears
+        `removed_from_queue_at`. Re-entry scheduling matches a newly saved card:
+        `next_review_at = now()`, `current_interval_days = 1` (PRD Open Question
+        5, resolved 2026-06-10).
+      parameters:
+        - in: path
+          name: review_card_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Re-added
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Card is already in the queue (`removed_from_queue_at` is null).
+
   # ───────────────────────────────────────────────────────────────────────────
   # Practice / Roleplay (S12 / S12b)
   # ───────────────────────────────────────────────────────────────────────────
@@ -764,19 +848,17 @@ paths:
 components:
 
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    internalAuth:
+      type: apiKey
+      in: header
+      name: X-Internal-Auth
+      description: |
+        Short-lived signed (JWS) internal service token minted by the Next.js
+        BFF, binding authenticated `user_id` or anonymous S02 `session_token`
+        as claims. Signed with `INTERNAL_AUTH_SECRET` shared only between
+        Next.js server and Spring Boot. See docs/auth.md and ADR-010.
 
   parameters:
-    SessionToken:
-      in: header
-      name: X-Session-Token
-      schema:
-        type: string
-        maxLength: 64
-      description: Pre-signup attribution token.
     IdempotencyKey:
       in: header
       name: Idempotency-Key
@@ -821,7 +903,7 @@ components:
 
   responses:
     Unauthorized:
-      description: Missing or invalid bearer token
+      description: Missing or invalid internal auth token
       content:
         application/json:
           schema:

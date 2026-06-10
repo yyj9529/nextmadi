@@ -260,7 +260,14 @@ One row per (user, expression), created when an expression is saved. Stores the 
 
 `removed_from_queue_at` supports the S09 "복습 큐에서 제거" action: the user wants to keep the expression in the library but stop being prompted to review it.
 
-`current_interval_days` initial value: **TBD in W1-3** (PRD Open Question #5).
+`current_interval_days` initial value: **decided 2026-06-10** (PRD Open
+Question #5). New cards are created with `next_review_at = now()` and
+`current_interval_days = 1` in the `POST /expressions` save transaction; the
+column keeps no schema-level default so the application value is explicit.
+Rationale: immediate first due keeps the review tab non-empty on day one, while
+interval base 1 keeps the S10 multiplication rules sound. Interval 0 was
+rejected because 0 x 2 = 0 would create permanently-due cards. Re-adding a
+removed card via `POST /review/{id}/re-add-to-queue` resets to the same values.
 
 `last_rating` values map to S10 UI buttons: `hard` = 어려움, `good` = 기억남, `easy` = 완벽.
 
@@ -445,7 +452,7 @@ Migration tool (Flyway recommended for Spring Boot) handles this ordering automa
 
 Resolve before W4:
 
-1. **`review_cards.current_interval_days` initial value** — 1 day default vs 0. PRD Open Question #5.
+1. ~~**`review_cards.current_interval_days` initial value**~~ — Resolved 2026-06-10: `next_review_at = now()`, `current_interval_days = 1`. See `review_cards` section.
 2. **Abandoned `practice_sessions` and daily limit counting** — whether `abandoned` rows count toward the 2-per-day cap. To be specified in `docs/screens/s12.md`.
 3. **`coach_profiles` cascade behavior** — coach rows are seed data and v1 will not delete them. Cascade rules for `users.selected_coach_id` and `practice_sessions.coach_id` lack explicit `ON DELETE` action.
 4. **`anonymous_analysis_usage` cleanup window** — default is 30 days. Confirm or change retention.
