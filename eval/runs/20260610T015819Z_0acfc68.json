@@ -1,0 +1,936 @@
+{
+  "timestamp": "2026-06-10T01:58:19.776275+00:00",
+  "git_sha": "0acfc68",
+  "prompt_version": "v1",
+  "judge_model": "claude-sonnet-4-6",
+  "gen_model": "claude-sonnet-4-6",
+  "trials_per_case": 3,
+  "aggregate_score": 4.903,
+  "dim_averages": {
+    "naturalness": 4.972,
+    "accuracy": 4.972,
+    "cultural_appropriateness": 4.917,
+    "tone_match": 4.75
+  },
+  "catastrophic_count": 0,
+  "passed": true,
+  "pass_reasons": [],
+  "estimated_cost_usd": 1.1799,
+  "cases": [
+    {
+      "id": "s07_001",
+      "category": "emotional_expression",
+      "aggregate": {
+        "case_score": 4.833,
+        "dim_mean": {
+          "naturalness": 5.0,
+          "accuracy": 5.0,
+          "cultural_appropriateness": 4.333,
+          "tone_match": 5.0
+        },
+        "dim_variance": {
+          "naturalness": 0.0,
+          "accuracy": 0.0,
+          "cultural_appropriateness": 0.222,
+          "tone_match": 0.0
+        },
+        "min_dim_across_trials": 4.0
+      },
+      "trials": [
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 4.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.034394999999999995,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants use genuinely idiomatic American phrasing — 'kept me in the loop,' 'kind of hurt,' 'out of the picture' — that a native speaker would naturally say; none sounds translated or textbook.",
+            "accuracy": "The mild, wistful quality of '서운하다' is preserved across all variants: none flattens it to strong anger or generic 'disappointment,' and the gradation from polite to light-but-sincere captures the nuance faithfully.",
+            "cultural_appropriateness": "Each cultural tip is specific and functional — e.g., explaining what 'I have to say' signals to a listener, or why 'I just want you to know that' reduces defensiveness — rather than generic advice; a small deduction because the tips could more explicitly ground who (close friend) and when (in-person vs. text) for an immigrant navigating US friendship norms.",
+            "tone_match": "Variant 1 is clearly polite and measured, matching '정중한' precisely with 'I have to say,' and the three variants span a sensible register arc from formal-polite to honest-soft to light-but-sincere."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 4.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.034143,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants read as fully idiomatic American English — 'left out,' 'my feelings were a little hurt,' and 'make a big deal out of it' are natural, everyday phrasings a real speaker would use.",
+            "accuracy": "The output faithfully captures the mild, non-confrontational '서운함' nuance across all three variants without escalating to anger or flattening it to a blunt 'I am disappointed'; the Korean situation's intent is preserved throughout.",
+            "cultural_appropriateness": "Tips are mostly specific — variant 2 explains the softening function of the closing clause and variant 3 specifies 'close long-time friends'; however, none of the tips name a concrete US scenario or relationship context (e.g., being left off an invite, skipped event) that would make them fully situation-specific rather than slightly general.",
+            "tone_match": "Variant 1 is clearly polite and non-accusatory, matching '정중한' precisely, while variants 2 and 3 move to softer/warmer registers in a sensible progression, giving the user a useful tonal range."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.032348999999999996,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like genuine American speech — 'I don't want to make a big deal out of it,' 'it meant a lot to me,' and 'that kind of thing does affect me' are all idiomatically natural and non-textbook.",
+            "accuracy": "The subtle '서운함' feeling (mild hurt, not rage) is faithfully preserved across all variants; none collapses it to blunt anger or over-translates it as strong disappointment without context.",
+            "cultural_appropriateness": "Each cultural tip is situation-specific: variant 1 names the defensive-reaction dynamic, variant 2 explains the 'reason-first' framing, and variant 3 specifies long-term friends who don't verbalize feelings — all concrete and US-context appropriate.",
+            "tone_match": "Variant 1 is correctly labeled 정중한 and opens with a softening phrase that reduces defensiveness; the three variants form a sensible register progression from polite to candid-calm, well-matched to the requested tone."
+          }
+        }
+      ]
+    },
+    {
+      "id": "s07_002",
+      "category": "school_parenting",
+      "aggregate": {
+        "case_score": 5.0,
+        "dim_mean": {
+          "naturalness": 5.0,
+          "accuracy": 5.0,
+          "cultural_appropriateness": 5.0,
+          "tone_match": 5.0
+        },
+        "dim_variance": {
+          "naturalness": 0.0,
+          "accuracy": 0.0,
+          "cultural_appropriateness": 0.0,
+          "tone_match": 0.0
+        },
+        "min_dim_across_trials": 5.0
+      },
+      "trials": [
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.040218000000000004,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants use fully idiomatic phrasing real American parents use — 'bring something to your attention,' 'coming home upset,' and 'I hate to bring this up' are all natural, non-translated expressions that avoid stiffness.",
+            "accuracy": "Each variant faithfully conveys the Korean situation: concern about social exclusion expressed tentatively, without overstating or understating the seriousness, and none of them lose the '따돌림' nuance while softening it appropriately to 'left out' or 'excluded.'",
+            "cultural_appropriateness": "The cultural tips are specific and practical — variant 1 explains when 'bring to your attention' is used with school staff, variant 2 notes the value of leading with observed behavior rather than labeling bullying, and variant 3 explains how the closing question positions the teacher as a partner, all of which reflect real US parent-teacher communication norms.",
+            "tone_match": "Variant 1 precisely matches the requested '조심스러운' tone with polite, hedged language, and the three variants form a sensible progression from formal-careful to observation-based to collaborative-frank without any becoming accusatory."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.040338,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like natural American adult speech — 'bring something up,' 'jump to conclusions,' and 'make sure they're okay' are fully idiomatic and free of translated stiffness.",
+            "accuracy": "The core meaning of cautiously raising a bullying concern is preserved across all variants; the softening from '따돌림' to 'getting left out' / 'don't quite fit in' is a deliberate and accurate choice that matches the user's careful intent, not a loss of meaning.",
+            "cultural_appropriateness": "The cultural tips are specific and accurate: they explain US parent-teacher communication norms, note the strategic function of each phrase (e.g., inviting the teacher's observation before asserting), and correctly flag sensitivity around the bullying topic rather than ignoring it.",
+            "tone_match": "Variant 1 precisely matches the requested 조심스러운 tone with hedged, collaborative framing; variants 2 and 3 span sensible adjacent registers (deliberate/evidential and indirect/question-based), offering a well-calibrated range for the situation."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.040056,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants use fully idiomatic American phrasing — 'bring something to your attention,' 'check in with you,' and 'I was hoping we could talk' are exactly how real adults speak in school settings, with no translated or stiff constructions.",
+            "accuracy": "Each variant faithfully captures the careful, tentative concern of the Korean source — the parent is not accusing anyone but raising a worry about social exclusion, which is preserved across all three without meaning drift.",
+            "cultural_appropriateness": "The cultural tips are specific and correct: they explain why each phrasing avoids putting the teacher on the defensive, note the collaborative 'check in' norm, and distinguish between an initial gentle mention and a more serious follow-up meeting — all reflecting real US parent-teacher communication expectations around the sensitive bullying topic.",
+            "tone_match": "Variant 1 precisely matches the requested 조심스러운 tone with hedged language ('might be feeling left out'), and the three variants progress logically from politely indirect to softly evidence-based to more direct but still collaborative, covering a useful register range."
+          }
+        }
+      ]
+    },
+    {
+      "id": "s07_003",
+      "category": "healthcare",
+      "aggregate": {
+        "case_score": 4.583,
+        "dim_mean": {
+          "naturalness": 4.667,
+          "accuracy": 4.667,
+          "cultural_appropriateness": 5.0,
+          "tone_match": 4.0
+        },
+        "dim_variance": {
+          "naturalness": 0.222,
+          "accuracy": 0.222,
+          "cultural_appropriateness": 0.0,
+          "tone_match": 0.0
+        },
+        "min_dim_across_trials": 4.0
+      },
+      "trials": [
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 4.0
+          },
+          "cost_usd": 0.030843000000000002,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants use phrasing real American patients say: 'chest feels tight,' 'pressure on my chest,' and 'short of breath' are all genuine everyday patient vocabulary, not textbook or translated constructions.",
+            "accuracy": "Each variant faithfully captures both '답답하다' (tightness/pressure/heaviness) and '숨이 차다' (trouble breathing/short of breath) without meaning drift or the common error of translating '답답하다' too literally.",
+            "cultural_appropriateness": "Cultural tips are usefully specific—variant 2 correctly notes that 'pressure on my chest' signals cardiac relevance to a clinician, and variant 3 accurately flags 'short of breath' as standard US medical terminology; none are generic filler.",
+            "tone_match": "With no tone_intent specified, the three variants sensibly span accurate/neutral, descriptively vivid, and calm/ongoing-symptom registers, though the label '정확한' vs '차분한' distinction is subtle and the range could have been broader (e.g., an urgent/emergency register for chest symptoms)."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 4.0
+          },
+          "cost_usd": 0.031716,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants use phrasing a real American patient would say—'trouble catching my breath,' 'can't get a full breath in,' 'short of breath and my chest feels heavy' are all idiomatic and natural, avoiding the stiff textbook phrasing the failure mode warns against.",
+            "accuracy": "Each variant faithfully captures '가슴이 답답하고 숨이 차요' without falling into a literal translation of '답답하다'; 'tight,' 'pressure,' and 'heavy' all map the sensation accurately and are clinically meaningful.",
+            "cultural_appropriateness": "The cultural tips are specific and practically useful—especially noting that 'pressure' is a word US clinicians listen for in cardiac contexts, and distinguishing acute vs. chronic with 'been going on,' both of which reflect real US clinical communication norms.",
+            "tone_match": "With no tone_intent specified, the three variants sensibly span a useful register range (clear/standard → detail-focused → duration-adding), which is appropriate for a medical symptom-reporting situation; the labels could be slightly more intuitive but the coverage is solid."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 4.0,
+            "accuracy": 4.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 4.0
+          },
+          "cost_usd": 0.031080000000000003,
+          "error": null,
+          "failure_modes_observed": [
+            "Ambiguous wording that a doctor could misread"
+          ],
+          "rationale": {
+            "naturalness": "Variants 1 and 2 are fully idiomatic patient speech; variant 3's 'my chest won't loosen up' is awkward and not a phrase American patients naturally use for this symptom—'my chest feels tight' or 'my chest won't ease up' would be more natural.",
+            "accuracy": "Variants 1 and 2 faithfully convey chest tightness and shortness of breath; variant 3 loses precision because 'winded' implies exertion-related breathlessness rather than a resting symptom, which could mislead a clinician about the symptom's character.",
+            "cultural_appropriateness": "The cultural tips are specific and clinically informed—correctly noting that 'something sitting on it' signals cardiac concern and advising the casual register only for familiar providers—well above generic advice.",
+            "tone_match": "With no tone_intent specified, the output appropriately spans clear/clinical, detailed/descriptive, and casual registers; however, variant 3's chosen register is undercut by its unnatural phrasing, slightly weakening the span."
+          }
+        }
+      ]
+    },
+    {
+      "id": "s07_004",
+      "category": "service_interaction",
+      "aggregate": {
+        "case_score": 4.917,
+        "dim_mean": {
+          "naturalness": 5.0,
+          "accuracy": 5.0,
+          "cultural_appropriateness": 5.0,
+          "tone_match": 4.667
+        },
+        "dim_variance": {
+          "naturalness": 0.0,
+          "accuracy": 0.0,
+          "cultural_appropriateness": 0.0,
+          "tone_match": 0.222
+        },
+        "min_dim_across_trials": 4.0
+      },
+      "trials": [
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.031509,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like natural American English; 'there may have been a mix-up' and 'Sorry to bother you' are genuine idiomatic phrases a native speaker would reach for in this context, with no awkward translated phrasing.",
+            "accuracy": "Each variant clearly and correctly conveys the need to correct a wrong order without being rude, fully matching the Korean situation's intent across all three registers.",
+            "cultural_appropriateness": "The cultural tips are specific and practical: explaining why 'mix-up' defuses defensiveness, noting when the concise variant fits busy casual dining, and identifying small/solo-server settings where 'Sorry to bother you' lands well — all accurate US restaurant norms.",
+            "tone_match": "Variant 1 is the most courteous option as required, and the three variants span a sensible, well-differentiated range from formal-polite to calm-direct to soft-apologetic, matching the requested 정중한 tone in V1."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 4.0
+          },
+          "cost_usd": 0.032529,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like genuine American English — 'mix-up,' 'heads-up,' and 'Could I get the right dish?' are idiomatic and in everyday use; nothing sounds translated or textbook.",
+            "accuracy": "Each expression clearly and accurately conveys the intent: a polite correction of a wrong order without blame, matching the Korean situation precisely.",
+            "cultural_appropriateness": "The cultural tips are specific and practical — explaining that 'mix-up' avoids assigning blame, distinguishing casual vs. upscale contexts, and noting when the softer apology form fits — all well-fitted to real US restaurant norms.",
+            "tone_match": "Variant 1 is appropriately courteous for '정중한,' but it is labeled '정중한' while Variant 2 is labeled '매우 정중한' and is noticeably more deferential; a minor inversion issue since the most courteous variant should be Variant 1 per the expected behavior, not Variant 2. The three variants do span a sensible register range overall."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.034044000000000005,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound fully idiomatic: 'there might be a mix-up' and 'wanted to flag' are phrases a real American adult would use, with no translated or textbook phrasing detected.",
+            "accuracy": "Each variant clearly and correctly conveys the intent — politely alerting staff to a wrong order and requesting a correction — without losing nuance or drifting in meaning.",
+            "cultural_appropriateness": "The cultural tips are specific and situationally grounded: variant 1's tip explains why the non-blaming framing works with any server, variant 2 situates it in more formal restaurants, and variant 3 appropriately restricts 'flag' to casual or familiar settings.",
+            "tone_match": "Variant 1 precisely matches the requested '정중한' tone with a courteous, non-accusatory framing; the three variants span a well-calibrated register range from formal-polite through soft-apologetic to casual, covering the full spectrum sensibly."
+          }
+        }
+      ]
+    },
+    {
+      "id": "s07_005",
+      "category": "professional",
+      "aggregate": {
+        "case_score": 5.0,
+        "dim_mean": {
+          "naturalness": 5.0,
+          "accuracy": 5.0,
+          "cultural_appropriateness": 5.0,
+          "tone_match": 5.0
+        },
+        "dim_variance": {
+          "naturalness": 0.0,
+          "accuracy": 0.0,
+          "cultural_appropriateness": 0.0,
+          "tone_match": 0.0
+        },
+        "min_dim_across_trials": 5.0
+      },
+      "trials": [
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.031725,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants use genuinely idiomatic American workplace phrasing — 'on my plate,' 'not in a position to take that on,' and 'loop in someone else' are phrases a native speaker would naturally reach for in these situations.",
+            "accuracy": "Each variant faithfully conveys the intent of drawing a clear boundary against task-dumping, with no meaning drift; the core refusal message is preserved across all three registers.",
+            "cultural_appropriateness": "The cultural tips are specific and correct: variant 1's note about 'on my plate' being non-aggressive is accurate, variant 2's suggestion of formal/meeting contexts is apt, and variant 3's framing as casual peer language with 'loop in' is a genuine US workplace idiom — all advice is situationally precise rather than generic.",
+            "tone_match": "Variant 1 is firm but not hostile, perfectly matching 단호한; the three variants span a clear firmness gradient from assertive (v1) to politely firm (v2) to casual-but-clear (v3), meeting the expectation that they differ in firmness level."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.035117999999999996,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants are fully idiomatic: 'at capacity,' 'not in my lane,' and 'pulled into tasks outside my role' are exactly how American professionals talk; none feel translated or textbook.",
+            "accuracy": "Each expression faithfully captures the intent of drawing a firm boundary with a persistent task-dumping coworker, with no meaning drift across any of the three variants.",
+            "cultural_appropriateness": "The cultural tips are specific and practical — noting 1:1 vs. group settings for variant 2, and flagging that variant 3 suits formal meetings or email — rather than generic advice about American workplace culture.",
+            "tone_match": "Variant 1 lands precisely at 단호한 (firm but not hostile), variant 2 escalates to 냉정한 (cool/detached), and variant 3 de-escalates to 정중하지만 분명한 (polite but clear), creating a well-spaced firmness spectrum that matches the requested tone at the top."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.030462,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three expressions use fully idiomatic American workplace phrasing — 'full plate,' 'stretched thin,' and 'outside my scope / loop in whoever owns that' are exactly what a native speaker would say in these situations.",
+            "accuracy": "Each variant faithfully conveys the intent of drawing a clear line against task-dumping, with no meaning drift; the Korean situation's core request (firm boundary with a coworker) is preserved across all three.",
+            "cultural_appropriateness": "The cultural tips are specific and situationally grounded — noting which variant suits same-level colleagues, which works in front of a supervisor, and which fits role-defined corporate environments — rather than offering generic advice.",
+            "tone_match": "Variant 1 is firm without hostility (matching '단호한'), Variant 2 softens with 'I'd love to help' while still refusing clearly, and Variant 3 escalates to cool professional detachment, giving a well-differentiated firmness spectrum."
+          }
+        }
+      ]
+    },
+    {
+      "id": "s07_006",
+      "category": "emotional_expression",
+      "aggregate": {
+        "case_score": 5.0,
+        "dim_mean": {
+          "naturalness": 5.0,
+          "accuracy": 5.0,
+          "cultural_appropriateness": 5.0,
+          "tone_match": 5.0
+        },
+        "dim_variance": {
+          "naturalness": 0.0,
+          "accuracy": 0.0,
+          "cultural_appropriateness": 0.0,
+          "tone_match": 0.0
+        },
+        "min_dim_across_trials": 5.0
+      },
+      "trials": [
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.029157000000000002,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three expressions are fully idiomatic: 'I can't thank you enough,' 'You have no idea how much this helped,' and 'I don't know what I would've done without you' are phrases real Americans use in genuine moments of gratitude, not textbook filler.",
+            "accuracy": "Each variant faithfully addresses the Korean user's core need—moving beyond bare 'thank you' to convey sincere, heartfelt appreciation—without meaning drift or exaggeration.",
+            "cultural_appropriateness": "The cultural tips are situation-specific rather than generic: variant 2 correctly notes the workplace/teacher register for 'appreciate everything you've done,' and variant 3 correctly limits the intimate phrasing to close friends and family.",
+            "tone_match": "Variant 1 squarely hits the requested '진심 어린' tone, and the three variants span a sensible range from warm-sincere to slightly formal to close-and-casual, giving the learner genuinely distinct options."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.027776999999999996,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three expressions are fully idiomatic — 'I really can't thank you enough,' 'I don't know what I would've done without you,' and 'you're a lifesaver / I owe you one' are exactly what real American adults say, not textbook phrases.",
+            "accuracy": "Each variant goes meaningfully beyond bare 'thank you' and captures genuine warmth at different emotional intensities, faithfully addressing the user's desire to express sincere gratitude without repetition.",
+            "cultural_appropriateness": "The cultural tips are specific and correct: variant 2 is rightly flagged as too strong for casual situations, and variant 3 is correctly marked as inappropriate for bosses or strangers — this is precise, actionable US social guidance rather than generic advice.",
+            "tone_match": "Variant 1 is squarely '진심 어린' (sincere/heartfelt) as requested; the three variants span a sensible register range from warm-formal to personal to casual-friendly, giving the learner genuinely distinct options."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.030531000000000003,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three expressions are fully idiomatic — 'I really can't thank you enough,' 'I just want you to know how much I appreciate everything you've done,' and 'you're a lifesaver' are phrases real American adults use without sounding textbook or translated.",
+            "accuracy": "Each variant authentically captures sincere gratitude that goes well beyond bare 'thank you,' preserving the heartfelt intent of the Korean situation without meaning drift.",
+            "cultural_appropriateness": "The cultural tips are specific and situationally grounded — distinguishing workplace/neighbor contexts for variant 2, urgent help among close friends for variant 3, and noting variant 3 is too casual for a boss — exactly the nuance Korean learners need.",
+            "tone_match": "Variant 1 precisely matches the requested '진심 어린' tone, and the three variants span a logical register range from sincere-formal to warm-polite to casual-affectionate, covering real-world use cases well."
+          }
+        }
+      ]
+    },
+    {
+      "id": "s07_007",
+      "category": "service_interaction",
+      "aggregate": {
+        "case_score": 4.917,
+        "dim_mean": {
+          "naturalness": 5.0,
+          "accuracy": 5.0,
+          "cultural_appropriateness": 5.0,
+          "tone_match": 4.667
+        },
+        "dim_variance": {
+          "naturalness": 0.0,
+          "accuracy": 0.0,
+          "cultural_appropriateness": 0.0,
+          "tone_match": 0.222
+        },
+        "min_dim_across_trials": 4.0
+      },
+      "trials": [
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 4.0
+          },
+          "cost_usd": 0.034548,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like natural American adult speech — 'follow up on the repair,' 'get this taken care of,' and 'outstanding for a while now' are idiomatically correct and not textbook phrasing.",
+            "accuracy": "Each variant faithfully conveys the Korean intent of requesting timely repairs clearly but without aggression; the urgency is present in variants 2 and 3, and variant 1 opens a clear dialogue about timeline.",
+            "cultural_appropriateness": "The cultural tips are specific and useful: noting 'follow up' is non-confrontational in US culture, advising concreteness about inconvenience to motivate landlords, and flagging that variant 3 can serve as a written record in potential disputes — all well-fitted to the US tenant-landlord context.",
+            "tone_match": "Variant 1 matches the requested '분명한' tone well by directly asking for a timeline, but it leans slightly more polite than clear/assertive; variants 2 and 3 escalate appropriately, giving a sensible register range, though variant 1 could be slightly more direct to fully match the tone intent."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.033483,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like natural American speech — 'follow up,' 'set a specific date,' and 'starting to affect my daily life' are idiomatically appropriate and free of translated stiffness.",
+            "accuracy": "Each expression faithfully captures the Korean situation: the need to be clear without being aggressive, with variant 1 and 2 covering polite urgency and variant 3 covering firmer escalation.",
+            "cultural_appropriateness": "The cultural tips are situation-specific and practically useful — they correctly map the three variants to escalating stages of a US tenant-landlord dispute and explain why 'follow up' reads as non-aggressive while variant 3 implicitly invokes legal accountability.",
+            "tone_match": "Variant 1 precisely matches the requested '분명한' tone through 'follow up' framing that is assertive without being confrontational, and the three variants form a sensible escalating register from cooperative to firm."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.035588999999999996,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants use genuinely idiomatic American English — 'slip through the cracks,' 'follow up on,' and 'put off any longer' are phrases a real tenant would actually use, not textbook constructions.",
+            "accuracy": "Each expression captures the core intent: urgency without aggression. The escalating structure across variants faithfully reflects the Korean speaker's desire to be clear but not harsh.",
+            "cultural_appropriateness": "The cultural tips are situation-specific rather than generic — they correctly map each expression to a distinct stage of the tenant-landlord communication cycle (first request, follow-up, repeated delay), which is exactly what US rental contexts require.",
+            "tone_match": "Variant 1 lands precisely on '분명한' (clear/firm-but-polite), and the three variants span a well-calibrated register progression from polite-firm to assertive, giving the learner genuinely useful options at different escalation points."
+          }
+        }
+      ]
+    },
+    {
+      "id": "s07_008",
+      "category": "social",
+      "aggregate": {
+        "case_score": 5.0,
+        "dim_mean": {
+          "naturalness": 5.0,
+          "accuracy": 5.0,
+          "cultural_appropriateness": 5.0,
+          "tone_match": 5.0
+        },
+        "dim_variance": {
+          "naturalness": 0.0,
+          "accuracy": 0.0,
+          "cultural_appropriateness": 0.0,
+          "tone_match": 0.0
+        },
+        "min_dim_across_trials": 5.0
+      },
+      "trials": [
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.031665,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like authentic American casual speech — 'I'm still getting settled in' and 'I just moved in next door' are exactly what a real neighbor would say, with no textbook stiffness or 'How do you do?' formality.",
+            "accuracy": "Each expression faithfully conveys the intent of a light, friendly introduction from a new neighbor, preserving the warmth and low-pressure quality of the Korean situation without meaning drift.",
+            "cultural_appropriateness": "The cultural tips are specific and correct: they note concrete contexts (passing in a parking lot or hallway), explain why 'finally' adds warmth, and flag that naming yourself builds trust in US culture — all genuinely useful for a Korean newcomer.",
+            "tone_match": "Variant 1 hits the requested 가벼운 (light/casual) tone precisely, and the three variants span a sensible register range from warm-bright to relaxed to playfully curious, none crossing into formality or excessive eagerness."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.030891,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like genuine American casual speech — 'Hey, I just moved in next door' and 'I'm still figuring everything out!' are fully idiomatic and avoid any textbook stiffness.",
+            "accuracy": "Each expression faithfully captures the intent of a light, friendly neighbor introduction after moving in, with no meaning drift from the Korean source.",
+            "cultural_appropriateness": "The cultural tips are specific and practical: they note when to use 'we' vs. 'I', which physical settings suit each phrase, and explain the social function of self-deprecating humor in variant 3 — all accurate US neighbor norms.",
+            "tone_match": "Variant 1 is warmly casual ('친근한'), variant 2 softens to a family-inclusive register ('부드러운'), and variant 3 lands squarely on '가벼운' with a playful, low-pressure opener — a well-spaced tonal range that fits the requested light tone."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.033906,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like genuine American casual speech — 'Hey, I just moved in next door,' 'Hi there! I just moved into the neighborhood,' and the coffee invite are all phrases a real native speaker would use in these contexts without any textbook stiffness.",
+            "accuracy": "Each expression faithfully captures the intent of a new resident wanting a friendly, low-pressure introduction; none drift into formality or lose the 'getting acquainted' nuance of the original Korean situation.",
+            "cultural_appropriateness": "The cultural tips are specific and accurate: noting that Americans rarely initiate neighbor visits (so going first is a plus), distinguishing hallway/parking-lot small talk for variant 2, and correctly flagging the age-appropriateness caveat for the coffee invite in variant 3 — all concrete and US-relevant.",
+            "tone_match": "Variant 1 is bright and friendly as labeled, precisely matching the requested 가벼운 tone; the three variants sensibly escalate from warm-neutral to low-key to outgoing, covering a useful register range without any becoming too formal or overly eager."
+          }
+        }
+      ]
+    },
+    {
+      "id": "s07_009",
+      "category": "professional",
+      "aggregate": {
+        "case_score": 5.0,
+        "dim_mean": {
+          "naturalness": 5.0,
+          "accuracy": 5.0,
+          "cultural_appropriateness": 5.0,
+          "tone_match": 5.0
+        },
+        "dim_variance": {
+          "naturalness": 0.0,
+          "accuracy": 0.0,
+          "cultural_appropriateness": 0.0,
+          "tone_match": 0.0
+        },
+        "min_dim_across_trials": 5.0
+      },
+      "trials": [
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.030723,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like natural American professional speech — 'I see where you're coming from,' 'That's a fair point,' and 'not fully on board' are all idiomatic and commonly heard in US workplace meetings without any translated stiffness.",
+            "accuracy": "Each variant faithfully conveys polite disagreement in a meeting context, preserving the Korean intent of 이의제기 with courtesy; none drift into agreement or passive avoidance of the actual dissent.",
+            "cultural_appropriateness": "Cultural tips are specific and situationally differentiated — variant 1 for formal/hierarchical meetings, variant 2 for collaborative brainstorming, variant 3 for peer-level decision meetings — which is precise US workplace guidance rather than generic advice.",
+            "tone_match": "Variant 1 is the most diplomatic as required by the 정중한 tone intent, and the three variants span a well-calibrated register progression from diplomatic to collaborative to direct, covering the relevant range for this situation."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.031845,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like natural, idiomatic American professional speech — 'I see where you're coming from,' 'I just wonder if we've considered,' and 'not fully on board' are all phrases real speakers use in meetings without sounding textbook or stiff.",
+            "accuracy": "Each expression faithfully conveys polite disagreement in a meeting context, preserving the core intent of the Korean situation without meaning drift or softening the disagreement into invisibility.",
+            "cultural_appropriateness": "The cultural tips are specific and situationally differentiated — formal meeting with seniors vs. casual team brainstorming vs. peer-level working session — which is exactly the kind of contextual guidance Korean learners need for US workplace norms.",
+            "tone_match": "Variant 1 is appropriately the most diplomatic and matches the requested 정중한 tone; the three variants form a sensible progression from diplomatic to softly questioning to direct, covering a useful register range for meeting situations."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.03246,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like real American professionals would say in a meeting — 'I see where you're coming from,' 'I just wonder if we've considered,' and 'walk through them quickly' are all fully idiomatic and colloquial without being casual.",
+            "accuracy": "Each variant faithfully conveys polite disagreement in a meeting context, preserving the Korean intent of being respectful while still registering an actual differing view; none drift into dismissiveness or lose the disagreement entirely.",
+            "cultural_appropriateness": "The cultural tips are specific and situationally grounded — distinguishing formal vs. brainstorming contexts for variants 1 and 2, and noting when variant 3 is appropriate for high-stakes decisions — rather than offering generic advice.",
+            "tone_match": "Variant 1 precisely matches the requested 정중한 (formal/diplomatic) tone, and the three variants span a sensible register progression from most diplomatic to direct-but-courteous, covering the practical range a Korean professional would need."
+          }
+        }
+      ]
+    },
+    {
+      "id": "s07_010",
+      "category": "service_interaction",
+      "aggregate": {
+        "case_score": 4.75,
+        "dim_mean": {
+          "naturalness": 5.0,
+          "accuracy": 5.0,
+          "cultural_appropriateness": 5.0,
+          "tone_match": 4.0
+        },
+        "dim_variance": {
+          "naturalness": 0.0,
+          "accuracy": 0.0,
+          "cultural_appropriateness": 0.0,
+          "tone_match": 0.0
+        },
+        "min_dim_across_trials": 4.0
+      },
+      "trials": [
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 4.0
+          },
+          "cost_usd": 0.034863000000000005,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like natural American English a real adult would use on the phone — 'get this sorted out,' 'walk me through some troubleshooting steps,' and 'come out' for a technician visit are all fully idiomatic.",
+            "accuracy": "Each variant clearly states the problem (internet is down) and the desired outcome (resolution, troubleshooting, or technician visit), faithfully covering the Korean intent without literal translation artifacts.",
+            "cultural_appropriateness": "The cultural tips are specific and practical: variant 1 correctly frames the opener for a support call, variant 2 explains the cooperative register of 'walk me through,' and variant 3 gives actionable advice about preempting redundant troubleshooting steps — all well-fitted to US customer service norms.",
+            "tone_match": "With no tone_intent specified, the three variants sensibly span polite/clear, cooperative, and assertive registers appropriate for a support call; however, variant 3 escalates directly to requesting a technician, which may feel abrupt as a standalone opener without more context bridging the three variants as a progression."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 4.0
+          },
+          "cost_usd": 0.036477,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like real American adults on a support call — 'it's been down,' 'completely out,' and 'still not working' are exactly the idioms a native speaker would reach for, with no translated stiffness.",
+            "accuracy": "Each variant clearly states the problem (no internet) and implies or requests a resolution, faithfully covering the Korean intent without vagueness or meaning drift.",
+            "cultural_appropriateness": "The cultural tips are concrete and situationally specific: variant 1 explains why 'down' lands immediately with agents, variant 2 advises requesting diagnostics to save time, and variant 3 notes how pre-empting basic troubleshooting questions shortens calls — all genuinely useful US customer-service norms.",
+            "tone_match": "With no tone_intent specified, the three variants span a sensible and practical range — polite opener, technical/assertive, and pre-emptive troubleshooter — though the labels are in Korean rather than English, which is a minor presentation inconsistency but does not affect the actual tone spread."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 4.0
+          },
+          "cost_usd": 0.035871,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants sound like real Americans on a customer service call — 'it's not connecting at all,' 'been down since this morning,' and 'on your end' are fully idiomatic, with no translated stiffness.",
+            "accuracy": "Each variant faithfully conveys the core need: explaining an internet outage and requesting resolution, with Variant 2 adding useful troubleshooting context and Variant 3 pushing for escalation.",
+            "cultural_appropriateness": "The cultural tips are specific and practical — noting that mentioning prior troubleshooting skips redundant steps, and that 'on your end' is softer than demanding a technician — both correct for US customer service norms.",
+            "tone_match": "With no tone_intent specified, the three variants sensibly span polite opening, informative mid-call, and assertive escalation, which is a well-chosen range for this scenario; the progression feels natural though the jump from Variant 2 to 3 is slightly abrupt without a transitional register."
+          }
+        }
+      ]
+    },
+    {
+      "id": "s07_011",
+      "category": "emotional_expression",
+      "aggregate": {
+        "case_score": 5.0,
+        "dim_mean": {
+          "naturalness": 5.0,
+          "accuracy": 5.0,
+          "cultural_appropriateness": 5.0,
+          "tone_match": 5.0
+        },
+        "dim_variance": {
+          "naturalness": 0.0,
+          "accuracy": 0.0,
+          "cultural_appropriateness": 0.0,
+          "tone_match": 0.0
+        },
+        "min_dim_across_trials": 5.0
+      },
+      "trials": [
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.031611,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three expressions are fully idiomatic and colloquial — 'going through this,' 'sounds really tough,' and 'need someone around' are phrases real Americans use in exactly these moments, with no translated stiffness.",
+            "accuracy": "Each variant faithfully captures the desire to comfort a friend through difficulty: V1 offers direct sympathy and presence, V2 validates the hardship without overstepping, and V3 gives open-ended availability — all matching the Korean intent.",
+            "cultural_appropriateness": "The cultural tips are specific and correct: V1 notes cross-context usability, V2 explains why 'I can't imagine' is preferred over presumptuous empathy claims, and V3 addresses the distinctly American value of not pressuring someone to open up — none are generic platitudes.",
+            "tone_match": "V1 lands squarely on '따뜻한' (warm/sincere), and the three variants span a sensible register arc from heartfelt to empathetic to low-pressure, appropriate for a close friendship context without ever turning formal or hollow."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.029856,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three expressions are genuinely idiomatic American English that close friends actually say — 'I'm here for you,' 'I can't imagine how you're feeling,' and 'I'm really glad you told me' are natural and unforced, with no translated awkwardness.",
+            "accuracy": "The expressions faithfully serve the intent of comforting a friend who is going through something hard, covering both acknowledging pain and expressing solidarity without losing any nuance from the Korean situation.",
+            "cultural_appropriateness": "The cultural tips are specific and accurate: noting that Americans value validating feelings first before offering solutions, and that admitting you don't know what to say reads as genuine rather than weak — this directly addresses the expected behavior of noting what Americans say or avoid.",
+            "tone_match": "Variant 1 is clearly warm and sincere matching the '따뜻한' tone intent, and the three variants progress sensibly from direct warmth to empathetic acknowledgment to honest vulnerability, spanning registers appropriate for close friendship."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.031935000000000005,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three expressions are fully idiomatic and exactly what a native English speaker would say to a close friend; 'That sounds really rough. Do you want to talk about it, or just hang out?' is especially natural and colloquial.",
+            "accuracy": "Each variant faithfully captures the intent of comforting a friend without sounding hollow or clichéd, and the range from empathetic acknowledgment to solidarity ('I've got your back') covers the Korean situation well.",
+            "cultural_appropriateness": "The cultural tips are specific and accurate—variant 2 correctly notes the American value of not pressuring someone to open up, and variant 3 explains the idiom and context (close/long-term friends) rather than giving generic advice; no clichés like 'everything happens for a reason' appear.",
+            "tone_match": "Variant 1 is warm and sincere as requested by '따뜻한,' and the three variants span a natural register progression from empathetic to casual to honest-and-warm, all appropriate for close friendship."
+          }
+        }
+      ]
+    },
+    {
+      "id": "s07_012",
+      "category": "emotional_expression",
+      "aggregate": {
+        "case_score": 4.833,
+        "dim_mean": {
+          "naturalness": 5.0,
+          "accuracy": 5.0,
+          "cultural_appropriateness": 4.667,
+          "tone_match": 4.667
+        },
+        "dim_variance": {
+          "naturalness": 0.0,
+          "accuracy": 0.0,
+          "cultural_appropriateness": 0.222,
+          "tone_match": 0.222
+        },
+        "min_dim_across_trials": 4.0
+      },
+      "trials": [
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 4.0,
+            "tone_match": 4.0
+          },
+          "cost_usd": 0.028473000000000002,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three expressions are fully idiomatic: 'My bad for keeping you waiting' and 'Sorry I'm late — I really appreciate your patience' are exactly what native speakers say; no translated stiffness detected.",
+            "accuracy": "Each variant faithfully captures the core intent — apologizing for lateness without excessive groveling — and the progression from casual to formal preserves that balance throughout.",
+            "cultural_appropriateness": "The cultural tips are specific and correct about register (peer/friend vs. client/boss), but Variant 1 is labeled as best for 'business meetings' rather than the peer/friend context implied by the situation, slightly misaligning with the relationship implied.",
+            "tone_match": "Variant 1 ('Sorry I'm late — I really appreciate your patience') is sincere and balanced, fitting '담백한' well, but it leans slightly more appreciative than purely plain/dry; the three variants do span sensible registers from casual to formal, though the spread is appropriate."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.029211,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three variants are fully idiomatic: 'traffic was a nightmare,' 'got held up,' and 'My bad — let's get started' are phrases real American adults use daily without any translated stiffness.",
+            "accuracy": "Each expression conveys a sincere but non-groveling apology for lateness, faithfully capturing the Korean intent of apologizing without excessive self-deprecation.",
+            "cultural_tips": "The cultural tips are situation-specific rather than generic: variant 1 is pegged to peers/friends, variant 2 explicitly calls out work meetings and clients, and variant 3 warns against using 'My bad' with superiors or strangers — all accurate US social calibrations.",
+            "cultural_appropriateness": "The cultural tips are situation-specific rather than generic: variant 1 is pegged to peers/friends, variant 2 explicitly calls out work meetings and clients, and variant 3 warns against using 'My bad' with superiors or strangers — all accurate US social calibrations.",
+            "tone_match": "Variant 1 hits the requested '담백한' (plain/balanced) tone precisely — one sentence, brief reason, no repeated sorry; the three variants span a sensible natural → formal → casual arc."
+          }
+        },
+        {
+          "schema_errors": [],
+          "scores": {
+            "naturalness": 5.0,
+            "accuracy": 5.0,
+            "cultural_appropriateness": 5.0,
+            "tone_match": 5.0
+          },
+          "cost_usd": 0.028463999999999996,
+          "error": null,
+          "failure_modes_observed": [],
+          "rationale": {
+            "naturalness": "All three expressions are fully idiomatic: 'traffic was brutal,' 'got held up,' and 'my bad' are exactly what real American adults say in these contexts, with no stiff or translated phrasing.",
+            "accuracy": "Each variant faithfully captures a sincere but non-groveling apology for being late—the core intent of the Korean input—without over-apologizing or losing the accountability element.",
+            "cultural_appropriateness": "The cultural tips are specific and correct: variant 1 is pegged to the peer/friend context, variant 2 is correctly labeled for professional/hierarchical settings, and variant 3's 'my bad' explanation accurately conveys the casual, non-self-deprecating tone appropriate to close relationships.",
+            "tone_match": "Variant 1 precisely matches the requested 담백한 (clean/understated) tone—brief, sincere, one-reason structure—and the three variants span a sensible register range from casual to formal without any of them crossing into groveling territory."
+          }
+        }
+      ]
+    }
+  ]
+}
