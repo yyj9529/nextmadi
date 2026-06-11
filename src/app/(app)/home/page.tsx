@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { BottomNav } from "@/components/app/BottomNav";
+import { GearIcon } from "@/components/app/icons";
+import { HomeAnalysisCard } from "./HomeAnalysisCard";
+
 export const metadata: Metadata = {
   title: "홈",
 };
@@ -15,51 +19,17 @@ const mockDashboard = {
   bookshelfCount: 47,
   recentExpressions: [
     {
-      id: "mock-1",
+      id: "mock-expression-1",
       koreanLabel: "줄 새치기",
       english: "Excuse me, I think there's a line.",
     },
     {
-      id: "mock-2",
+      id: "mock-expression-2",
       koreanLabel: "병원 증상",
       english: "My daughter has had a fever...",
     },
   ],
 };
-
-function GearIcon() {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
-
-function MicIcon() {
-  return (
-    <svg
-      width="34"
-      height="34"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z" />
-      <path d="M19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.93V20H8a1 1 0 1 0 0 2h8a1 1 0 1 0 0-2h-3v-2.07A7 7 0 0 0 19 11z" />
-    </svg>
-  );
-}
 
 export default function HomePage() {
   return (
@@ -81,24 +51,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          <section className="mic-card" aria-label="새 분석 시작">
-            <h1 className="mic-card-title">못한 말이 있었나요?</h1>
-            <p className="mic-card-sub">탭하고 한국어로 말해보세요</p>
-            <div>
-              <button
-                className="mic-button"
-                type="button"
-                aria-label="음성으로 말하기"
-              >
-                <MicIcon />
-              </button>
-            </div>
-            <p className="mic-divider">또는</p>
-            <button className="text-input-button" type="button">
-              ✏️ 텍스트로 입력하기
-            </button>
-          </section>
-
+          <HomeAnalysisCard />
         </main>
 
         <aside className="home-side-column">
@@ -128,24 +81,10 @@ export default function HomePage() {
               ))}
             </ul>
           </section>
-
         </aside>
       </div>
 
-      <nav className="bottom-nav" aria-label="하단 메뉴">
-        <Link className="bottom-nav-item is-active" href="/home">
-          홈
-        </Link>
-        <button className="bottom-nav-item" type="button">
-          롤플레이
-        </button>
-        <button className="bottom-nav-item" type="button">
-          기록
-        </button>
-        <Link className="bottom-nav-item" href="/review">
-          복습
-        </Link>
-      </nav>
+      <BottomNav active="home" />
     </div>
   );
 }
