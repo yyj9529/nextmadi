@@ -105,53 +105,60 @@ export default async function AnalysisResultPage({
   await params;
 
   return (
-    <div className="app-screen">
-      <header className="app-topbar result-topbar">
-        <Link className="back-link" href="/home" aria-label="뒤로 가기">
-          <BackIcon />
-        </Link>
-        <h1 className="result-title">분석 결과</h1>
-      </header>
+    <div className="app-screen result-screen">
+      <div className="result-desktop-grid">
+        <main className="result-main-column">
+          <header className="app-topbar result-topbar">
+            <Link className="back-link" href="/home" aria-label="뒤로 가기">
+              <BackIcon />
+            </Link>
+            <h1 className="result-title">분석 결과</h1>
+          </header>
 
-      <p className="input-summary">&ldquo;{mockAnalysis.koreanInput}&rdquo;</p>
+          <p className="input-summary">&ldquo;{mockAnalysis.koreanInput}&rdquo;</p>
 
-      <section className="coach-bubble-row" aria-label="코치 안내">
-        <span className="coach-avatar">{mockAnalysis.coachName}</span>
-        <p className="coach-bubble">{mockAnalysis.coachMessage}</p>
-      </section>
+          <section className="coach-bubble-row" aria-label="코치 안내">
+            <span className="coach-avatar">{mockAnalysis.coachName}</span>
+            <p className="coach-bubble">{mockAnalysis.coachMessage}</p>
+          </section>
 
-      <ul className="expression-list" aria-label="추천 표현">
-        {mockAnalysis.variants.map((variant) => (
-          <li className="expression-card" key={variant.order}>
-            <div className="expression-main">
-              <span className={`tone-badge ${variant.toneClass}`}>
-                {variant.tone}
-              </span>
-              <p className="expression-english">{variant.english}</p>
-              <p className="expression-pron">
-                {variant.ipa} · {variant.koreanPhonetic}
-              </p>
-            </div>
-            <button
-              className="play-button"
-              type="button"
-              aria-label={`${variant.english} 재생`}
-            >
-              <PlayIcon />
-            </button>
-          </li>
-        ))}
-      </ul>
+        </main>
 
-      <aside className="culture-tip">{mockAnalysis.cultureTip}</aside>
+        <aside className="result-side-column">
+          <ul className="expression-list" aria-label="추천 표현">
+            {mockAnalysis.variants.map((variant) => (
+              <li className="expression-card" key={variant.order}>
+                <div className="expression-main">
+                  <span className={`tone-badge ${variant.toneClass}`}>
+                    {variant.tone}
+                  </span>
+                  <p className="expression-english">{variant.english}</p>
+                  <p className="expression-pron">
+                    {variant.ipa} · {variant.koreanPhonetic}
+                  </p>
+                </div>
+                <button
+                  className="play-button"
+                  type="button"
+                  aria-label={`${variant.english} 재생`}
+                >
+                  <PlayIcon />
+                </button>
+              </li>
+            ))}
+          </ul>
 
-      <div className="result-actions">
-        <button className="save-button" type="button">
-          저장하기
-        </button>
-        <button className="retry-button" type="button">
-          <RetryIcon /> 다시
-        </button>
+          <aside className="culture-tip">{mockAnalysis.cultureTip}</aside>
+        </aside>
+
+        <div className="result-actions">
+          <button className="save-button" type="button">
+            저장하기
+          </button>
+          <button className="retry-button" type="button">
+            <RetryIcon /> 다시
+          </button>
+        </div>
       </div>
     </div>
   );

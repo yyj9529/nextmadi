@@ -63,7 +63,7 @@ function MicIcon() {
 
 export default function HomePage() {
   return (
-    <div className="app-screen has-bottom-nav">
+    <div className="app-screen home-screen has-bottom-nav">
       <header className="app-topbar">
         <span className="app-logo">PhraseLog</span>
         <Link className="icon-button" href="/settings" aria-label="설정">
@@ -71,53 +71,66 @@ export default function HomePage() {
         </Link>
       </header>
 
-      <section className="coach-greeting" aria-label="코치 인사">
-        <span className="coach-avatar">{mockDashboard.coachName}</span>
-        <div>
-          <p className="greeting-title">{mockDashboard.greeting}</p>
-          <p className="greeting-sub">{mockDashboard.greetingSub}</p>
-        </div>
-      </section>
+      <div className="home-desktop-grid">
+        <main className="home-main-column">
+          <section className="coach-greeting" aria-label="코치 인사">
+            <span className="coach-avatar">{mockDashboard.coachName}</span>
+            <div>
+              <p className="greeting-title">{mockDashboard.greeting}</p>
+              <p className="greeting-sub">{mockDashboard.greetingSub}</p>
+            </div>
+          </section>
 
-      <section className="mic-card" aria-label="새 분석 시작">
-        <h1 className="mic-card-title">못한 말이 있었나요?</h1>
-        <p className="mic-card-sub">탭하고 한국어로 말해보세요</p>
-        <div>
-          <button className="mic-button" type="button" aria-label="음성으로 말하기">
-            <MicIcon />
-          </button>
-        </div>
-        <p className="mic-divider">또는</p>
-        <button className="text-input-button" type="button">
-          ✏️ 텍스트로 입력하기
-        </button>
-      </section>
-
-      <Link className="status-banner" href="/review">
-        📚 복습할 카드 {mockDashboard.dueReviewCount}개 · 내 책장{" "}
-        {mockDashboard.bookshelfCount}권 →
-      </Link>
-
-      <section className="recent-section" aria-label="최근 저장한 표현">
-        <div className="recent-header">
-          <h2 className="recent-title">최근 저장한 표현</h2>
-          <Link className="recent-link" href="/library">
-            전체 보기 →
-          </Link>
-        </div>
-        <ul className="recent-list">
-          {mockDashboard.recentExpressions.map((expression) => (
-            <li key={expression.id}>
-              <Link
-                className="recent-card"
-                href={`/expression/${expression.id}`}
+          <section className="mic-card" aria-label="새 분석 시작">
+            <h1 className="mic-card-title">못한 말이 있었나요?</h1>
+            <p className="mic-card-sub">탭하고 한국어로 말해보세요</p>
+            <div>
+              <button
+                className="mic-button"
+                type="button"
+                aria-label="음성으로 말하기"
               >
-                • &ldquo;{expression.koreanLabel}&rdquo; → {expression.english}
+                <MicIcon />
+              </button>
+            </div>
+            <p className="mic-divider">또는</p>
+            <button className="text-input-button" type="button">
+              ✏️ 텍스트로 입력하기
+            </button>
+          </section>
+
+        </main>
+
+        <aside className="home-side-column">
+          <Link className="status-banner" href="/review">
+            📚 복습할 카드 {mockDashboard.dueReviewCount}개 · 내 책장{" "}
+            {mockDashboard.bookshelfCount}권 →
+          </Link>
+
+          <section className="recent-section" aria-label="최근 저장한 표현">
+            <div className="recent-header">
+              <h2 className="recent-title">최근 저장한 표현</h2>
+              <Link className="recent-link" href="/library">
+                전체 보기 →
               </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+            </div>
+            <ul className="recent-list">
+              {mockDashboard.recentExpressions.map((expression) => (
+                <li key={expression.id}>
+                  <Link
+                    className="recent-card"
+                    href={`/expression/${expression.id}`}
+                  >
+                    • &ldquo;{expression.koreanLabel}&rdquo; →{" "}
+                    {expression.english}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+        </aside>
+      </div>
 
       <nav className="bottom-nav" aria-label="하단 메뉴">
         <Link className="bottom-nav-item is-active" href="/home">
