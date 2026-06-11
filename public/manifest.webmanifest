@@ -1,0 +1,17 @@
+{
+  "name": "PhraseLog",
+  "short_name": "PhraseLog",
+  "description": "Turn hard-to-say moments into reusable English practice.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#222326",
+  "theme_color": "#222326",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
