@@ -42,6 +42,10 @@ Score each from 1 to 5.
 4. tone_match — When tone_intent is present, does variant 1 match it, and do the three
    variants span sensible registers? When tone_intent is null, judge whether the tone
    range offered is appropriate to the situation. 5 = precise match; 1 = wrong tone.
+   For compound tone_intent values, score whether variant 1 satisfies both tone
+   constraints without dropping either one. For negative-form tone_intent values, score
+   whether the avoided tone is actually avoided while the expression still accomplishes
+   the user's goal.
 </dimensions>
 
 <rules>

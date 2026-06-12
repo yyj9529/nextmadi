@@ -1,5 +1,5 @@
 {
-  "schema_note": "Structure defined in EVAL_PLAN.md Tier 1. Owner-authored starter set expanded to 20 crafted cases on 2026-06-12. Real user text is prohibited here. 'id' is stable and never renumbered.",
+  "schema_note": "Structure defined in EVAL_PLAN.md Tier 1. Owner-authored starter set expanded to 22 crafted cases on 2026-06-13. Real user text is prohibited here. 'id' is stable and never renumbered.",
   "cases": [
     {
       "id": "s07_001",
@@ -154,6 +154,7 @@
       "expected_behaviors": [
         "Clearly states the problem and the desired outcome",
         "Phone-call appropriate phrasing",
+        "tone_label is generated dynamically, not picked from a fixed enum",
         "Pronunciation tip targets a hard sound for phone clarity"
       ],
       "expected_failure_modes": [
@@ -309,7 +310,7 @@
     {
       "id": "s07_020",
       "input_text": "약국에서 처방약 설명을 들었는데 잘 이해하지 못해서 복용 방법을 다시 천천히 설명해 달라고 말하고 싶어",
-      "tone_intent": "정중하게 다시 요청",
+      "tone_intent": "정중하게",
       "category": "healthcare",
       "expected_behaviors": [
         "Clearly asks the pharmacist to repeat dosage instructions",
@@ -320,6 +321,38 @@
         "Sounds embarrassed in a way that makes the request unclear",
         "Uses vague wording such as 'explain it' without mentioning dosage or instructions",
         "Cultural tip fails to note that asking pharmacists to repeat instructions is normal"
+      ]
+    },
+    {
+      "id": "s07_021",
+      "input_text": "휴대폰 매장에서 요금제 설명을 들었는데 잘 이해가 안 돼서 직원에게 다시 쉽게 설명해 달라고 말하고 싶어",
+      "tone_intent": "공손하게",
+      "category": "service_interaction",
+      "expected_behaviors": [
+        "Politely asks the store employee to explain the plan again in simpler terms",
+        "Normalizes not understanding without self-blame or embarrassment",
+        "Clarifies the specific topic that needs repair rather than saying only 'I don't understand'"
+      ],
+      "expected_failure_modes": [
+        "Sounds like the user is blaming the employee for explaining poorly",
+        "Too vague about what needs to be repeated or clarified",
+        "Over-apologizes in a way that weakens the repair request"
+      ]
+    },
+    {
+      "id": "s07_022",
+      "input_text": "회의에서 동료가 부탁한 일을 정확히 이해했는지 확인하고 싶어서 내가 해야 할 일을 다시 정리해서 물어보고 싶어",
+      "tone_intent": "차분하게",
+      "category": "professional",
+      "expected_behaviors": [
+        "Restates the task back clearly to confirm understanding",
+        "Sounds professional and composed rather than insecure",
+        "Asks for confirmation or correction as a normal workplace clarification"
+      ],
+      "expected_failure_modes": [
+        "Sounds like the user was not paying attention",
+        "Too apologetic for a routine workplace clarification",
+        "Fails to ask for confirmation of the user's understanding"
       ]
     }
   ]
