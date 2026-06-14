@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: phraselog-backend
+  flyway:
+    enabled: ${PHRASELOG_FLYWAY_ENABLED:false}
+    locations: classpath:db/migration
+  cloud:
+    aws:
+      # AWS는 prod에서만 필요. 기본/테스트 프로필에서는 Secrets Manager 런타임 클라이언트
+      # auto-config를 꺼서, region 없는 환경(CI 등)에서 컨텍스트 로딩이 깨지지 않도록 한다.
+      # prod는 application-prod.yml에서 true로 다시 켜고 spring.config.import로 secret을 읽는다.
+      secretsmanager:
+        enabled: false
+
+phraselog:
+  api:
+    base-path: /api/v1
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  structured:
+    format:
+      console: logstash

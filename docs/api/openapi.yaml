@@ -131,7 +131,7 @@ paths:
         "400":
           $ref: "#/components/responses/ValidationError"
         "429":
-          description: Pre-signup rate limit shared with /analysis usage rules.
+          $ref: "#/components/responses/RateLimitExceeded"
 
   /analysis:
     post:
@@ -173,13 +173,7 @@ paths:
         "400":
           $ref: "#/components/responses/ValidationError"
         "429":
-          description: |
-            Pre-signup rate limit exceeded (2 per IP per day) — response includes
-            CTA to sign up. Authenticated `user_id` requests do not return this.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/RateLimitExceeded"
 
   /analysis/{analysis_request_id}:
     get:
@@ -384,16 +378,9 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
-          description: analysis_request_id not found or not owned by user
+          $ref: "#/components/responses/NotFound"
         "409":
-          description: Already saved
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  existing:
-                    $ref: "#/components/schemas/Expression"
+          $ref: "#/components/responses/Conflict"
 
     get:
       tags: [expressions]
@@ -594,7 +581,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Card is already in the queue (`removed_from_queue_at` is null).
+          $ref: "#/components/responses/Conflict"
 
   # ───────────────────────────────────────────────────────────────────────────
   # Practice / Roleplay (S12 / S12b)
@@ -640,7 +627,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "429":
-          description: Daily limit reached (2 sessions)
+          $ref: "#/components/responses/RateLimitExceeded"
 
   /practice/sessions/{session_id}:
     get:
@@ -732,7 +719,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
-          description: Session not yet completed
+          $ref: "#/components/responses/Conflict"
 
   /practice/sessions/{session_id}/save-expression:
     post:
@@ -920,21 +907,49 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    Conflict:
+      description: Request conflicts with current resource state or idempotency state
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RateLimitExceeded:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InternalServerError:
+      description: Unexpected backend error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
 
   schemas:
 
     Error:
       type: object
-      required: [error_code, message]
+      required: [error_code, user_message, developer_hint, retryable, request_correlation_id]
       properties:
         error_code:
           type: string
           example: validation_failed
-        message:
+        user_message:
           type: string
-        details:
-          type: object
-          additionalProperties: true
+          description: Korean, user-safe message. Never include secrets or raw user input.
+          example: 입력값을 다시 확인해 주세요.
+        developer_hint:
+          type: string
+          description: Likely fix for agents/developers. Must not include raw user input or secrets.
+          example: Validate request body and parameters before calling the service.
+        retryable:
+          type: boolean
+          example: false
+        request_correlation_id:
+          type: string
+          description: Matches X-Request-Correlation-Id and structured logs.
+          example: 4d6f43ef-0f4a-46c7-934f-9eec4dd0e7d7
 
     LandingExample:
       type: object

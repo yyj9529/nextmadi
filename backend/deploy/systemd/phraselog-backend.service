@@ -1,0 +1,22 @@
+[Unit]
+Description=PhraseLog Spring Boot backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=phraselog
+Group=phraselog
+WorkingDirectory=/opt/phraselog/backend
+EnvironmentFile=-/etc/phraselog/backend.env
+Environment=SPRING_PROFILES_ACTIVE=prod
+ExecStart=/usr/bin/java $JAVA_OPTS -jar /opt/phraselog/backend/phraselog-backend.jar
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=143
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=phraselog-backend
+
+[Install]
+WantedBy=multi-user.target

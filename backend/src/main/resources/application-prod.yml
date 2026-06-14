@@ -1,0 +1,16 @@
+spring:
+  config:
+    import: ${PHRASELOG_SECRETS_IMPORT:optional:aws-secretsmanager:/phraselog/prod/backend/}
+  datasource:
+    url: ${PHRASELOG_DB_URL}
+    username: ${PHRASELOG_DB_USERNAME}
+    password: ${PHRASELOG_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: ${PHRASELOG_FLYWAY_ENABLED:true}
+  cloud:
+    aws:
+      # 기본 프로필에서 꺼둔 Secrets Manager를 prod에서 다시 켠다.
+      # 위 spring.config.import의 aws-secretsmanager 로딩과 런타임 클라이언트가 활성화된다.
+      secretsmanager:
+        enabled: true
