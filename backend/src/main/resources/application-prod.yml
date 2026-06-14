@@ -1,0 +1,10 @@
+spring:
+  config:
+    import: ${PHRASELOG_SECRETS_IMPORT:optional:aws-secretsmanager:/phraselog/prod/backend/}
+  datasource:
+    url: ${PHRASELOG_DB_URL}
+    username: ${PHRASELOG_DB_USERNAME}
+    password: ${PHRASELOG_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: ${PHRASELOG_FLYWAY_ENABLED:true}
