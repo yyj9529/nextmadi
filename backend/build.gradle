@@ -43,6 +43,16 @@ tasks.named('bootJar') {
     archiveFileName = 'phraselog-backend.jar'
 }
 
+// Bundle the repo-root versioned prompt files onto the backend classpath (under
+// prompts/) so the prompt loader resolves them via ClassPathResource inside the
+// deployed fat jar. Repo root stays the single source of truth; backend consumes.
+// See docs/exec-plans/2026-06-16-prompt-loader.md (decision D1).
+processResources {
+    from(file("../prompts")) {
+        into 'prompts'
+    }
+}
+
 spotless {
     java {
         target 'src/**/*.java'
