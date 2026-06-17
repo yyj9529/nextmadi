@@ -1,4 +1,4 @@
-﻿package com.phraselog.ai.client;
+package com.phraselog.ai.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.phraselog.ai.logging.AiCostCalculator;
@@ -16,9 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-/**
- * High-level orchestrator for Claude calls in the AI pipeline (ticket #26).
- */
+/** High-level orchestrator for Claude calls in the AI pipeline (ticket #26). */
 @Service
 public class AnthropicService {
 
@@ -160,9 +158,7 @@ public class AnthropicService {
     }
 
     log.warn(
-        "Retryable error calling Claude, attempting retry: {} ({})",
-        e.getMessage(),
-        errorCode);
+        "Retryable error calling Claude, attempting retry: {} ({})", e.getMessage(), errorCode);
 
     long backoffMs = backoffForErrorCode(errorCode);
     try {

@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
@@ -19,8 +20,8 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 /**
- * RestClient-based implementation of {@link AnthropicClient}. Calls the Anthropic API at
- * {@code https://api.anthropic.com/v1/messages}.
+ * RestClient-based implementation of {@link AnthropicClient}. Calls the Anthropic API at {@code
+ * https://api.anthropic.com/v1/messages}.
  */
 @Component
 public class RestClientAnthropicClient implements AnthropicClient {
@@ -73,10 +74,7 @@ public class RestClientAnthropicClient implements AnthropicClient {
 
     } catch (HttpServerErrorException e) {
       throw new AnthropicClient.AnthropicClientException(
-          "Anthropic provider error: " + e.getStatusCode(),
-          AiErrorCode.PROVIDER_5XX,
-          true,
-          e);
+          "Anthropic provider error: " + e.getStatusCode(), AiErrorCode.PROVIDER_5XX, true, e);
     } catch (HttpClientErrorException e) {
       if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
         throw new AnthropicClient.AnthropicClientException(
@@ -110,7 +108,7 @@ public class RestClientAnthropicClient implements AnthropicClient {
     return body;
   }
 
-  private void handleErrorResponse(HttpStatus status, String responseBody) throws IOException {
+  private void handleErrorResponse(HttpStatusCode status, String responseBody) throws IOException {
     JsonNode errorNode = objectMapper.readTree(responseBody);
     String errorMessage =
         errorNode.has("error") && errorNode.get("error").has("message")

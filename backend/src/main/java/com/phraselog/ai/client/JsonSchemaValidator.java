@@ -80,7 +80,7 @@ public class JsonSchemaValidator {
     private final java.util.Map<String, Schema> cache =
         new java.util.concurrent.ConcurrentHashMap<>();
 
-    Schema getOrLoad(String key, SchemaLoader<Schema> loader) throws Exception {
+    Schema getOrLoad(String key, CacheLoader<Schema> loader) throws Exception {
       return cache.computeIfAbsent(
           key,
           k -> {
@@ -94,7 +94,7 @@ public class JsonSchemaValidator {
   }
 
   @FunctionalInterface
-  private interface SchemaLoader<T> {
+  private interface CacheLoader<T> {
 
     T load(String schemaId) throws Exception;
   }

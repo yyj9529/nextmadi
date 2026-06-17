@@ -4,9 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.phraselog.ai.logging.AiErrorCode;
 import java.time.Duration;
 
-/**
- * HTTP client for Anthropic Claude API. Handles request/response, timeouts, and error handling.
- */
+/** HTTP client for Anthropic Claude API. Handles request/response, timeouts, and error handling. */
 public interface AnthropicClient {
 
   /**
