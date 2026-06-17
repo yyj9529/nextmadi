@@ -23,6 +23,9 @@ dependencies {
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-database-postgresql'
     implementation 'io.awspring.cloud:spring-cloud-aws-starter-secrets-manager'
+    // JSON Schema 검증 (AI 응답 스키마 검증, E04.1). org.json 브리지 포함.
+    // Maven Central 최신 안정판, 검증일 2026-06-17.
+    implementation 'com.github.erosb:everit-json-schema:1.14.6'
 
     runtimeOnly 'org.postgresql:postgresql'
 
