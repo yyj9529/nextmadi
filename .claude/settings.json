@@ -1,5 +1,40 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\\Desktop\\nextmadi\\scripts\\hooks\\Check-DestructiveSql.ps1"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\\Desktop\\nextmadi\\scripts\\hooks\\Check-NoRawText.ps1"
+          },
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\\Desktop\\nextmadi\\scripts\\hooks\\Check-PromptFrontmatter.ps1"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\\Desktop\\nextmadi\\scripts\\hooks\\Check-LiveEvalPermission.ps1"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "matcher": "",

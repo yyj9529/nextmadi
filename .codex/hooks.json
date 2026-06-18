@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\\Desktop\\nextmadi\\scripts\\hooks\\Check-LiveEvalPermission.ps1",
+            "statusMessage": "Checking live eval approval boundary"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\\Desktop\\nextmadi\\.claude\\check-dev-log.ps1",
+            "statusMessage": "Checking dev-log reminder"
+          }
+        ]
+      }
+    ]
+  }
+}
