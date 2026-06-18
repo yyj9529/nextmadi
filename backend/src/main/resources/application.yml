@@ -15,6 +15,13 @@ spring:
 phraselog:
   api:
     base-path: /api/v1
+  internal-auth:
+    # X-Internal-Auth(#20, ADR-010) HS256 공유 비밀. 실제 비밀은 절대 커밋하지 않는다.
+    # 아래는 로컬 개발용 명백한 더미(>=32바이트). prod는 Secrets Manager에서 주입(application-prod.yml).
+    # 쉼표로 여러 개를 주면 앞에서부터 시도 — 키 회전 오버랩(architecture.md: 연 1회 수동, 2-secret).
+    secrets: ${PHRASELOG_INTERNAL_AUTH_SECRETS:dev-placeholder-internal-auth-secret-do-not-use-in-prod}
+    # Next.js(Vercel)와 EC2 간 시계 오차 보정용 만료 허용치(확정 30s).
+    skew-leeway-seconds: ${PHRASELOG_INTERNAL_AUTH_SKEW_SECONDS:30}
 
 server:
   port: 8080

@@ -74,6 +74,29 @@ that would need a new ADR.
 Its security scheme is `internalAuth`, carried in `X-Internal-Auth`, not a
 browser-facing token scheme.
 
+## Implementation (2026-06-18, #20)
+
+The token-issue/verify pair is implemented (exec-plan
+`docs/exec-plans/2026-06-18-internal-auth-jws.md`). Finalized parameters:
+
+- **Algorithm: HS256.** Symmetric, matching the single shared `INTERNAL_AUTH_SECRET`.
+  The verifier pins HS256 and rejects `alg=none` and asymmetric algorithms (algorithm-
+  confusion guard) — it never trusts the token's own `alg` header.
+- **TTL: 120s; clock-skew leeway: 30s.** Minted per request, used for one server-to-
+  server hop. The ticket left the exact value to implementation (architecture.md says
+  "minutes"); 120s is the chosen value.
+- **Claims:** exactly one of `user_id` / `session_token`, plus `iat` and `exp`. No
+  `iss`/`aud` in v1 (single known issuer/audience). The exactly-one-of rule is enforced
+  on both mint (TS) and verify (Java) sides.
+- **Key rotation:** the verifier accepts an ordered list of secrets (tries each), so the
+  documented annual two-secret overlap (architecture.md rotation note) is a config change,
+  not a redeploy. v1 ships with one secret configured.
+- **Failure surface:** every verification failure maps to the existing 401
+  `internal_auth_invalid` error contract; the specific reason is not leaked to the caller.
+- **Code:** backend `com.phraselog.auth` (filter + verifier); Next.js mint utility
+  `src/lib/internal-auth.ts`. Wiring the mint utility into real route handlers is deferred
+  to the NextAuth/BFF ticket (those layers do not exist yet).
+
 ## Related
 
 - `architecture.md` — Authentication and authorization section.
