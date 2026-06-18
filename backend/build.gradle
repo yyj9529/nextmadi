@@ -24,6 +24,11 @@ dependencies {
     implementation 'org.flywaydb:flyway-database-postgresql'
     implementation 'io.awspring.cloud:spring-cloud-aws-starter-secrets-manager'
 
+    // BFF 내부 인증 토큰 검증 (#20, ADR-010). HS256 JWS 서명/검증 전용 JOSE 라이브러리.
+    // Spring Security를 끌어오지 않고 MACVerifier로 알고리즘을 명시적으로 고정한다.
+    // 버전은 BOM이 관리하지 않으므로 명시 핀. Maven Central 최신 안정(확인 2026-06-18): 10.9.1.
+    implementation 'com.nimbusds:nimbus-jose-jwt:10.9.1'
+
     runtimeOnly 'org.postgresql:postgresql'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

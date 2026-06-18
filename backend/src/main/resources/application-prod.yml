@@ -14,3 +14,9 @@ spring:
       # 위 spring.config.import의 aws-secretsmanager 로딩과 런타임 클라이언트가 활성화된다.
       secretsmanager:
         enabled: true
+
+phraselog:
+  internal-auth:
+    # Secrets Manager의 INTERNAL_AUTH_SECRET를 주입. 키 회전 오버랩 기간에는
+    # "새비밀,이전비밀" 형태로 쉼표 구분 값을 넣으면 코드 변경 없이 오버랩이 된다(검증기는 앞에서부터 시도).
+    secrets: ${INTERNAL_AUTH_SECRET}
