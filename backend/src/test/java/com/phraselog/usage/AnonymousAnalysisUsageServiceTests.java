@@ -27,8 +27,7 @@ class AnonymousAnalysisUsageServiceTests {
   @BeforeEach
   void setUp() {
     repository = new FakeAnonymousAnalysisUsageRepository();
-    service =
-        new AnonymousAnalysisUsageService(repository, new ClientIpResolver(), clock, 2);
+    service = new AnonymousAnalysisUsageService(repository, new ClientIpResolver(), clock, 2);
   }
 
   @Test

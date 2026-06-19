@@ -16,7 +16,8 @@ public class ClientIpResolver {
   public static final String HEADER = "X-Client-IP";
 
   private static final Pattern IPV4 =
-      Pattern.compile("^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)){3}$");
+      Pattern.compile(
+          "^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)){3}$");
 
   public String resolveRequired(String headerValue) {
     if (!StringUtils.hasText(headerValue)) {
