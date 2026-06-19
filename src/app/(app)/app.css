@@ -999,6 +999,56 @@
   margin-top: auto;
 }
 
+.try-error-toast {
+  margin: 12px 0 0;
+  border-radius: 10px;
+  background: #181b26;
+  padding: 10px 12px;
+  color: #ffffff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.try-rate-limit-state {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 360px;
+  border: 1px solid #ffd8a8;
+  border-radius: 16px;
+  background: #fff9db;
+  padding: 28px 22px;
+  text-align: center;
+}
+
+.try-rate-limit-title {
+  margin: 0;
+  color: #855e0a;
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.try-rate-limit-copy {
+  margin: 10px 0 0;
+  color: #9a6a09;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.try-rate-limit-cta {
+  margin-top: 24px;
+}
+
+.try-rate-limit-reset {
+  margin: 12px 0 0;
+  color: #a07f24;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
 /* ---- S03: 로그인 / 가입 ---- */
 
 .login-main {

@@ -147,6 +147,7 @@ paths:
         - internalAuth: []
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/ClientIp"
       requestBody:
         required: true
         content:
@@ -853,6 +854,17 @@ components:
         type: string
         format: uuid
       description: Client-generated UUID to deduplicate POST retries.
+    ClientIp:
+      in: header
+      name: X-Client-IP
+      schema:
+        type: string
+      description: |
+        Internal BFF-to-Spring handoff of the normalized browser client IP.
+        Required for anonymous `session_token` calls to `POST /analysis` so
+        Spring Boot can apply `anonymous_analysis_usage` by IP/day. The value
+        must be one IP literal, not a forwarding chain. Authenticated `user_id`
+        calls do not use this value for v1 analysis limiting.
     Cursor:
       in: query
       name: cursor
