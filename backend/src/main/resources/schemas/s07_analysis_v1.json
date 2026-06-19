@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "S07 Analysis v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["expressions"],
+  "properties": {
+    "expressions": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "english",
+          "tone_label",
+          "ipa",
+          "korean_pronunciation",
+          "pronunciation_tip",
+          "cultural_tip"
+        ],
+        "properties": {
+          "english": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tone_label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ipa": {
+            "type": "string",
+            "minLength": 1
+          },
+          "korean_pronunciation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pronunciation_tip": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cultural_tip": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

@@ -125,11 +125,22 @@ CREATE TABLE analysis_requests (
   output_json       JSONB NOT NULL,                                -- structure in AI_PIPELINE.md
   prompt_version    VARCHAR(20) NOT NULL,
   ai_request_log_id UUID REFERENCES ai_request_logs(id),
+  idempotency_key   UUID,                                          -- POST /analysis retry dedup (#39, V002)
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_analysis_user_date ON analysis_requests(user_id, created_at DESC);
 CREATE INDEX idx_analysis_session_token ON analysis_requests(session_token) WHERE user_id IS NULL;
+
+-- At most one row per caller per Idempotency-Key (caller = user_id when authenticated,
+-- session_token when pre-signup). A retry that hits an existing key returns that row
+-- instead of re-billing the LLM or double-inserting.
+CREATE UNIQUE INDEX uq_analysis_idem_user
+  ON analysis_requests(user_id, idempotency_key)
+  WHERE user_id IS NOT NULL AND idempotency_key IS NOT NULL;
+CREATE UNIQUE INDEX uq_analysis_idem_session
+  ON analysis_requests(session_token, idempotency_key)
+  WHERE user_id IS NULL AND idempotency_key IS NOT NULL;
 ```
 
 Both `user_id` and `session_token` allow the pre-signup (S02) → signup → claim flow (PRD §5.2). On signup, pending rows with matching `session_token` are claimed by updating `user_id` and clearing `session_token`.

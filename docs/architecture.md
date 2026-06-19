@@ -113,7 +113,7 @@ src/main/java/com/phraselog/
 - JSON request/response, snake_case field names
 - Pagination via `limit` + `cursor` (next_cursor returned in response), not page numbers
 - All authenticated endpoints require a valid `X-Internal-Auth` JWS token minted by the Next.js BFF (docs/auth.md, ADR-010)
-- Idempotency for unsafe operations via `Idempotency-Key` header (Save Expression, Start Roleplay Session — prevents duplicate rows on retry)
+- Idempotency for unsafe operations via `Idempotency-Key` header (Analysis, Save Expression, Start Roleplay Session — prevents duplicate rows and duplicate LLM billing on retry). Analysis stores the key on `analysis_requests` (#39); see `docs/data-model.md`.
 - API contracts live in `docs/api/*.yaml` (OpenAPI 3.x)
 
 ### Spring Boot configuration
