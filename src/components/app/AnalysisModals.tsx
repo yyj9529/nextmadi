@@ -7,13 +7,13 @@ import { CloseIcon } from "@/components/app/icons";
 import { mockAnalysisResultPath } from "@/lib/mock-api";
 
 // S06 분석 진행 모달 + S05a 텍스트 입력 모달.
-// 실제 구현: POST /analysis { input_text } → 201 → /save/result/{id}.
+// 실제 구현: POST /analysis { input_text } -> 201 -> /save/result/{id}.
 // 목 패스: 단계 메시지 3개를 순환한 뒤 mock-analysis 결과로 라우팅한다.
 
 const LOADING_STEPS = [
-  "상황을 분석하고 있어요…",
-  "적합한 표현을 찾고 있어요…",
-  "발음과 문화 정보 정리 중…",
+  "상황을 분석하고 있어요...",
+  "적합한 표현을 찾고 있어요...",
+  "발음과 문화 정보 정리 중...",
 ];
 
 const STEP_MS = 800;
@@ -22,21 +22,29 @@ const CANCEL_AFTER_MS = 10000; // 스펙: 10초 경과 시 취소 버튼 노출
 type AnalysisLoadingModalProps = {
   open: boolean;
   onCancel: () => void;
+  autoRoute?: boolean;
 };
 
 export function AnalysisLoadingModal({
   open,
   onCancel,
+  autoRoute = true,
 }: AnalysisLoadingModalProps) {
   if (!open) {
     return null;
   }
 
-  return <AnalysisLoadingModalBody onCancel={onCancel} />;
+  return <AnalysisLoadingModalBody autoRoute={autoRoute} onCancel={onCancel} />;
 }
 
 // open 동안에만 마운트되어 상태가 자연스럽게 초기화된다.
-function AnalysisLoadingModalBody({ onCancel }: { onCancel: () => void }) {
+function AnalysisLoadingModalBody({
+  autoRoute,
+  onCancel,
+}: {
+  autoRoute: boolean;
+  onCancel: () => void;
+}) {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
   const [showCancel, setShowCancel] = useState(false);
@@ -45,9 +53,11 @@ function AnalysisLoadingModalBody({ onCancel }: { onCancel: () => void }) {
     const stepTimers = LOADING_STEPS.map((_, index) =>
       window.setTimeout(() => setStepIndex(index), index * STEP_MS),
     );
-    const doneTimer = window.setTimeout(() => {
-      router.push(mockAnalysisResultPath);
-    }, LOADING_STEPS.length * STEP_MS);
+    const doneTimer = autoRoute
+      ? window.setTimeout(() => {
+          router.push(mockAnalysisResultPath);
+        }, LOADING_STEPS.length * STEP_MS)
+      : undefined;
     const cancelTimer = window.setTimeout(
       () => setShowCancel(true),
       CANCEL_AFTER_MS,
@@ -55,10 +65,12 @@ function AnalysisLoadingModalBody({ onCancel }: { onCancel: () => void }) {
 
     return () => {
       stepTimers.forEach((timer) => window.clearTimeout(timer));
-      window.clearTimeout(doneTimer);
+      if (doneTimer !== undefined) {
+        window.clearTimeout(doneTimer);
+      }
       window.clearTimeout(cancelTimer);
     };
-  }, [router]);
+  }, [autoRoute, router]);
 
   return (
     <div className="modal-backdrop" role="presentation">
@@ -69,7 +81,7 @@ function AnalysisLoadingModalBody({ onCancel }: { onCancel: () => void }) {
         aria-label="분석 진행 중"
       >
         <span className="loading-spinner" aria-hidden="true" />
-        <p className="loading-headline">✨ 분석 중...</p>
+        <p className="loading-headline">분석 중...</p>
         <p className="loading-step" aria-live="polite">
           {LOADING_STEPS[stepIndex]}
         </p>
@@ -127,7 +139,7 @@ export function TextInputSheet({
       >
         <span className="sheet-handle" aria-hidden="true" />
         <div className="sheet-header">
-          <h2 className="sheet-title">✏️ 텍스트로 입력</h2>
+          <h2 className="sheet-title">텍스트로 입력</h2>
           <button
             className="icon-button"
             type="button"
@@ -144,7 +156,7 @@ export function TextInputSheet({
             className="sheet-textarea"
             value={text}
             placeholder={
-              "“마트에서 줄 새치기한 사람한테\n한마디 하고 싶었는데 영어가\n안 떠올랐어요...”"
+              "마트에서 줄 새치기한 사람한테\n한마디 하고 싶었는데 영어가\n안 떠올랐어요..."
             }
             onChange={(event) =>
               setText(event.target.value.slice(0, MAX_INPUT_LENGTH))
@@ -160,7 +172,7 @@ export function TextInputSheet({
           disabled={text.length === 0}
           onClick={() => onSubmit(text)}
         >
-          분석 요청 →
+          분석 요청
         </button>
       </div>
     </div>
