@@ -2,23 +2,24 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import { BackIcon, ChevronDownIcon } from "@/components/app/icons";
+import { signInWithOAuthProvider } from "@/lib/auth/oauth-client";
 
 // S03 회원가입 / 로그인.
-// 실제 구현: NextAuth signIn('google' | 'kakao' | 'email').
+// 실제 구현: NextAuth signIn('google'); Kakao entry point is deferred.
 // 신규 가입(is_onboarded=false) → /welcome/coach, 기존 사용자 → /home.
-// 목 패스: 모든 로그인이 신규 가입 흐름(/welcome/coach)으로 이동한다.
-export function LoginExperience() {
-  const router = useRouter();
+// 이메일 가입은 #19, Kakao 재활성화는 provider-console 확인 후 follow-up.
+type LoginExperienceProps = {
+  callbackErrorMessage?: string | null;
+};
+
+export function LoginExperience({
+  callbackErrorMessage = null,
+}: LoginExperienceProps) {
   const [emailOpen, setEmailOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
-  const completeLogin = () => {
-    router.push("/welcome/coach");
-  };
 
   return (
     <div className="app-screen login-screen">
@@ -36,11 +37,17 @@ export function LoginExperience() {
 
         <h2 className="login-headline">5초만에 시작하기</h2>
 
+        {callbackErrorMessage ? (
+          <p className="login-error-banner" role="alert">
+            {callbackErrorMessage}
+          </p>
+        ) : null}
+
         <div className="login-providers">
           <button
             className="provider-button provider-google"
             type="button"
-            onClick={completeLogin}
+            onClick={() => void signInWithOAuthProvider("google")}
           >
             <span className="provider-badge provider-badge-google">G</span>
             Google로 계속하기
@@ -48,10 +55,10 @@ export function LoginExperience() {
           <button
             className="provider-button provider-kakao"
             type="button"
-            onClick={completeLogin}
+            disabled
           >
             <span className="provider-badge provider-badge-kakao">K</span>
-            카카오로 계속하기
+            카카오로 계속하기 준비 중
           </button>
         </div>
 
@@ -85,8 +92,7 @@ export function LoginExperience() {
             <button
               className="primary-button"
               type="button"
-              disabled={email.length === 0 || password.length < 8}
-              onClick={completeLogin}
+              disabled
             >
               가입 완료
             </button>
