@@ -27,6 +27,7 @@ Strategic context: `PROJECT_CONTEXT.md`. Current scope: `docs/PRD.md`. Key decis
 ### Forbidden
 - **The § symbol.** Use "section 4.3" or "4.3". Banned absolutely.
 - **Portfolio / interview / recruiter framing in technical docs.** Reasons for decisions must be operational, technical, or product logic. Never "this looks good for portfolio" or "interviewers will ask." Portfolio framing belongs in private notes, never in `/docs` or ADRs.
+- **Agent/tool/model branding in public GitHub text.** PR bodies, issue comments, release notes, and review comments must not include promotional badges, model badges, or footer text such as Compound Engineering, Claude, Codex, GPT, or similar agent/tool attribution unless the owner explicitly asks for that exact public wording in the current turn.
 - **TBD proliferation.** Only mark TBD what is genuinely undecided. Stale TBDs degrade doc trust.
 - **Auto-deciding on unstated trade-offs.** When the owner hasn't expressed a preference and the choice has real consequences, ask. Don't pick silently.
 

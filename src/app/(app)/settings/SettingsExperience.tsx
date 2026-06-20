@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { CoachCardList } from "@/components/app/CoachCards";
 import { BackIcon, CloseIcon, PencilIcon } from "@/components/app/icons";
+import { signOutToLanding } from "@/lib/auth/oauth-client";
 import { mockCoaches, mockMe, mockUsageToday } from "@/lib/mock-api";
 
 // S11 설정.
@@ -149,7 +150,7 @@ export function SettingsExperience() {
               <button
                 className="settings-text-button"
                 type="button"
-                onClick={() => router.push("/")}
+                onClick={() => void signOutToLanding()}
               >
                 로그아웃
               </button>
