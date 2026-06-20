@@ -7,21 +7,20 @@ import com.phraselog.auth.web.InternalAuthFilter;
 import com.phraselog.common.web.ApiPaths;
 import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -30,8 +29,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {
-      "phraselog.internal-auth.secrets="
-          + OAuthIdentityControllerIntegrationTests.INTERNAL_SECRET,
+      "phraselog.internal-auth.secrets=" + OAuthIdentityControllerIntegrationTests.INTERNAL_SECRET,
       "phraselog.internal-auth.skew-leeway-seconds=30"
     })
 class OAuthIdentityControllerIntegrationTests {
@@ -111,10 +109,12 @@ class OAuthIdentityControllerIntegrationTests {
   private ResponseEntity<String> post(String token, Map<String, String> body) {
     HttpHeaders headers = new HttpHeaders();
     headers.set(InternalAuthFilter.HEADER, token);
-    return restTemplate.exchange(PATH, HttpMethod.POST, new HttpEntity<>(body, headers), String.class);
+    return restTemplate.exchange(
+        PATH, HttpMethod.POST, new HttpEntity<>(body, headers), String.class);
   }
 
-  private ResponseEntity<OAuthIdentityResult> postForResult(String token, Map<String, String> body) {
+  private ResponseEntity<OAuthIdentityResult> postForResult(
+      String token, Map<String, String> body) {
     HttpHeaders headers = new HttpHeaders();
     headers.set(InternalAuthFilter.HEADER, token);
     return restTemplate.exchange(
@@ -123,10 +123,14 @@ class OAuthIdentityControllerIntegrationTests {
 
   private Map<String, String> requestBody(String provider, String providerUserId) {
     return Map.of(
-        "provider", provider,
-        "provider_user_id", providerUserId,
-        "provider_email", "new@example.com",
-        "display_name", "New User");
+        "provider",
+        provider,
+        "provider_user_id",
+        providerUserId,
+        "provider_email",
+        "new@example.com",
+        "display_name",
+        "New User");
   }
 
   private static String internalToken(String sessionToken) {

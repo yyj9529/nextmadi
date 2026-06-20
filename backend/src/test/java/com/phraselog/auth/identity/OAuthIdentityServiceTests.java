@@ -159,17 +159,12 @@ class OAuthIdentityServiceTests {
 
   private OffsetDateTime scheduledDeletionAt(UUID userId) {
     return jdbcTemplate.queryForObject(
-        "SELECT scheduled_deletion_at FROM users WHERE id = ?",
-        OffsetDateTime.class,
-        userId);
+        "SELECT scheduled_deletion_at FROM users WHERE id = ?", OffsetDateTime.class, userId);
   }
 
   private Integer userCount(UUID userId, String email) {
     return jdbcTemplate.queryForObject(
-        "SELECT count(*) FROM users WHERE id = ? AND email = ?",
-        Integer.class,
-        userId,
-        email);
+        "SELECT count(*) FROM users WHERE id = ? AND email = ?", Integer.class, userId, email);
   }
 
   private Integer identityCount(UUID userId, String provider, String providerUserId) {

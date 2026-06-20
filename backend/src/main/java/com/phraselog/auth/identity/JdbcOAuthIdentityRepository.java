@@ -1,7 +1,6 @@
 package com.phraselog.auth.identity;
 
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
