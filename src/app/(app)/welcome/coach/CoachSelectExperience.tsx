@@ -5,12 +5,21 @@ import { useRouter } from "next/navigation";
 
 import { CoachCardList } from "@/components/app/CoachCards";
 import { mockMe } from "@/lib/mock-api";
+import {
+  readPendingSave,
+  resolvePostOnboardingDestination,
+} from "@/lib/pending-save";
 import type { Coach } from "@/lib/mock-api";
 
 // S03b 코치 선택 (신규 1회).
 export function CoachSelectExperience() {
   const router = useRouter();
   const [selected, setSelected] = useState<Coach | null>(null);
+
+  function handleContinue() {
+    const destination = resolvePostOnboardingDestination(readPendingSave());
+    router.push(destination.path);
+  }
 
   return (
     <div className="app-screen coach-select-screen">
@@ -32,7 +41,7 @@ export function CoachSelectExperience() {
             className="primary-button"
             type="button"
             disabled={selected === null}
-            onClick={() => router.push("/home")}
+            onClick={handleContinue}
           >
             {selected
               ? `${selected.display_name}와 함께 시작하기`

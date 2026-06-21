@@ -156,6 +156,55 @@ class JdbcAnalysisRepositoryTests {
   }
 
   @Test
+  void claimAnonymousAnalysisAttributesMatchingSessionTokenToUserAndClearsToken() {
+    UUID userId = insertUser("claimer@example.com");
+    AnalysisRequestRow anonymous =
+        repository.insert(
+            new NewAnalysis(
+                null, "session-claim", "203.0.113.5", "상황", output(), "s07-v1", null,
+                UUID.randomUUID()));
+
+    Optional<AnalysisRequestRow> claimed =
+        repository.claimAnonymousAnalysis(anonymous.id(), "session-claim", userId);
+
+    assertThat(claimed).isPresent();
+    assertThat(claimed.get().userId()).isEqualTo(userId);
+    assertThat(claimed.get().sessionToken()).isNull();
+    // 토큰이 비워졌으니 이제 인증 사용자 소유로만 읽힌다.
+    assertThat(repository.findByIdForOwner(anonymous.id(), user(userId))).isPresent();
+    assertThat(repository.findByIdForOwner(anonymous.id(), session("session-claim"))).isEmpty();
+  }
+
+  @Test
+  void claimAnonymousAnalysisWithMismatchedTokenClaimsNothing() {
+    UUID userId = insertUser("claimer@example.com");
+    AnalysisRequestRow anonymous =
+        repository.insert(
+            new NewAnalysis(
+                null, "session-real", null, "상황", output(), "s07-v1", null, UUID.randomUUID()));
+
+    assertThat(repository.claimAnonymousAnalysis(anonymous.id(), "session-wrong", userId)).isEmpty();
+    // 행은 여전히 익명이며 원래 토큰으로만 접근된다 — 절도 불가.
+    assertThat(repository.findByIdForOwner(anonymous.id(), session("session-real"))).isPresent();
+    assertThat(repository.findByIdForOwner(anonymous.id(), user(userId))).isEmpty();
+  }
+
+  @Test
+  void claimAnonymousAnalysisCannotStealAnAlreadyOwnedRow() {
+    UUID owner = insertUser("owner@example.com");
+    UUID attacker = insertUser("attacker@example.com");
+    // 이미 소유된 행(insert에 user_id 지정) — session_token은 NULL이다.
+    AnalysisRequestRow owned =
+        repository.insert(
+            new NewAnalysis(owner, null, null, "상황", output(), "s07-v1", null, UUID.randomUUID()));
+
+    // 공격자가 어떤 토큰을 들고 와도 user_id IS NULL 조건에서 0행 → 빈 결과.
+    assertThat(repository.claimAnonymousAnalysis(owned.id(), "anything", attacker)).isEmpty();
+    assertThat(repository.findByIdForOwner(owned.id(), user(owner))).isPresent();
+    assertThat(repository.findByIdForOwner(owned.id(), user(attacker))).isEmpty();
+  }
+
+  @Test
   void findLogIdByCorrelationResolvesTheLatestLogRow() {
     UUID correlationId = UUID.randomUUID();
     UUID logId = insertAiRequestLogWithCorrelation(correlationId);

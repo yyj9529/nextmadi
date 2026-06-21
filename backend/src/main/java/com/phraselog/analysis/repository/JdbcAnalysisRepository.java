@@ -96,6 +96,21 @@ public class JdbcAnalysisRepository implements AnalysisRepository {
   }
 
   @Override
+  public Optional<AnalysisRequestRow> claimAnonymousAnalysis(
+      UUID id, String sessionToken, UUID userId) {
+    // 단일 원자적 UPDATE: 익명(user_id IS NULL)이고 session_token이 일치할 때만 소유권을 이전한다.
+    // RETURNING으로 갱신된 행을 그대로 읽어, 조건 불일치(0행)는 빈 결과 → 호출자가 404로 매핑한다.
+    return queryOne(
+        "UPDATE analysis_requests SET user_id = ?, session_token = NULL"
+            + " WHERE id = ? AND user_id IS NULL AND session_token = ?"
+            + " RETURNING "
+            + SELECT_COLUMNS,
+        userId,
+        id,
+        sessionToken);
+  }
+
+  @Override
   public Optional<AnalysisRequestRow> findByCallerAndKey(
       InternalAuthPrincipal principal, UUID idempotencyKey) {
     if (principal.isAuthenticatedUser()) {

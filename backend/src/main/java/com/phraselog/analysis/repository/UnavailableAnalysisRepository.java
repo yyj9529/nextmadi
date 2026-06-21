@@ -30,6 +30,12 @@ public final class UnavailableAnalysisRepository implements AnalysisRepository {
   }
 
   @Override
+  public Optional<AnalysisRequestRow> claimAnonymousAnalysis(
+      UUID id, String sessionToken, UUID userId) {
+    throw unavailable();
+  }
+
+  @Override
   public Optional<AnalysisRequestRow> findByCallerAndKey(
       InternalAuthPrincipal principal, UUID idempotencyKey) {
     throw unavailable();

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { auth } from "@/auth";
 import { BackIcon } from "@/components/app/icons";
 import { PlayButton } from "@/components/app/PlayButton";
 import { mockVariants } from "@/lib/mock-api";
@@ -35,8 +36,10 @@ const toneClassByOrder: Record<number, string> = {
 export default async function AnalysisResultPage({
   params,
 }: AnalysisResultPageProps) {
-  // 정적 패스: id는 라우트 마운트 확인용으로만 받고 목 데이터를 렌더링한다.
-  await params;
+  // 목 데이터를 렌더링하되, 저장 액션은 실제 분석 id + 인증 상태로 동작한다(#42).
+  const { analysis_request_id: analysisRequestId } = await params;
+  const session = await auth();
+  const isAuthenticated = Boolean(session?.user?.id);
 
   return (
     <div className="app-screen result-screen">
@@ -80,7 +83,10 @@ export default async function AnalysisResultPage({
           <aside className="culture-tip">{mockAnalysis.cultureTip}</aside>
         </aside>
 
-        <ResultActions />
+        <ResultActions
+          analysisRequestId={analysisRequestId}
+          isAuthenticated={isAuthenticated}
+        />
       </div>
     </div>
   );

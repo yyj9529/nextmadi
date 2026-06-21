@@ -351,6 +351,14 @@ paths:
         `review_cards` row in a single transaction. Idempotent: re-posting the same
         `analysis_request_id` returns the existing expression (409 with location)
         rather than duplicating.
+
+        Pending-save claim (#42): the internal token always carries the authenticated
+        `user_id`. When the analysis was created pre-signup, the BFF also sends the
+        original anonymous `session_token` in the body. Spring Boot claims the row
+        (sets `user_id`, clears `session_token`) only when it is still anonymous and the
+        token matches; a mismatch or already-claimed row is 404. The `session_token`
+        XOR invariant of `X-Internal-Auth` is unchanged — the claim travels in the body,
+        not the token.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -369,6 +377,14 @@ paths:
                   enum: [1, 2, 3]
                   default: 1
                   description: Which variant becomes the default. Default 1.
+                session_token:
+                  type: string
+                  maxLength: 64
+                  description: |
+                    Pending-save claim token (#42): the original anonymous S02
+                    `session_token` that produced the analysis. Present only when an
+                    authenticated user claims a pre-signup analysis; omitted for ordinary
+                    authenticated saves. A token mismatch / expired token yields 404.
       responses:
         "201":
           description: Created
