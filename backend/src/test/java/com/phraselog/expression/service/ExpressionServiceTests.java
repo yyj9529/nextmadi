@@ -13,15 +13,20 @@ import com.phraselog.analysis.repository.AnalysisRepository;
 import com.phraselog.auth.dto.InternalAuthPrincipal;
 import com.phraselog.common.web.ApiErrorException;
 import com.phraselog.expression.dto.CreateExpressionRequest;
+import com.phraselog.expression.dto.ExpressionListItem;
+import com.phraselog.expression.dto.ExpressionListResponse;
 import com.phraselog.expression.dto.ExpressionResponse;
 import com.phraselog.expression.dto.NewExpression;
 import com.phraselog.expression.repository.ExpressionRepository;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.http.HttpStatus;
 
 class ExpressionServiceTests {
@@ -266,6 +271,174 @@ class ExpressionServiceTests {
             org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any());
+  }
+
+  // ── #45 list / detail / delete ──────────────────────────────────────────────
+
+  @Test
+  void listClampsLimitAboveMaxAndTruncatesQueryTo100Chars() {
+    UUID userId = UUID.randomUUID();
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(userId.toString(), null);
+    String longQuery = "가".repeat(150);
+    when(expressionRepository.list(
+            ArgumentMatchers.eq(userId),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.anyInt()))
+        .thenReturn(List.of());
+
+    service.list(principal, longQuery, null, 500);
+
+    ArgumentCaptor<String> qCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<Integer> limitCaptor = ArgumentCaptor.forClass(Integer.class);
+    Mockito.verify(expressionRepository)
+        .list(
+            ArgumentMatchers.eq(userId),
+            qCaptor.capture(),
+            ArgumentMatchers.isNull(),
+            ArgumentMatchers.isNull(),
+            limitCaptor.capture());
+    assertThat(qCaptor.getValue()).hasSize(100);
+    assertThat(limitCaptor.getValue()).isEqualTo(100);
+  }
+
+  @Test
+  void listDefaultsLimitWhenMissingOrNonPositiveAndIgnoresBlankQuery() {
+    UUID userId = UUID.randomUUID();
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(userId.toString(), null);
+    when(expressionRepository.list(
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.anyInt()))
+        .thenReturn(List.of());
+
+    service.list(principal, "   ", null, 0);
+
+    Mockito.verify(expressionRepository)
+        .list(
+            ArgumentMatchers.eq(userId),
+            ArgumentMatchers.isNull(),
+            ArgumentMatchers.isNull(),
+            ArgumentMatchers.isNull(),
+            ArgumentMatchers.eq(20));
+  }
+
+  @Test
+  void listEmitsNextCursorOnFullPageAndNullOnPartialPage() {
+    UUID userId = UUID.randomUUID();
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(userId.toString(), null);
+    // 가득 찬 페이지(=limit)면 마지막 행 기준 next_cursor 발급.
+    when(expressionRepository.list(
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.eq(2)))
+        .thenReturn(List.of(listItem(), listItem()));
+    ExpressionListResponse full = service.list(principal, null, null, 2);
+    assertThat(full.items()).hasSize(2);
+    assertThat(full.nextCursor()).isNotNull();
+
+    // 덜 찬 페이지면 next_cursor 없음.
+    when(expressionRepository.list(
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.eq(5)))
+        .thenReturn(List.of(listItem()));
+    ExpressionListResponse partial = service.list(principal, null, null, 5);
+    assertThat(partial.nextCursor()).isNull();
+  }
+
+  @Test
+  void nextCursorRoundTripsBackIntoTheKeysetArguments() {
+    UUID userId = UUID.randomUUID();
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(userId.toString(), null);
+    ExpressionListItem last = listItem();
+    when(expressionRepository.list(
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.any(),
+            ArgumentMatchers.eq(1)))
+        .thenReturn(List.of(last));
+
+    String cursor = service.list(principal, null, null, 1).nextCursor();
+    service.list(principal, null, cursor, 1);
+
+    ArgumentCaptor<OffsetDateTime> createdAt = ArgumentCaptor.forClass(OffsetDateTime.class);
+    ArgumentCaptor<UUID> id = ArgumentCaptor.forClass(UUID.class);
+    Mockito.verify(expressionRepository, Mockito.times(2))
+        .list(
+            ArgumentMatchers.eq(userId),
+            ArgumentMatchers.isNull(),
+            createdAt.capture(),
+            id.capture(),
+            ArgumentMatchers.eq(1));
+    // 2번째 호출에서 디코딩된 keyset 값이 마지막 행과 일치.
+    assertThat(createdAt.getAllValues().get(1)).isEqualTo(last.createdAt());
+    assertThat(id.getAllValues().get(1)).isEqualTo(last.id());
+  }
+
+  @Test
+  void invalidCursorReturns400() {
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(UUID.randomUUID().toString(), null);
+
+    assertThatThrownBy(() -> service.list(principal, null, "not-a-valid-cursor!!", 20))
+        .isInstanceOf(ApiErrorException.class)
+        .satisfies(
+            error ->
+                assertThat(((ApiErrorException) error).status()).isEqualTo(HttpStatus.BAD_REQUEST));
+    verifyNoInteractions(expressionRepository);
+  }
+
+  @Test
+  void getReturnsExpressionWhenOwnedAnd404WhenMissing() {
+    UUID userId = UUID.randomUUID();
+    UUID expressionId = UUID.randomUUID();
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(userId.toString(), null);
+    ExpressionResponse expression = expressionResponse(UUID.randomUUID(), 1);
+    when(expressionRepository.findByIdForUser(expressionId, userId))
+        .thenReturn(Optional.of(expression));
+
+    assertThat(service.get(principal, expressionId)).isEqualTo(expression);
+
+    when(expressionRepository.findByIdForUser(expressionId, userId)).thenReturn(Optional.empty());
+    assertThatThrownBy(() -> service.get(principal, expressionId))
+        .isInstanceOf(ApiErrorException.class)
+        .satisfies(
+            error ->
+                assertThat(((ApiErrorException) error).status()).isEqualTo(HttpStatus.NOT_FOUND));
+  }
+
+  @Test
+  void deleteSucceedsWhenRowUpdatedAnd404WhenNothingDeleted() {
+    UUID userId = UUID.randomUUID();
+    UUID expressionId = UUID.randomUUID();
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(userId.toString(), null);
+    when(expressionRepository.softDelete(expressionId, userId)).thenReturn(true);
+
+    service.delete(principal, expressionId); // no throw
+
+    when(expressionRepository.softDelete(expressionId, userId)).thenReturn(false);
+    assertThatThrownBy(() -> service.delete(principal, expressionId))
+        .isInstanceOf(ApiErrorException.class)
+        .satisfies(
+            error ->
+                assertThat(((ApiErrorException) error).status()).isEqualTo(HttpStatus.NOT_FOUND));
+  }
+
+  private static ExpressionListItem listItem() {
+    return new ExpressionListItem(
+        UUID.randomUUID(),
+        "병원 예약 전화에서 말문이 막혔어요",
+        "I'd like to make an appointment.",
+        "정중한",
+        OffsetDateTime.parse("2026-06-19T12:00:00Z"));
   }
 
   private static AnalysisRequestRow analysisRow(UUID analysisId, UUID userId) {

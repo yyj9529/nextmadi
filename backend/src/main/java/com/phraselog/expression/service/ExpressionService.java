@@ -6,11 +6,18 @@ import com.phraselog.analysis.repository.AnalysisRepository;
 import com.phraselog.auth.dto.InternalAuthPrincipal;
 import com.phraselog.common.web.ApiErrorException;
 import com.phraselog.expression.dto.CreateExpressionRequest;
+import com.phraselog.expression.dto.ExpressionListItem;
+import com.phraselog.expression.dto.ExpressionListResponse;
+import com.phraselog.expression.dto.ExpressionResponse;
 import com.phraselog.expression.dto.NewExpression;
 import com.phraselog.expression.dto.NewExpressionVariant;
 import com.phraselog.expression.dto.SaveExpressionResult;
 import com.phraselog.expression.repository.ExpressionRepository;
+import java.nio.charset.StandardCharsets;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,6 +32,10 @@ public class ExpressionService {
 
   private static final int DEFAULT_SELECTED_VARIANT_ORDER = 1;
   private static final int EXPECTED_VARIANT_COUNT = 3;
+  private static final int DEFAULT_LIMIT = 20;
+  private static final int MAX_LIMIT = 100;
+  private static final int MAX_QUERY_LENGTH = 100;
+  private static final String CURSOR_SEPARATOR = "|";
 
   private final AnalysisRepository analysisRepository;
   private final ExpressionRepository expressionRepository;
@@ -64,6 +75,91 @@ public class ExpressionService {
 
     return new SaveExpressionResult(expressionRepository.createFromAnalysis(command), false);
   }
+
+  /** S08 library list (#45): cursor pagination plus optional Korean/English keyword search. */
+  @Transactional(readOnly = true)
+  public ExpressionListResponse list(
+      InternalAuthPrincipal principal, String q, String cursor, Integer limit) {
+    UUID userId = requireAuthenticatedUser(principal);
+    int pageSize = clampLimit(limit);
+    String keyword = normalizeQuery(q);
+    Cursor decoded = decodeCursor(cursor);
+
+    List<ExpressionListItem> items =
+        expressionRepository.list(
+            userId,
+            keyword,
+            decoded == null ? null : decoded.createdAt(),
+            decoded == null ? null : decoded.id(),
+            pageSize);
+
+    String nextCursor = null;
+    if (items.size() == pageSize) {
+      ExpressionListItem last = items.get(items.size() - 1);
+      nextCursor = encodeCursor(last.createdAt(), last.id());
+    }
+    return new ExpressionListResponse(items, nextCursor);
+  }
+
+  /** S09 detail (#45): full expression with all 3 variants; 404 if missing or not owned. */
+  @Transactional(readOnly = true)
+  public ExpressionResponse get(InternalAuthPrincipal principal, UUID expressionId) {
+    UUID userId = requireAuthenticatedUser(principal);
+    return expressionRepository
+        .findByIdForUser(expressionId, userId)
+        .orElseThrow(ExpressionService::expressionNotFound);
+  }
+
+  /** S09 soft delete (#45): sets {@code deleted_at}; 404 if missing, not owned, or already gone. */
+  @Transactional
+  public void delete(InternalAuthPrincipal principal, UUID expressionId) {
+    UUID userId = requireAuthenticatedUser(principal);
+    if (!expressionRepository.softDelete(expressionId, userId)) {
+      throw expressionNotFound();
+    }
+  }
+
+  private static int clampLimit(Integer limit) {
+    if (limit == null || limit < 1) {
+      return DEFAULT_LIMIT;
+    }
+    return Math.min(limit, MAX_LIMIT);
+  }
+
+  private static String normalizeQuery(String q) {
+    if (!StringUtils.hasText(q)) {
+      return null;
+    }
+    String trimmed = q.trim();
+    return trimmed.length() > MAX_QUERY_LENGTH ? trimmed.substring(0, MAX_QUERY_LENGTH) : trimmed;
+  }
+
+  private static String encodeCursor(OffsetDateTime createdAt, UUID id) {
+    String raw = createdAt.toString() + CURSOR_SEPARATOR + id;
+    return Base64.getUrlEncoder()
+        .withoutPadding()
+        .encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+  }
+
+  private static Cursor decodeCursor(String cursor) {
+    if (!StringUtils.hasText(cursor)) {
+      return null;
+    }
+    try {
+      String raw = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
+      int sep = raw.lastIndexOf(CURSOR_SEPARATOR);
+      if (sep <= 0) {
+        throw validationFailed("cursor is malformed.");
+      }
+      OffsetDateTime createdAt = OffsetDateTime.parse(raw.substring(0, sep));
+      UUID id = UUID.fromString(raw.substring(sep + 1));
+      return new Cursor(createdAt, id);
+    } catch (IllegalArgumentException | DateTimeParseException e) {
+      throw validationFailed("cursor is invalid.");
+    }
+  }
+
+  private record Cursor(OffsetDateTime createdAt, UUID id) {}
 
   /**
    * Resolves the analysis the authenticated user is saving, honoring the pending-save claim (#42).
@@ -190,6 +286,15 @@ public class ExpressionService {
         "not_found",
         "Analysis was not found.",
         "Analysis is missing or not owned by the caller.",
+        false);
+  }
+
+  private static ApiErrorException expressionNotFound() {
+    return new ApiErrorException(
+        HttpStatus.NOT_FOUND,
+        "not_found",
+        "Expression was not found.",
+        "Expression is missing, soft-deleted, or not owned by the caller.",
         false);
   }
 }

@@ -1,5 +1,6 @@
 package com.phraselog.expression.repository;
 
+import com.phraselog.expression.dto.ExpressionListItem;
 import com.phraselog.expression.dto.ExpressionResponse;
 import com.phraselog.expression.dto.ExpressionVariantResponse;
 import com.phraselog.expression.dto.NewExpression;
@@ -47,6 +48,92 @@ public class JdbcExpressionRepository implements ExpressionRepository {
     } catch (EmptyResultDataAccessException e) {
       return Optional.empty();
     }
+  }
+
+  @Override
+  public List<ExpressionListItem> list(
+      UUID userId, String q, OffsetDateTime cursorCreatedAt, UUID cursorId, int limit) {
+    StringBuilder sql =
+        new StringBuilder(
+            """
+            SELECT e.id, e.original_situation, e.created_at,
+                   v.english_text, v.tone_label
+              FROM expressions e
+              LEFT JOIN expression_variants v ON v.id = e.selected_variant_id
+             WHERE e.user_id = ? AND e.deleted_at IS NULL
+            """);
+    List<Object> args = new ArrayList<>();
+    args.add(userId);
+
+    if (cursorCreatedAt != null && cursorId != null) {
+      sql.append(" AND (e.created_at, e.id) < (?, ?)\n");
+      args.add(cursorCreatedAt);
+      args.add(cursorId);
+    }
+
+    if (q != null) {
+      sql.append(
+          """
+           AND ( to_tsvector('simple', e.original_situation) @@ plainto_tsquery('simple', ?)
+                 OR EXISTS (SELECT 1 FROM expression_variants sv
+                             WHERE sv.expression_id = e.id
+                               AND to_tsvector('simple', sv.english_text)
+                                   @@ plainto_tsquery('simple', ?)) )
+          """);
+      args.add(q);
+      args.add(q);
+    }
+
+    sql.append(" ORDER BY e.created_at DESC, e.id DESC LIMIT ?");
+    args.add(limit);
+
+    return jdbcTemplate.query(
+        sql.toString(),
+        (rs, rowNum) ->
+            new ExpressionListItem(
+                rs.getObject("id", UUID.class),
+                rs.getString("original_situation"),
+                rs.getString("english_text"),
+                rs.getString("tone_label"),
+                rs.getObject("created_at", OffsetDateTime.class)),
+        args.toArray());
+  }
+
+  @Override
+  public Optional<ExpressionResponse> findByIdForUser(UUID expressionId, UUID userId) {
+    try {
+      ExpressionRow row =
+          jdbcTemplate.queryForObject(
+              """
+              SELECT e.id, e.source_type, e.analysis_request_id, e.practice_session_id,
+                     e.original_situation, e.selected_variant_id, e.created_at,
+                     rc.id AS review_card_id, rc.next_review_at
+                FROM expressions e
+                LEFT JOIN review_cards rc
+                  ON rc.expression_id = e.id AND rc.user_id = e.user_id
+                 AND rc.removed_from_queue_at IS NULL
+               WHERE e.id = ? AND e.user_id = ? AND e.deleted_at IS NULL
+              """,
+              expressionRowMapper(),
+              expressionId,
+              userId);
+      return Optional.of(toResponse(row));
+    } catch (EmptyResultDataAccessException e) {
+      return Optional.empty();
+    }
+  }
+
+  @Override
+  public boolean softDelete(UUID expressionId, UUID userId) {
+    int updated =
+        jdbcTemplate.update(
+            """
+            UPDATE expressions SET deleted_at = now()
+             WHERE id = ? AND user_id = ? AND deleted_at IS NULL
+            """,
+            expressionId,
+            userId);
+    return updated > 0;
   }
 
   @Override
