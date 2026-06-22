@@ -161,7 +161,13 @@ class JdbcAnalysisRepositoryTests {
     AnalysisRequestRow anonymous =
         repository.insert(
             new NewAnalysis(
-                null, "session-claim", "203.0.113.5", "상황", output(), "s07-v1", null,
+                null,
+                "session-claim",
+                "203.0.113.5",
+                "상황",
+                output(),
+                "s07-v1",
+                null,
                 UUID.randomUUID()));
 
     Optional<AnalysisRequestRow> claimed =
@@ -183,7 +189,8 @@ class JdbcAnalysisRepositoryTests {
             new NewAnalysis(
                 null, "session-real", null, "상황", output(), "s07-v1", null, UUID.randomUUID()));
 
-    assertThat(repository.claimAnonymousAnalysis(anonymous.id(), "session-wrong", userId)).isEmpty();
+    assertThat(repository.claimAnonymousAnalysis(anonymous.id(), "session-wrong", userId))
+        .isEmpty();
     // 행은 여전히 익명이며 원래 토큰으로만 접근된다 — 절도 불가.
     assertThat(repository.findByIdForOwner(anonymous.id(), session("session-real"))).isPresent();
     assertThat(repository.findByIdForOwner(anonymous.id(), user(userId))).isEmpty();

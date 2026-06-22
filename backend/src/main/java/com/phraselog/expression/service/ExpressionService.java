@@ -73,7 +73,8 @@ public class ExpressionService {
    *   <li>Otherwise, if a {@code claimSessionToken} is present, atomically claim the row when it is
    *       still anonymous and the token matches; on success return the now-owned row.
    *   <li>Anything else (no claim token, token mismatch, expired/cleared token, already owned by
-   *       someone else) → 404. A not-owned row is deliberately indistinguishable from a missing one.
+   *       someone else) → 404. A not-owned row is deliberately indistinguishable from a missing
+   *       one.
    * </ol>
    */
   private AnalysisRequestRow resolveOwnedOrClaimed(

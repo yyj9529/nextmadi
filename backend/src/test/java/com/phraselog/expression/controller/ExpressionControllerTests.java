@@ -110,7 +110,8 @@ class ExpressionControllerTests {
         .andExpect(status().isCreated());
 
     org.mockito.ArgumentCaptor<com.phraselog.expression.dto.CreateExpressionRequest> captor =
-        org.mockito.ArgumentCaptor.forClass(com.phraselog.expression.dto.CreateExpressionRequest.class);
+        org.mockito.ArgumentCaptor.forClass(
+            com.phraselog.expression.dto.CreateExpressionRequest.class);
     verify(expressionService).create(eq(principal), captor.capture(), eq(idempotencyKey));
     org.assertj.core.api.Assertions.assertThat(captor.getValue().sessionToken())
         .isEqualTo("anon-session-xyz");
