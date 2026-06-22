@@ -72,6 +72,21 @@ export function PlayIcon({ size = 16 }: IconProps) {
   );
 }
 
+export function PauseIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </svg>
+  );
+}
+
 export function RetryIcon({ size = 15 }: IconProps) {
   return (
     <svg
