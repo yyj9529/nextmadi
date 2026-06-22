@@ -345,6 +345,27 @@ class AnalysisServiceTests {
     }
 
     @Override
+    public Optional<AnalysisRequestRow> claimAnonymousAnalysis(
+        UUID id, String sessionToken, UUID userId) {
+      AnalysisRequestRow row = byId.get(id);
+      if (row == null || row.userId() != null || !sessionToken.equals(row.sessionToken())) {
+        return Optional.empty();
+      }
+      AnalysisRequestRow claimed =
+          new AnalysisRequestRow(
+              row.id(),
+              userId,
+              null,
+              row.inputText(),
+              row.outputJson(),
+              row.promptVersion(),
+              row.aiRequestLogId(),
+              row.createdAt());
+      byId.put(id, claimed);
+      return Optional.of(claimed);
+    }
+
+    @Override
     public Optional<AnalysisRequestRow> findByCallerAndKey(
         InternalAuthPrincipal principal, UUID idempotencyKey) {
       UUID userId = principal.isAuthenticatedUser() ? UUID.fromString(principal.userId()) : null;

@@ -56,7 +56,9 @@ class ExpressionServiceTests {
 
     var result =
         service.create(
-            principal, new CreateExpressionRequest(analysisId, null), UUID.randomUUID().toString());
+            principal,
+            new CreateExpressionRequest(analysisId, null, null),
+            UUID.randomUUID().toString());
 
     assertThat(result.duplicate()).isFalse();
     assertThat(result.expression().analysisRequestId()).isEqualTo(analysisId);
@@ -88,7 +90,9 @@ class ExpressionServiceTests {
 
     var result =
         service.create(
-            principal, new CreateExpressionRequest(analysisId, 2), UUID.randomUUID().toString());
+            principal,
+            new CreateExpressionRequest(analysisId, 2, null),
+            UUID.randomUUID().toString());
 
     assertThat(result.expression().selectedVariantId())
         .isEqualTo(result.expression().variants().get(1).id());
@@ -105,7 +109,9 @@ class ExpressionServiceTests {
 
     var result =
         service.create(
-            principal, new CreateExpressionRequest(analysisId, 1), UUID.randomUUID().toString());
+            principal,
+            new CreateExpressionRequest(analysisId, 1, null),
+            UUID.randomUUID().toString());
 
     assertThat(result.duplicate()).isTrue();
     assertThat(result.expression()).isEqualTo(existing);
@@ -119,7 +125,7 @@ class ExpressionServiceTests {
             () ->
                 service.create(
                     principal,
-                    new CreateExpressionRequest(UUID.randomUUID(), 1),
+                    new CreateExpressionRequest(UUID.randomUUID(), 1, null),
                     UUID.randomUUID().toString()))
         .isInstanceOf(ApiErrorException.class)
         .satisfies(
@@ -143,12 +149,123 @@ class ExpressionServiceTests {
             () ->
                 service.create(
                     principal,
-                    new CreateExpressionRequest(analysisId, 1),
+                    new CreateExpressionRequest(analysisId, 1, null),
                     UUID.randomUUID().toString()))
         .isInstanceOf(ApiErrorException.class)
         .satisfies(
             error ->
                 assertThat(((ApiErrorException) error).status()).isEqualTo(HttpStatus.NOT_FOUND));
+  }
+
+  @Test
+  void authenticatedUserClaimsAnonymousAnalysisWithMatchingSessionTokenThenSaves() {
+    UUID userId = UUID.randomUUID();
+    UUID analysisId = UUID.randomUUID();
+    String sessionToken = "anon-session-xyz";
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(userId.toString(), null);
+    // 분석은 아직 이 사용자 소유가 아니다 → 소유 조회는 비어 있고, 일치하는 토큰으로 claim이 성공한다.
+    when(expressionRepository.findByAnalysisIdForUser(analysisId, userId))
+        .thenReturn(Optional.empty());
+    when(analysisRepository.findByIdForOwner(analysisId, principal)).thenReturn(Optional.empty());
+    when(analysisRepository.claimAnonymousAnalysis(analysisId, sessionToken, userId))
+        .thenReturn(Optional.of(analysisRow(analysisId, userId)));
+    when(expressionRepository.createFromAnalysis(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(expressionResponse(analysisId, 1));
+
+    var result =
+        service.create(
+            principal,
+            new CreateExpressionRequest(analysisId, 1, sessionToken),
+            UUID.randomUUID().toString());
+
+    assertThat(result.duplicate()).isFalse();
+    assertThat(result.expression().analysisRequestId()).isEqualTo(analysisId);
+    org.mockito.Mockito.verify(analysisRepository)
+        .claimAnonymousAnalysis(analysisId, sessionToken, userId);
+  }
+
+  @Test
+  void alreadyOwnedAnalysisSavesWithoutAttemptingAClaim() {
+    UUID userId = UUID.randomUUID();
+    UUID analysisId = UUID.randomUUID();
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(userId.toString(), null);
+    when(expressionRepository.findByAnalysisIdForUser(analysisId, userId))
+        .thenReturn(Optional.empty());
+    when(analysisRepository.findByIdForOwner(analysisId, principal))
+        .thenReturn(Optional.of(analysisRow(analysisId, userId)));
+    when(expressionRepository.createFromAnalysis(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(expressionResponse(analysisId, 1));
+
+    // 토큰을 함께 보내더라도, 이미 소유한 분석이면 claim 경로를 타지 않는다.
+    var result =
+        service.create(
+            principal,
+            new CreateExpressionRequest(analysisId, 1, "irrelevant-token"),
+            UUID.randomUUID().toString());
+
+    assertThat(result.duplicate()).isFalse();
+    org.mockito.Mockito.verify(analysisRepository, org.mockito.Mockito.never())
+        .claimAnonymousAnalysis(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void mismatchedSessionTokenCannotHijackAnotherSessionsAnalysis() {
+    UUID userId = UUID.randomUUID();
+    UUID analysisId = UUID.randomUUID();
+    String wrongToken = "attacker-session-token";
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(userId.toString(), null);
+    when(expressionRepository.findByAnalysisIdForUser(analysisId, userId))
+        .thenReturn(Optional.empty());
+    when(analysisRepository.findByIdForOwner(analysisId, principal)).thenReturn(Optional.empty());
+    // 토큰 불일치 → claim이 0행 → 빈 결과. 절도 불가, 404로 매핑된다.
+    when(analysisRepository.claimAnonymousAnalysis(analysisId, wrongToken, userId))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                service.create(
+                    principal,
+                    new CreateExpressionRequest(analysisId, 1, wrongToken),
+                    UUID.randomUUID().toString()))
+        .isInstanceOf(ApiErrorException.class)
+        .satisfies(
+            error ->
+                assertThat(((ApiErrorException) error).status()).isEqualTo(HttpStatus.NOT_FOUND));
+
+    // 절도 시도는 저장으로 이어지지 않는다.
+    org.mockito.Mockito.verify(expressionRepository, org.mockito.Mockito.never())
+        .createFromAnalysis(org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void anonymousAnalysisWithoutAClaimTokenReturns404() {
+    UUID userId = UUID.randomUUID();
+    UUID analysisId = UUID.randomUUID();
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(userId.toString(), null);
+    when(expressionRepository.findByAnalysisIdForUser(analysisId, userId))
+        .thenReturn(Optional.empty());
+    when(analysisRepository.findByIdForOwner(analysisId, principal)).thenReturn(Optional.empty());
+
+    // 토큰 없이 남의(또는 익명) 분석을 저장 시도 → claim 경로 자체를 타지 않고 404.
+    assertThatThrownBy(
+            () ->
+                service.create(
+                    principal,
+                    new CreateExpressionRequest(analysisId, 1, null),
+                    UUID.randomUUID().toString()))
+        .isInstanceOf(ApiErrorException.class)
+        .satisfies(
+            error ->
+                assertThat(((ApiErrorException) error).status()).isEqualTo(HttpStatus.NOT_FOUND));
+
+    org.mockito.Mockito.verify(analysisRepository, org.mockito.Mockito.never())
+        .claimAnonymousAnalysis(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any());
   }
 
   private static AnalysisRequestRow analysisRow(UUID analysisId, UUID userId) {

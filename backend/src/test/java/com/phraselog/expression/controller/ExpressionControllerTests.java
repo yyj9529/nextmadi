@@ -90,6 +90,36 @@ class ExpressionControllerTests {
   }
 
   @Test
+  void bindsSessionTokenClaimFromBodyAndForwardsItToTheService() throws Exception {
+    UUID analysisId = UUID.randomUUID();
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(UUID.randomUUID().toString(), null);
+    String idempotencyKey = UUID.randomUUID().toString();
+    when(expressionService.create(eq(principal), any(), eq(idempotencyKey)))
+        .thenReturn(new SaveExpressionResult(expressionResponse(analysisId), false));
+
+    mockMvc
+        .perform(
+            post("/api/v1/expressions")
+                .requestAttr(InternalAuthPrincipal.REQUEST_ATTRIBUTE, principal)
+                .header("Idempotency-Key", idempotencyKey)
+                .contentType("application/json")
+                .content(
+                    "{\"analysis_request_id\":\""
+                        + analysisId
+                        + "\",\"selected_variant_order\":2,\"session_token\":\"anon-session-xyz\"}"))
+        .andExpect(status().isCreated());
+
+    org.mockito.ArgumentCaptor<com.phraselog.expression.dto.CreateExpressionRequest> captor =
+        org.mockito.ArgumentCaptor.forClass(
+            com.phraselog.expression.dto.CreateExpressionRequest.class);
+    verify(expressionService).create(eq(principal), captor.capture(), eq(idempotencyKey));
+    org.assertj.core.api.Assertions.assertThat(captor.getValue().sessionToken())
+        .isEqualTo("anon-session-xyz");
+    org.assertj.core.api.Assertions.assertThat(captor.getValue().selectedVariantOrder())
+        .isEqualTo(2);
+  }
+
+  @Test
   void postWithoutVerifiedPrincipalReturns401() throws Exception {
     mockMvc
         .perform(

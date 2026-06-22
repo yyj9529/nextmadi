@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /** Backend core for saving S07 analysis output into the expression library (#41). */
@@ -34,6 +35,7 @@ public class ExpressionService {
     this.expressionRepository = expressionRepository;
   }
 
+  @Transactional
   public SaveExpressionResult create(
       InternalAuthPrincipal principal, CreateExpressionRequest body, String idempotencyKeyHeader) {
     UUID userId = requireAuthenticatedUser(principal);
@@ -41,6 +43,7 @@ public class ExpressionService {
 
     UUID analysisRequestId = requireAnalysisRequestId(body);
     int selectedVariantOrder = selectedVariantOrder(body);
+    String claimSessionToken = body == null ? null : body.sessionToken();
 
     Optional<com.phraselog.expression.dto.ExpressionResponse> existing =
         expressionRepository.findByAnalysisIdForUser(analysisRequestId, userId);
@@ -49,9 +52,7 @@ public class ExpressionService {
     }
 
     AnalysisRequestRow analysis =
-        analysisRepository
-            .findByIdForOwner(analysisRequestId, principal)
-            .orElseThrow(ExpressionService::notFound);
+        resolveOwnedOrClaimed(analysisRequestId, userId, claimSessionToken);
 
     NewExpression command =
         new NewExpression(
@@ -62,6 +63,38 @@ public class ExpressionService {
             variantsFrom(analysis.outputJson()));
 
     return new SaveExpressionResult(expressionRepository.createFromAnalysis(command), false);
+  }
+
+  /**
+   * Resolves the analysis the authenticated user is saving, honoring the pending-save claim (#42).
+   *
+   * <ol>
+   *   <li>Already owned by this {@code userId} → return it (ordinary authenticated save).
+   *   <li>Otherwise, if a {@code claimSessionToken} is present, atomically claim the row when it is
+   *       still anonymous and the token matches; on success return the now-owned row.
+   *   <li>Anything else (no claim token, token mismatch, expired/cleared token, already owned by
+   *       someone else) → 404. A not-owned row is deliberately indistinguishable from a missing
+   *       one.
+   * </ol>
+   */
+  private AnalysisRequestRow resolveOwnedOrClaimed(
+      UUID analysisRequestId, UUID userId, String claimSessionToken) {
+    Optional<AnalysisRequestRow> owned =
+        analysisRepository.findByIdForOwner(
+            analysisRequestId, InternalAuthPrincipal.ofUser(userId.toString()));
+    if (owned.isPresent()) {
+      return owned.get();
+    }
+
+    if (StringUtils.hasText(claimSessionToken)) {
+      Optional<AnalysisRequestRow> claimed =
+          analysisRepository.claimAnonymousAnalysis(analysisRequestId, claimSessionToken, userId);
+      if (claimed.isPresent()) {
+        return claimed.get();
+      }
+    }
+
+    throw notFound();
   }
 
   private static UUID requireAuthenticatedUser(InternalAuthPrincipal principal) {
