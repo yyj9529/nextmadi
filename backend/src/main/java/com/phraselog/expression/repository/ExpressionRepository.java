@@ -23,6 +23,9 @@ public interface ExpressionRepository {
   List<ExpressionListItem> list(
       UUID userId, String q, OffsetDateTime cursorCreatedAt, UUID cursorId, int limit);
 
+  /** S04 bookshelf count (#54): the user's active (non-soft-deleted) expressions. */
+  int countActive(UUID userId);
+
   /** Full detail of one active expression owned by the user (#45); empty if missing/not owned. */
   Optional<ExpressionResponse> findByIdForUser(UUID expressionId, UUID userId);
 
