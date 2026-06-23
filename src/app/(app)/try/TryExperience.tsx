@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 
 import { AnalysisLoadingModal } from "@/components/app/AnalysisModals";
 import { BackIcon, MicIcon } from "@/components/app/icons";
-import { MOCK_ANALYSIS_ID } from "@/lib/mock-api";
 
 // S02 첫 체험 (비로그인).
-// 실제 BFF 연동 전까지 기본 제출 함수는 mock-only라 live AI provider를 호출하지 않는다.
+// 기본 제출 함수는 BFF 라우트 POST /api/analysis를 호출한다. 익명 session_token은 라우트가
+// httpOnly 쿠키로 관리하므로 클라이언트는 input_text만 보낸다(ADR-010). 테스트에서는
+// submitAnalysis prop으로 mock을 주입한다.
 
 const MAX_INPUT_LENGTH = 500;
 const MOCK_TRANSCRIPT =
@@ -37,14 +38,32 @@ export function isRateLimitExceededError(error: unknown) {
   return "error_code" in error && error.error_code === RATE_LIMIT_ERROR_CODE;
 }
 
-async function mockSubmitTryAnalysis(): Promise<TryAnalysisResult> {
-  await new Promise((resolve) => window.setTimeout(resolve, 700));
-  return { analysis_request_id: MOCK_ANALYSIS_ID };
+// 실제 제출: BFF 라우트로 input_text를 보낸다. 비-ok 응답은 본문 JSON(있으면 error_code 포함)을
+// throw해 handleSubmit의 rate-limit / 네트워크 에러 분기가 그대로 동작하게 한다.
+async function postTryAnalysis(inputText: string): Promise<TryAnalysisResult> {
+  const response = await fetch("/api/analysis", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ input_text: inputText }),
+  });
+
+  if (!response.ok) {
+    let errorBody: unknown = null;
+    try {
+      errorBody = await response.json();
+    } catch {
+      // 본문 파싱 실패: 네트워크 에러로 취급(아래 throw).
+    }
+    throw errorBody ?? new Error(`analysis failed: ${response.status}`);
+  }
+
+  return (await response.json()) as TryAnalysisResult;
 }
 
 export function TryExperience({
   initialText,
-  submitAnalysis = mockSubmitTryAnalysis,
+  submitAnalysis = postTryAnalysis,
 }: TryExperienceProps) {
   const router = useRouter();
   const [text, setText] = useState(initialText);
