@@ -33,6 +33,11 @@ public final class UnavailableExpressionRepository implements ExpressionReposito
   }
 
   @Override
+  public int countActive(UUID userId) {
+    throw unavailable();
+  }
+
+  @Override
   public Optional<ExpressionResponse> findByIdForUser(UUID expressionId, UUID userId) {
     throw unavailable();
   }

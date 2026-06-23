@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.phraselog.coach.dto.CoachResponse;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
@@ -56,5 +58,20 @@ class JdbcCoachRepositoryTests {
         .extracting(CoachResponse::ttsVoiceId)
         .containsExactly("onyx", "shimmer", "nova");
     assertThat(coaches).allSatisfy(c -> assertThat(c.personaSummary()).isNotBlank());
+  }
+
+  @Test
+  void findByIdReturnsSeededCoachAndEmptyForUnknownId() {
+    JdbcCoachRepository repository = new JdbcCoachRepository(new JdbcTemplate(dataSource));
+    CoachResponse mia =
+        repository.findAll().stream().filter(c -> "mia".equals(c.slug())).findFirst().orElseThrow();
+
+    Optional<CoachResponse> found = repository.findById(mia.id());
+    Optional<CoachResponse> missing = repository.findById(UUID.randomUUID());
+
+    assertThat(found).isPresent();
+    assertThat(found.get().slug()).isEqualTo("mia");
+    assertThat(found.get().displayName()).isEqualTo("Mia");
+    assertThat(missing).isEmpty();
   }
 }

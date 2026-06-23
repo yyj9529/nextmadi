@@ -319,6 +319,10 @@ paths:
                   user:
                     $ref: "#/components/schemas/User"
                   coach:
+                    nullable: true
+                    description: >-
+                      null when the user has no resolvable selected coach;
+                      the client renders the fallback greeting (s04.md).
                     $ref: "#/components/schemas/Coach"
                   bookshelf_count:
                     type: integer

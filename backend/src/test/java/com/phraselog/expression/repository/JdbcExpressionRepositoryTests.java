@@ -257,6 +257,31 @@ class JdbcExpressionRepositoryTests {
     assertThat(repository.softDelete(id, otherUserId)).isFalse();
   }
 
+  @Test
+  void countActiveExcludesSoftDeletedAndOtherUsers() {
+    UUID userId = insertUser("owner@example.com");
+    UUID otherUserId = insertUser("other@example.com");
+    UUID analysisId = insertAnalysis(userId);
+    UUID otherAnalysisId = insertAnalysis(otherUserId);
+    OffsetDateTime t = OffsetDateTime.parse("2026-06-19T10:00:00Z");
+    insertExpression(userId, analysisId, t, "상황 1", englishTexts("a"), 1);
+    UUID deleted = insertExpression(userId, analysisId, t, "상황 2", englishTexts("b"), 1);
+    insertExpression(otherUserId, otherAnalysisId, t, "남의 상황", englishTexts("c"), 1);
+
+    assertThat(repository.countActive(userId)).isEqualTo(2);
+
+    assertThat(repository.softDelete(deleted, userId)).isTrue();
+    assertThat(repository.countActive(userId)).isEqualTo(1);
+    assertThat(repository.countActive(otherUserId)).isEqualTo(1);
+  }
+
+  @Test
+  void countActiveIsZeroForUserWithNoExpressions() {
+    UUID userId = insertUser("owner@example.com");
+
+    assertThat(repository.countActive(userId)).isZero();
+  }
+
   private static List<String> englishTexts(String prefix) {
     return List.of(prefix + " one", prefix + " two", prefix + " three");
   }

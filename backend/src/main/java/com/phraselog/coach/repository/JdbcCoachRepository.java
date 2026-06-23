@@ -2,7 +2,9 @@ package com.phraselog.coach.repository;
 
 import com.phraselog.coach.dto.CoachResponse;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
@@ -24,6 +26,24 @@ public class JdbcCoachRepository implements CoachRepository {
          ORDER BY slug
         """,
         coachRowMapper());
+  }
+
+  @Override
+  public Optional<CoachResponse> findById(UUID coachId) {
+    try {
+      CoachResponse coach =
+          jdbcTemplate.queryForObject(
+              """
+              SELECT id, slug, display_name, persona_summary, tts_voice_id
+                FROM coach_profiles
+               WHERE id = ?
+              """,
+              coachRowMapper(),
+              coachId);
+      return Optional.of(coach);
+    } catch (EmptyResultDataAccessException e) {
+      return Optional.empty();
+    }
   }
 
   private static RowMapper<CoachResponse> coachRowMapper() {

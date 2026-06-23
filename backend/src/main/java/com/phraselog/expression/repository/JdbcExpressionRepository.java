@@ -100,6 +100,20 @@ public class JdbcExpressionRepository implements ExpressionRepository {
   }
 
   @Override
+  public int countActive(UUID userId) {
+    Integer count =
+        jdbcTemplate.queryForObject(
+            """
+            SELECT count(*)
+              FROM expressions
+             WHERE user_id = ? AND deleted_at IS NULL
+            """,
+            Integer.class,
+            userId);
+    return count == null ? 0 : count;
+  }
+
+  @Override
   public Optional<ExpressionResponse> findByIdForUser(UUID expressionId, UUID userId) {
     try {
       ExpressionRow row =
