@@ -6,6 +6,7 @@ import {
   SaveExpressionError,
   saveExpression,
 } from "@/lib/expression/save-expression";
+import { listExpressions } from "@/lib/expression/list-expressions";
 
 // S07 저장 BFF 라우트. (#42, ADR-010)
 //
@@ -39,6 +40,38 @@ async function isSameOrigin(): Promise<boolean> {
     return new URL(origin).host === host;
   } catch {
     return false;
+  }
+}
+
+// S08 라이브러리 목록 조회 BFF. 읽기 전용이므로 CSRF(Origin) 체크 없이 NextAuth 세션만 확인하고,
+// q/cursor/limit을 그대로 Spring GET /api/v1/expressions로 프록시한다.
+export async function GET(request: Request): Promise<Response> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return jsonError(401, "unauthorized", "로그인이 필요해요.");
+  }
+
+  const url = new URL(request.url);
+  const q = url.searchParams.get("q");
+  const cursor = url.searchParams.get("cursor");
+  const limitParam = url.searchParams.get("limit");
+  const parsedLimit = limitParam !== null ? Number(limitParam) : undefined;
+  const limit =
+    parsedLimit !== undefined && Number.isFinite(parsedLimit)
+      ? parsedLimit
+      : undefined;
+
+  try {
+    const result = await listExpressions({ userId, q, cursor, limit });
+    return Response.json(result, { status: 200 });
+  } catch {
+    // 백엔드/네트워크 오류. 검색어·토큰은 로깅하지 않는다.
+    return jsonError(
+      502,
+      "list_failed",
+      "목록을 불러오지 못했어요. 다시 시도해주세요.",
+    );
   }
 }
 

@@ -1,6 +1,6 @@
 # Decision Backlog - Resolve Before The Blocked Story Starts
 
-Last updated: 2026-06-11 (S03 auth P1 resolved)
+Last updated: 2026-06-25 (S08 virtualization resolved)
 Status: P1/P2 open except resolved items below. Owner decides; AI agents do not resolve these unilaterally.
 
 Every "TBD before W4" scattered across the specs, consolidated. Each item lists
@@ -48,8 +48,13 @@ story. **P2** can be decided during implementation without rework risk.
 |---|---|---|---|
 | 16 | S01 example tap: pre-fill `/try` vs plain navigation. | `docs/screens/s01.md` | S01 story |
 | 17 | S11 empty nickname: allow-and-clear vs require 1 char. | `docs/screens/s11.md` | S11 story |
-| 18 | S08 list virtualization library. | `docs/screens/s08.md` | S08 story |
 | 19 | STT confidence retry threshold; tune after transcription model and real audio are verified. | `docs/AI_PIPELINE.md` | Post-launch tuning |
+
+## P2 - Resolved During Implementation
+
+| # | Decision | Resolution |
+|---|---|---|
+| 18 | S08 list virtualization library. | **No external library.** S08 uses dependency-free fixed-row windowing in the Next.js screen (`getVirtualWindow` + `LibraryExperience`) to keep the 500+ item case within the existing dependency policy. Source updated: `docs/screens/s08.md`. |
 
 ## Not Decisions, But Unticketed Work
 
