@@ -1824,6 +1824,54 @@
   text-align: center;
 }
 
+/* 정답 공개: 카드 + 평가 버튼이 함께 250ms 슬라이드업(스펙 S10 US1-AC3). */
+.review-reveal-group {
+  animation: review-reveal-up 250ms ease-out;
+}
+
+@keyframes review-reveal-up {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.review-answer-tip {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.review-submit-error {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  border: 1px solid #ffc9c9;
+  border-radius: 10px;
+  background: #fff5f5;
+  padding: 14px;
+  text-align: center;
+}
+
+.review-submit-error-text {
+  margin: 0;
+  color: #c92a2a;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-reveal-group {
+    animation: none;
+  }
+}
+
 .review-complete {
   display: flex;
   flex: 1;
