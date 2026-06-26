@@ -149,6 +149,32 @@ class TranscriptionServiceTests {
             });
   }
 
+  @Test
+  void transcribeCanUseCallerSuppliedCorrelationIdForInlineRoleplayTurns() throws Exception {
+    RecordingLogStore logStore = new RecordingLogStore();
+    FakeOpenAiClient client =
+        FakeOpenAiClient.returning(
+            MAPPER.readTree(
+                """
+                {
+                  "text": "One more time, please.",
+                  "usage": { "type": "duration", "seconds": 2.0 }
+                }
+                """));
+    TranscriptionService service = service(client, logStore);
+    UUID userId = UUID.randomUUID();
+    UUID correlationId = UUID.randomUUID();
+
+    service.transcribe(
+        InternalAuthPrincipal.ofUser(userId.toString()),
+        audio(WebmTestFixtures.webmOpus(2.0)),
+        correlationId);
+
+    assertThat(logStore.entries())
+        .singleElement()
+        .satisfies(entry -> assertThat(entry.requestCorrelationId()).isEqualTo(correlationId));
+  }
+
   private static TranscriptionService service(
       OpenAiTranscriptionClient client, RecordingLogStore logStore) {
     return new TranscriptionService(

@@ -69,4 +69,26 @@ class MigrationSqlStructureTests {
             "deleted_at TIMESTAMPTZ",
             "removed_from_queue_at TIMESTAMPTZ");
   }
+
+  @Test
+  void practiceTurnRequestsMigrationContainsIdempotencyAndReplayFields() throws Exception {
+    String sql =
+        new String(
+            new ClassPathResource("db/migration/V005__practice_turn_requests.sql")
+                .getInputStream()
+                .readAllBytes(),
+            StandardCharsets.UTF_8);
+
+    assertThat(sql)
+        .contains(
+            "CREATE TABLE practice_turn_requests",
+            "session_id UUID NOT NULL REFERENCES practice_sessions(id) ON DELETE CASCADE",
+            "idempotency_key UUID NOT NULL",
+            "request_correlation_id UUID NOT NULL",
+            "user_turn_id UUID REFERENCES practice_turns(id) ON DELETE SET NULL",
+            "coach_turn_id UUID REFERENCES practice_turns(id) ON DELETE SET NULL",
+            "CONSTRAINT uq_practice_turn_requests_session_key UNIQUE (session_id, idempotency_key)",
+            "CONSTRAINT chk_practice_turn_requests_status",
+            "CREATE INDEX idx_practice_turn_requests_correlation");
+  }
 }
