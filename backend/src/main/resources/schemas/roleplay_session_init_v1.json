@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Roleplay Session Init v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["planned_turns", "scenario_setup", "complexity_rationale"],
+  "properties": {
+    "planned_turns": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 10
+    },
+    "scenario_setup": {
+      "type": "string",
+      "minLength": 1
+    },
+    "complexity_rationale": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

@@ -74,7 +74,7 @@ class MigrationSqlStructureTests {
   void practiceTurnRequestsMigrationContainsIdempotencyAndReplayFields() throws Exception {
     String sql =
         new String(
-            new ClassPathResource("db/migration/V004__practice_turn_requests.sql")
+            new ClassPathResource("db/migration/V005__practice_turn_requests.sql")
                 .getInputStream()
                 .readAllBytes(),
             StandardCharsets.UTF_8);

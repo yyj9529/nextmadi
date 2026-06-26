@@ -335,7 +335,7 @@ SELECT count(*) FROM practice_sessions
 WHERE user_id = ? AND started_at::date = current_date AND status != 'abandoned';
 ```
 
-Whether `abandoned` status counts toward the limit is **TBD in `docs/screens/s12.md`**.
+`abandoned` status does **not** count toward the limit (confirmed in #59), which is why the query filters `status != 'abandoned'`. See `docs/screens/s12.md` US3-AC2.
 
 The S11 "오늘의 사용량" display reads from the same query. No separate daily-usage table is required.
 
@@ -497,7 +497,7 @@ Migration tool (Flyway recommended for Spring Boot) handles this ordering automa
 Resolve before W4:
 
 1. ~~**`review_cards.current_interval_days` initial value**~~ — Resolved 2026-06-10: `next_review_at = now()`, `current_interval_days = 1`. See `review_cards` section.
-2. **Abandoned `practice_sessions` and daily limit counting** — whether `abandoned` rows count toward the 2-per-day cap. To be specified in `docs/screens/s12.md`.
+2. ~~**Abandoned `practice_sessions` and daily limit counting**~~ — Resolved in #59: `abandoned` rows do **not** count toward the 2-per-day cap; the daily-count query filters `status != 'abandoned'`. See `docs/screens/s12.md` US3-AC2.
 3. **`coach_profiles` cascade behavior** — coach rows are seed data and v1 will not delete them. Cascade rules for `users.selected_coach_id` and `practice_sessions.coach_id` lack explicit `ON DELETE` action.
 4. **`anonymous_analysis_usage` cleanup window** — default is 30 days. Confirm or change retention.
 5. **`tts_audio_cache.expires_at` policy** — no expiry vs 90-day expiry. Affects daily cleanup job design.
