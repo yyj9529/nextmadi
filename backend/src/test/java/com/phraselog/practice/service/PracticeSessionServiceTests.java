@@ -107,7 +107,8 @@ class PracticeSessionServiceTests {
 
   @Test
   void startPersistsSessionAndOpeningTurn() {
-    PracticeSessionResponse response = service.start(user(), body(null), UUID.randomUUID().toString());
+    PracticeSessionResponse response =
+        service.start(user(), body(null), UUID.randomUUID().toString());
 
     assertThat(response.status()).isEqualTo("active");
     assertThat(response.plannedTurns()).isEqualTo(5);
@@ -117,7 +118,8 @@ class PracticeSessionServiceTests {
     assertThat(response.openingTurn()).isNotNull();
     assertThat(response.openingTurn().turnNumber()).isEqualTo(1);
     assertThat(response.openingTurn().speaker()).isEqualTo("coach");
-    assertThat(response.openingTurn().textContent()).isEqualTo("Hi, I'm calling about my appointment.");
+    assertThat(response.openingTurn().textContent())
+        .isEqualTo("Hi, I'm calling about my appointment.");
     assertThat(response.openingTurn().ttsAudioUrl()).isNull(); // TTS deferred to #30
     assertThat(repository.inserts).hasSize(1);
     assertThat(repository.inserts.get(0).coachId()).isEqualTo(selectedCoachId);
@@ -174,7 +176,8 @@ class PracticeSessionServiceTests {
 
   @Test
   void getReturnsFullSessionStateWithTurns() {
-    PracticeSessionResponse created = service.start(user(), body(null), UUID.randomUUID().toString());
+    PracticeSessionResponse created =
+        service.start(user(), body(null), UUID.randomUUID().toString());
 
     PracticeSessionResponse fetched = service.get(user(), created.id().toString());
 
@@ -187,7 +190,8 @@ class PracticeSessionServiceTests {
 
   @Test
   void getByNonOwnerReturns404() {
-    PracticeSessionResponse created = service.start(user(), body(null), UUID.randomUUID().toString());
+    PracticeSessionResponse created =
+        service.start(user(), body(null), UUID.randomUUID().toString());
     InternalAuthPrincipal other = new InternalAuthPrincipal(UUID.randomUUID().toString(), null);
 
     assertThatThrownBy(() -> service.get(other, created.id().toString()))
@@ -211,8 +215,7 @@ class PracticeSessionServiceTests {
   void anonymousPrincipalIsRejected() {
     InternalAuthPrincipal anonymous = new InternalAuthPrincipal(null, "session-token");
 
-    assertThatThrownBy(
-            () -> service.start(anonymous, body(null), UUID.randomUUID().toString()))
+    assertThatThrownBy(() -> service.start(anonymous, body(null), UUID.randomUUID().toString()))
         .isInstanceOfSatisfying(
             ApiErrorException.class,
             error -> assertThat(error.status()).isEqualTo(HttpStatus.UNAUTHORIZED));
@@ -221,8 +224,7 @@ class PracticeSessionServiceTests {
 
   @Test
   void missingExpressionIdIsRejected() {
-    assertThatThrownBy(
-            () -> service.start(user(), body(null, null), UUID.randomUUID().toString()))
+    assertThatThrownBy(() -> service.start(user(), body(null, null), UUID.randomUUID().toString()))
         .isInstanceOfSatisfying(
             ApiErrorException.class,
             error -> assertThat(error.errorCode()).isEqualTo("validation_failed"));
@@ -264,8 +266,15 @@ class PracticeSessionServiceTests {
   private ExpressionResponse expression() {
     ExpressionVariantResponse selected =
         new ExpressionVariantResponse(
-            selectedVariantId, 1, "정중한", "Could you reschedule my appointment?", "/.../", "쿠쥬",
-            "tip", "culture", null);
+            selectedVariantId,
+            1,
+            "정중한",
+            "Could you reschedule my appointment?",
+            "/.../",
+            "쿠쥬",
+            "tip",
+            "culture",
+            null);
     return new ExpressionResponse(
         expressionId,
         "analysis",
@@ -345,7 +354,14 @@ class PracticeSessionServiceTests {
               null);
       PracticeTurnRow turn =
           new PracticeTurnRow(
-              UUID.randomUUID(), sessionId, 1, "coach", session.openingText(), null, null, false,
+              UUID.randomUUID(),
+              sessionId,
+              1,
+              "coach",
+              session.openingText(),
+              null,
+              null,
+              false,
               now);
       PracticeSessionWithTurns saved = new PracticeSessionWithTurns(row, List.of(turn));
       inserts.add(session);

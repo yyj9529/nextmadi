@@ -9,10 +9,10 @@ import com.phraselog.ai.client.service.JsonSchemaValidator;
 import org.junit.jupiter.api.Test;
 
 /**
- * Guards the {@code roleplay_session_init_v1} contract used by {@code POST /practice/sessions} (#59):
- * {@code planned_turns} must be an integer in [3, 10]. The validator loads the same classpath schema
- * the AI client uses at runtime, so an out-of-range model output is rejected before a session is
- * persisted.
+ * Guards the {@code roleplay_session_init_v1} contract used by {@code POST /practice/sessions}
+ * (#59): {@code planned_turns} must be an integer in [3, 10]. The validator loads the same
+ * classpath schema the AI client uses at runtime, so an out-of-range model output is rejected
+ * before a session is persisted.
  */
 class RoleplaySessionInitSchemaTests {
 

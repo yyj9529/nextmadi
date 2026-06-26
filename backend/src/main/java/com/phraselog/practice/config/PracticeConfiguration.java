@@ -12,8 +12,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * Wires the {@link PracticeRepository} according to whether a {@code DataSource} is available, using
- * the same {@link ObjectProvider} pattern as {@link
+ * Wires the {@link PracticeRepository} according to whether a {@code DataSource} is available,
+ * using the same {@link ObjectProvider} pattern as {@link
  * com.phraselog.analysis.config.AnalysisConfiguration} so the no-DB scaffold context still loads.
  *
  * <p>{@link com.phraselog.practice.service.PracticeSessionService} and {@link
@@ -29,7 +29,8 @@ public class PracticeConfiguration {
   public PracticeRepository practiceRepository(ObjectProvider<DataSource> dataSourceProvider) {
     DataSource dataSource = dataSourceProvider.getIfAvailable();
     if (dataSource == null) {
-      log.info("No DataSource present; POST/GET /practice/sessions are unavailable (no-DB context)");
+      log.info(
+          "No DataSource present; POST/GET /practice/sessions are unavailable (no-DB context)");
       return new UnavailablePracticeRepository();
     }
     return new JdbcPracticeRepository(new JdbcTemplate(dataSource));

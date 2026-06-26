@@ -21,8 +21,8 @@ import com.phraselog.practice.dto.PracticeTurnRow;
 import com.phraselog.practice.dto.StartSessionRequest;
 import com.phraselog.practice.repository.PracticeRepository;
 import com.phraselog.user.dto.UserResponse;
-import com.phraselog.user.repository.UserRepository;
 import com.phraselog.user.repository.UsageRepository;
+import com.phraselog.user.repository.UserRepository;
 import com.phraselog.user.service.UsageService;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -97,7 +97,8 @@ public class PracticeSessionService {
       return toStartResponse(existing.get());
     }
 
-    UUID expressionId = parseRequiredUuid(body == null ? null : body.expressionId(), "expression_id");
+    UUID expressionId =
+        parseRequiredUuid(body == null ? null : body.expressionId(), "expression_id");
     ExpressionResponse expression =
         expressionRepository
             .findByIdForUser(expressionId, userId)
@@ -134,7 +135,9 @@ public class PracticeSessionService {
     }
   }
 
-  /** Handles {@code GET /practice/sessions/{id}}: owner-only, 404 for missing/not-owned/malformed. */
+  /**
+   * Handles {@code GET /practice/sessions/{id}}: owner-only, 404 for missing/not-owned/malformed.
+   */
   public PracticeSessionResponse get(InternalAuthPrincipal principal, String sessionId) {
     UUID userId = requireAuthenticatedUser(principal);
     UUID id = parseIdOrNotFound(sessionId);
@@ -155,7 +158,8 @@ public class PracticeSessionService {
               .findById(userId)
               .map(UserResponse::selectedCoachId)
               .orElseThrow(
-                  () -> validationFailed("No coach_id provided and user has no selected_coach_id."));
+                  () ->
+                      validationFailed("No coach_id provided and user has no selected_coach_id."));
       if (coachId == null) {
         throw validationFailed("No coach_id provided and user has no selected_coach_id.");
       }
@@ -180,7 +184,9 @@ public class PracticeSessionService {
     }
   }
 
-  /** Builds the user-content block for the session-init prompt (coach persona + saved expression). */
+  /**
+   * Builds the user-content block for the session-init prompt (coach persona + saved expression).
+   */
   private String buildSessionInput(CoachResponse coach, ExpressionResponse expression) {
     String selectedEnglish = selectedVariantEnglish(expression);
     return "Coach: "

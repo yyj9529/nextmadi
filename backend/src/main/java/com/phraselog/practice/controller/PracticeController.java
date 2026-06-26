@@ -19,9 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * S12 roleplay session endpoints (#59). Both routes sit behind {@link
- * com.phraselog.auth.web.InternalAuthFilter}, which verifies {@code X-Internal-Auth} and exposes the
- * caller as a request attribute. The controller stays thin: principal/header extraction and status
- * mapping only; all behavior lives in {@link PracticeSessionService}.
+ * com.phraselog.auth.web.InternalAuthFilter}, which verifies {@code X-Internal-Auth} and exposes
+ * the caller as a request attribute. The controller stays thin: principal/header extraction and
+ * status mapping only; all behavior lives in {@link PracticeSessionService}.
  */
 @RestController
 @RequestMapping(ApiPaths.V1 + "/practice/sessions")

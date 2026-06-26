@@ -8,5 +8,4 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * service can map a malformed value to a clean 400 rather than a Jackson deserialization 500.
  */
 public record StartSessionRequest(
-    @JsonProperty("expression_id") String expressionId,
-    @JsonProperty("coach_id") String coachId) {}
+    @JsonProperty("expression_id") String expressionId, @JsonProperty("coach_id") String coachId) {}

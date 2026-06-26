@@ -10,7 +10,8 @@ import java.util.UUID;
  * One {@code practice_turns} row, matching the OpenAPI {@code PracticeTurn} schema (#59).
  *
  * <p>{@code tts_audio_url} is always null in this ticket: TTS synthesis for coach turns lands with
- * the TTS backend (#30). S12 tolerates a null audio url (text-only fallback), so the contract holds.
+ * the TTS backend (#30). S12 tolerates a null audio url (text-only fallback), so the contract
+ * holds.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record PracticeTurnResponse(

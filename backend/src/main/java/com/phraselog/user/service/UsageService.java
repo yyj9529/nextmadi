@@ -24,8 +24,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class UsageService {
 
-  /** Roleplay sessions allowed per user per UTC day (PRD 5.8). Shared with the practice flow (#59). */
+  /**
+   * Roleplay sessions allowed per user per UTC day (PRD 5.8). Shared with the practice flow (#59).
+   */
   public static final int DAILY_ROLEPLAY_LIMIT = 2;
+
   private static final Integer ANALYSIS_LIMIT = null; // null = unlimited in v1.
 
   private final UsageRepository usageRepository;
