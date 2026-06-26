@@ -706,10 +706,20 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [turn_consumed, session_status]
                 properties:
+                  turn_consumed:
+                    type: boolean
+                    description: false when blank/low-confidence input did not consume a user turn.
+                  retry_prompt:
+                    type: string
+                    nullable: true
+                    description: Present when turn_consumed=false; UI prompts the user to try again.
                   user_turn:
+                    nullable: true
                     $ref: "#/components/schemas/PracticeTurn"
                   coach_turn:
+                    nullable: true
                     $ref: "#/components/schemas/PracticeTurn"
                   feedback:
                     nullable: true
@@ -718,8 +728,14 @@ paths:
                     type: string
                     enum: [active, completed]
                     description: completed when planned_turns reached after this turn.
+        "400":
+          $ref: "#/components/responses/ValidationError"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 
   /practice/sessions/{session_id}/result:
     post:
@@ -870,6 +886,7 @@ components:
     IdempotencyKey:
       in: header
       name: Idempotency-Key
+      required: true
       schema:
         type: string
         format: uuid

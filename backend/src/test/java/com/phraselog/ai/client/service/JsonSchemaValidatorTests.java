@@ -54,6 +54,46 @@ class JsonSchemaValidatorTests {
         .hasRootCauseMessage("#/expressions/0: required key [english] not found");
   }
 
+  @Test
+  void acceptsValidRoleplayTurnResponse() throws Exception {
+    validator.validate(
+        "roleplay_turn_response_v1",
+        objectMapper.readTree(
+            """
+            {
+              "coach_utterance": "That sounds frustrating. What did you want to say next?"
+            }
+            """));
+  }
+
+  @Test
+  void acceptsRoleplayFeedbackFalseWithoutExtraFields() throws Exception {
+    validator.validate(
+        "roleplay_turn_feedback_v1",
+        objectMapper.readTree(
+            """
+            {
+              "show_feedback": false
+            }
+            """));
+  }
+
+  @Test
+  void rejectsRoleplayFeedbackTrueWithoutKoreanComment() throws Exception {
+    assertThatThrownBy(
+            () ->
+                validator.validate(
+                    "roleplay_turn_feedback_v1",
+                    objectMapper.readTree(
+                        """
+                        {
+                          "show_feedback": true,
+                          "natural_alternative": "Could you repeat that?"
+                        }
+                        """)))
+        .isInstanceOf(JsonSchemaValidator.JsonSchemaValidationException.class);
+  }
+
   private static String validS07Analysis() {
     return """
         {

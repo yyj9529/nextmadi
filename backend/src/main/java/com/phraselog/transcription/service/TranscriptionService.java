@@ -44,6 +44,11 @@ public class TranscriptionService {
   }
 
   public TranscriptionResponse transcribe(InternalAuthPrincipal principal, MultipartFile audio) {
+    return transcribe(principal, audio, UUID.randomUUID());
+  }
+
+  public TranscriptionResponse transcribe(
+      InternalAuthPrincipal principal, MultipartFile audio, UUID correlationId) {
     byte[] audioBytes = readAudioBytes(audio);
     WebmOpusInspector.AudioMetadata metadata;
     try {
@@ -53,7 +58,6 @@ public class TranscriptionService {
     }
 
     UUID userId = principal.isAuthenticatedUser() ? UUID.fromString(principal.userId()) : null;
-    UUID correlationId = UUID.randomUUID();
     long startTimeMs = System.currentTimeMillis();
 
     try {

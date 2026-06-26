@@ -103,6 +103,28 @@ class AnthropicServiceTests {
             });
   }
 
+  @Test
+  void callClaudeUsesFeatureSpecificTimeoutForRoleplayTurnResponse() throws Exception {
+    RecordingLogStore logStore = new RecordingLogStore();
+    CapturingAnthropicClient client =
+        new CapturingAnthropicClient(MAPPER.readTree(validS07Analysis()));
+    AnthropicService service =
+        new AnthropicService(
+            client,
+            new AiRequestLogger(logStore),
+            new AiCostCalculator(),
+            new JsonSchemaValidator(MAPPER));
+
+    service.callClaude(
+        AiFeature.ROLEPLAY_TURN_RESPONSE,
+        promptDefinition(),
+        "conversation state",
+        UUID.randomUUID(),
+        UUID.randomUUID());
+
+    assertThat(client.timeout()).isEqualTo(Duration.ofSeconds(15));
+  }
+
   private static PromptDefinition promptDefinition() {
     return new PromptDefinition(
         "s07_analysis",
@@ -158,6 +180,26 @@ class AnthropicServiceTests {
 
     List<AiRequestLogEntry> entries() {
       return entries;
+    }
+  }
+
+  private static final class CapturingAnthropicClient implements AnthropicClient {
+
+    private final JsonNode response;
+    private Duration timeout;
+
+    private CapturingAnthropicClient(JsonNode response) {
+      this.response = response;
+    }
+
+    @Override
+    public JsonNode sendMessage(String modelId, AnthropicMessage[] messages, Duration timeout) {
+      this.timeout = timeout;
+      return response;
+    }
+
+    Duration timeout() {
+      return timeout;
     }
   }
 }

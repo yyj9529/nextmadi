@@ -35,6 +35,7 @@ landing_examples          seed pool for S01 random sampling
 anonymous_analysis_usage  IP-based rate limit for pre-signup S02 calls
 tts_audio_cache           content-hashed cache; referenced by expression_variants and practice_turns
 ai_request_logs           independent observability table; logs every AI/STT/TTS call
+practice_turn_requests    idempotency/correlation records for S12 turn submissions
 ```
 
 ## Tables
@@ -364,6 +365,37 @@ One row per utterance (user or coach). `turn_number` is a sequential integer per
 
 `feedback_content` is populated only on user-speaker rows where Haiku decided to show a feedback card. Coach-speaker rows have `feedback_content = NULL`.
 
+### practice_turn_requests
+
+```sql
+CREATE TABLE practice_turn_requests (
+  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id             UUID NOT NULL REFERENCES practice_sessions(id) ON DELETE CASCADE,
+  idempotency_key        UUID NOT NULL,
+  request_correlation_id UUID NOT NULL,
+  status                 VARCHAR(20) NOT NULL CHECK (status IN ('processing', 'completed', 'no_turn', 'failed')),
+  user_turn_id           UUID REFERENCES practice_turns(id) ON DELETE SET NULL,
+  coach_turn_id          UUID REFERENCES practice_turns(id) ON DELETE SET NULL,
+  retry_prompt           TEXT,
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  UNIQUE (session_id, idempotency_key)
+);
+
+CREATE INDEX idx_practice_turn_requests_correlation
+  ON practice_turn_requests(request_correlation_id);
+
+CREATE INDEX idx_practice_turn_requests_session_status
+  ON practice_turn_requests(session_id, status);
+```
+
+Lightweight idempotency table for `POST /practice/sessions/{id}/turns`. It links a
+client retry key to the stored user/coach turn pair, or to a no-turn retry response
+when STT was blank or low-confidence. It intentionally stores no raw audio,
+transcript, prompt, or model output text; cost and latency aggregation happens via
+`request_correlation_id` in `ai_request_logs`.
+
 ### tts_audio_cache
 
 ```sql
@@ -456,6 +488,7 @@ Tables must be created in this order due to FK constraints:
 13. `review_cards`
 14. `review_attempts`
 15. `practice_turns`
+16. `practice_turn_requests`
 
 Migration tool (Flyway recommended for Spring Boot) handles this ordering automatically when versioned migration files are named sequentially.
 

@@ -61,7 +61,7 @@ public class AnthropicService {
           modelId,
           outputSchema);
 
-      JsonNode response = attemptCall(modelId, messages);
+      JsonNode response = attemptCall(feature, modelId, messages);
       schemaValidator.validate(outputSchema, response);
 
       long latencyMs = System.currentTimeMillis() - startTimeMs;
@@ -113,10 +113,9 @@ public class AnthropicService {
     }
   }
 
-  private JsonNode attemptCall(String modelId, AnthropicMessage[] messages)
+  private JsonNode attemptCall(AiFeature feature, String modelId, AnthropicMessage[] messages)
       throws AnthropicClient.AnthropicClientException {
-    return client.sendMessage(
-        modelId, messages, FeatureRouting.getTimeoutForFeature(AiFeature.S07_ANALYSIS));
+    return client.sendMessage(modelId, messages, FeatureRouting.getTimeoutForFeature(feature));
   }
 
   private AnthropicMessage[] buildMessages(String systemPrompt, String userContent) {

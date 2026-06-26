@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Roleplay Turn Response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["coach_utterance"],
+  "properties": {
+    "coach_utterance": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
