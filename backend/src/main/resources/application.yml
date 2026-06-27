@@ -11,10 +11,24 @@ spring:
       # prod는 application-prod.yml에서 true로 다시 켜고 spring.config.import로 secret을 읽는다.
       secretsmanager:
         enabled: false
+      # S3도 prod에서만 활성. 기본/테스트 프로필에서는 S3Client/S3Presigner auto-config를 꺼서
+      # region 없는 환경에서 컨텍스트가 깨지지 않게 한다. 꺼져 있으면 AudioStorage 빈은
+      # UnavailableAudioStorage로 폴백한다(AudioStorageConfiguration). prod는 application-prod.yml에서 true.
+      s3:
+        enabled: false
 
 phraselog:
   api:
     base-path: /api/v1
+  tts:
+    s3:
+      # TTS 오디오 캐시 버킷. prod는 phraselog-audio-prod(아래 prod 프로필). 기본/테스트는 비워 둬서
+      # AudioStorage가 Unavailable로 폴백(실제 S3 접근 없음).
+      bucket: ${PHRASELOG_AUDIO_BUCKET:}
+      # 서명 GET URL 만료. 7일(스펙 초안)이 아니라 12시간 — EC2 인스턴스 IAM 역할의 임시 자격증명
+      # 수명 안에서만 서명 URL이 유효하기 때문(ADR/architecture.md 참고). 만료 시 클라이언트가
+      # /tts/playback을 재호출하면 캐시 히트라 추가 비용이 없다.
+      presign-expiry: ${PHRASELOG_TTS_PRESIGN_EXPIRY:PT12H}
   internal-auth:
     # X-Internal-Auth(#20, ADR-010) HS256 공유 비밀. 실제 비밀은 절대 커밋하지 않는다.
     # 아래는 로컬 개발용 명백한 더미(>=32바이트). prod는 Secrets Manager에서 주입(application-prod.yml).
