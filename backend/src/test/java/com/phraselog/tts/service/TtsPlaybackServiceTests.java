@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -74,8 +75,29 @@ class TtsPlaybackServiceTests {
     assertThat(result.durationMs()).isEqualTo(1200);
     assertThat(result.ttsAudioCacheId()).isEqualTo(cacheId);
     verifyNoInteractions(client);
-    verify(repository, never()).insertAndLink(any(), any());
+    verify(repository, never()).insert(any());
     assertThat(capturedLog().status()).isEqualTo(AiRequestStatus.CACHE_HIT);
+  }
+
+  @Test
+  void cacheHitLinksExpressionVariantWithoutCallingOpenAi() throws Exception {
+    UUID userId = UUID.randomUUID();
+    UUID variantId = UUID.randomUUID();
+    UUID cacheId = UUID.randomUUID();
+    when(repository.isLinkableVariant(variantId, userId, TEXT)).thenReturn(true);
+    when(repository.findByKey(any(), eq(VOICE), eq("tts-1")))
+        .thenReturn(
+            Optional.of(
+                new TtsAudioCacheRow(
+                    cacheId, "hash", VOICE, "tts-1", "tts/shimmer/hash.mp3", 1200)));
+    when(repository.linkVariant(cacheId, variantId, userId, TEXT)).thenReturn(true);
+    when(storage.presignGet("tts/shimmer/hash.mp3")).thenReturn("https://signed/hit");
+
+    TtsPlaybackResult result = service.playback(userId, TEXT, VOICE, variantId, UUID.randomUUID());
+
+    assertThat(result.cacheStatus()).isEqualTo("hit");
+    verifyNoInteractions(client);
+    verify(repository).linkVariant(cacheId, variantId, userId, TEXT);
   }
 
   @Test
@@ -83,16 +105,18 @@ class TtsPlaybackServiceTests {
     UUID userId = UUID.randomUUID();
     UUID variantId = UUID.randomUUID();
     UUID cacheId = UUID.randomUUID();
+    when(repository.isLinkableVariant(variantId, userId, TEXT)).thenReturn(true);
     when(repository.findByKey(any(), eq(VOICE), eq("tts-1"))).thenReturn(Optional.empty());
     when(client.synthesize(eq("tts-1"), eq(VOICE), eq(TEXT), any())).thenReturn(MP3);
     when(durationEstimator.estimateDurationMs(MP3)).thenReturn(OptionalInt.of(900));
-    when(repository.insertAndLink(any(), eq(variantId)))
+    when(repository.insert(any()))
         .thenAnswer(
             inv -> {
               InsertTtsCacheCommand cmd = inv.getArgument(0);
               return new TtsAudioCacheRow(
                   cacheId, cmd.textHash(), VOICE, "tts-1", cmd.audioS3Key(), cmd.durationMs());
             });
+    when(repository.linkVariant(cacheId, variantId, userId, TEXT)).thenReturn(true);
     when(storage.presignGet(any())).thenReturn("https://signed/miss");
 
     TtsPlaybackResult result = service.playback(userId, TEXT, VOICE, variantId, UUID.randomUUID());
@@ -103,9 +127,10 @@ class TtsPlaybackServiceTests {
 
     ArgumentCaptor<InsertTtsCacheCommand> cmd =
         ArgumentCaptor.forClass(InsertTtsCacheCommand.class);
-    verify(repository).insertAndLink(cmd.capture(), eq(variantId));
+    verify(repository).insert(cmd.capture());
     assertThat(cmd.getValue().audioS3Key()).startsWith("tts/shimmer/");
     assertThat(cmd.getValue().modelName()).isEqualTo("tts-1");
+    verify(repository).linkVariant(cacheId, variantId, userId, TEXT);
     verify(storage).putAudio(eq(cmd.getValue().audioS3Key()), eq(MP3), eq("audio/mpeg"));
 
     AiRequestLogEntry log = capturedLog();
@@ -119,7 +144,7 @@ class TtsPlaybackServiceTests {
     when(repository.findByKey(any(), any(), any())).thenReturn(Optional.empty());
     when(client.synthesize(any(), any(), any(), any())).thenReturn(MP3);
     when(durationEstimator.estimateDurationMs(MP3)).thenReturn(OptionalInt.empty());
-    when(repository.insertAndLink(any(), any()))
+    when(repository.insert(any()))
         .thenAnswer(
             inv -> {
               InsertTtsCacheCommand cmd = inv.getArgument(0);
@@ -142,14 +167,14 @@ class TtsPlaybackServiceTests {
   void duplicateKeyRaceReturnsWinnerAsHit() throws Exception {
     UUID winnerId = UUID.randomUUID();
     when(repository.findByKey(any(), eq(VOICE), eq("tts-1")))
-        .thenReturn(Optional.empty()) // 첫 조회: 미스
+        .thenReturn(Optional.empty())
         .thenReturn(
             Optional.of(
                 new TtsAudioCacheRow(
-                    winnerId, "hash", VOICE, "tts-1", "tts/shimmer/hash.mp3", 700))); // 재조회: 승자
+                    winnerId, "hash", VOICE, "tts-1", "tts/shimmer/hash.mp3", 700)));
     when(client.synthesize(any(), any(), any(), any())).thenReturn(MP3);
     when(durationEstimator.estimateDurationMs(MP3)).thenReturn(OptionalInt.of(700));
-    when(repository.insertAndLink(any(), any())).thenThrow(new DuplicateKeyException("race"));
+    when(repository.insert(any())).thenThrow(new DuplicateKeyException("race"));
     when(storage.presignGet("tts/shimmer/hash.mp3")).thenReturn("https://signed/winner");
 
     TtsPlaybackResult result = service.playback(UUID.randomUUID(), TEXT, VOICE, null, null);
@@ -157,8 +182,39 @@ class TtsPlaybackServiceTests {
     assertThat(result.cacheStatus()).isEqualTo("hit");
     assertThat(result.ttsAudioCacheId()).isEqualTo(winnerId);
     assertThat(result.audioUrl()).isEqualTo("https://signed/winner");
-    // 진 쪽도 OpenAI 호출은 발생했으므로 SUCCESS로 기록.
     assertThat(capturedLog().status()).isEqualTo(AiRequestStatus.SUCCESS);
+  }
+
+  @Test
+  void successfulProviderCallIsLoggedEvenWhenStorageFails() throws Exception {
+    when(repository.findByKey(any(), eq(VOICE), eq("tts-1"))).thenReturn(Optional.empty());
+    when(client.synthesize(eq("tts-1"), eq(VOICE), eq(TEXT), any())).thenReturn(MP3);
+    when(durationEstimator.estimateDurationMs(MP3)).thenReturn(OptionalInt.of(900));
+    doThrow(new RuntimeException("s3 unavailable"))
+        .when(storage)
+        .putAudio(any(), eq(MP3), eq("audio/mpeg"));
+
+    assertThatThrownBy(() -> service.playback(UUID.randomUUID(), TEXT, VOICE, null, null))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("s3 unavailable");
+
+    AiRequestLogEntry log = capturedLog();
+    assertThat(log.status()).isEqualTo(AiRequestStatus.SUCCESS);
+    assertThat(log.estimatedCostUsd())
+        .isEqualByComparingTo(costCalculator.ttsByCharacters(TEXT.length()));
+  }
+
+  @Test
+  void invalidExpressionVariantLinkFailsBeforeCallingProvider() {
+    UUID userId = UUID.randomUUID();
+    UUID variantId = UUID.randomUUID();
+    when(repository.isLinkableVariant(variantId, userId, TEXT)).thenReturn(false);
+
+    assertThatThrownBy(() -> service.playback(userId, TEXT, VOICE, variantId, null))
+        .isInstanceOf(ApiErrorException.class)
+        .satisfies(
+            e -> assertThat(((ApiErrorException) e).status()).isEqualTo(HttpStatus.NOT_FOUND));
+    verifyNoInteractions(client);
   }
 
   @Test

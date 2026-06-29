@@ -18,7 +18,18 @@ public final class UnavailableTtsAudioCacheRepository implements TtsAudioCacheRe
   }
 
   @Override
-  public TtsAudioCacheRow insertAndLink(InsertTtsCacheCommand command, UUID expressionVariantId) {
+  public TtsAudioCacheRow insert(InsertTtsCacheCommand command) {
+    throw unavailable();
+  }
+
+  @Override
+  public boolean isLinkableVariant(UUID expressionVariantId, UUID userId, String textContent) {
+    throw unavailable();
+  }
+
+  @Override
+  public boolean linkVariant(
+      UUID cacheId, UUID expressionVariantId, UUID userId, String textContent) {
     throw unavailable();
   }
 

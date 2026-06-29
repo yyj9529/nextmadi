@@ -26,14 +26,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 /**
- * TTS 합성 + content-hash 캐시의 코어 서비스(#30). REST 엔드포인트({@code POST /tts/playback})와 S12 코치 음성용 {@code
- * PracticeAudioService} 양쪽이 이 서비스를 공유한다.
+ * Core TTS synthesis service for {@code POST /tts/playback} and S12 coach audio.
  *
- * <p>흐름: {@code (sha256(text), voice, model)}로 캐시 조회 → 히트면 OpenAI 호출 없이 서명 URL, 미스면 OpenAI 합성 → S3
- * 업로드 → 캐시 INSERT(+옵션 variant 링크) → 서명 URL. 동시 미스 경합은 결정적 S3 키 덮어쓰기 + INSERT UNIQUE 충돌 재조회로 처리한다(
- * {@code PracticeTurnService.reserveRequest}와 동일한 try-insert/catch/re-select 선례).
- *
- * <p>로깅/에러매핑은 {@code TranscriptionService}와 동일한 패턴을 따른다.
+ * <p>The cache key is {@code (sha256(text), voice_id, model_name)}. Cache hits return a presigned
+ * URL without calling OpenAI; misses call OpenAI TTS, store the MP3 in S3, insert a cache row, and
+ * optionally link the row to an owned expression variant with matching text.
  */
 @Service
 public class TtsPlaybackService {
@@ -72,12 +69,16 @@ public class TtsPlaybackService {
     if (voiceId == null || voiceId.isBlank()) {
       throw validationFailed("voice_id must not be blank.");
     }
+
     UUID correlation = correlationId != null ? correlationId : UUID.randomUUID();
     String hash = sha256Hex(text);
+    validateLinkTarget(userId, text, expressionVariantId);
 
     Optional<TtsAudioCacheRow> cached = cacheRepository.findByKey(hash, voiceId, MODEL);
     if (cached.isPresent()) {
-      return servedFromCache(userId, correlation, cached.get());
+      TtsAudioCacheRow row = cached.get();
+      linkVariantIfRequested(row.id(), expressionVariantId, userId, text);
+      return servedFromCache(userId, correlation, row);
     }
     return synthesizeAndStore(userId, text, voiceId, expressionVariantId, correlation, hash);
   }
@@ -108,24 +109,23 @@ public class TtsPlaybackService {
       throw toApiError(e.errorCode());
     }
 
+    BigDecimal cost = costCalculator.ttsByCharacters(text.length());
+    long latencyMs = System.currentTimeMillis() - startTimeMs;
+    logCall(userId, correlation, latencyMs, AiRequestStatus.SUCCESS, null, cost);
+
     Integer durationMs = estimateDuration(mp3);
     String key = s3Key(voiceId, hash);
     audioStorage.putAudio(key, mp3, AUDIO_CONTENT_TYPE);
 
-    BigDecimal cost = costCalculator.ttsByCharacters(text.length());
-    long latencyMs = System.currentTimeMillis() - startTimeMs;
     try {
       TtsAudioCacheRow row =
-          cacheRepository.insertAndLink(
-              new InsertTtsCacheCommand(hash, text, voiceId, MODEL, key, durationMs, null),
-              expressionVariantId);
-      logCall(userId, correlation, latencyMs, AiRequestStatus.SUCCESS, null, cost);
+          cacheRepository.insert(
+              new InsertTtsCacheCommand(hash, text, voiceId, MODEL, key, durationMs, null));
+      linkVariantIfRequested(row.id(), expressionVariantId, userId, text);
       return new TtsPlaybackResult(
           row.id(), audioStorage.presignGet(key), durationMs, TtsPlaybackResult.MISS);
     } catch (DuplicateKeyException race) {
-      // 동시 미스 경합에서 진 쪽: OpenAI 호출은 실제 발생했으므로 SUCCESS+비용으로 기록하고(과소집계 방지),
-      // 클라이언트에는 승자 행의 URL을 hit으로 돌려준다.
-      logCall(userId, correlation, latencyMs, AiRequestStatus.SUCCESS, null, cost);
+      // The OpenAI call was already logged above; return the winner's cached URL.
       TtsAudioCacheRow winner =
           cacheRepository
               .findByKey(hash, voiceId, MODEL)
@@ -137,11 +137,44 @@ public class TtsPlaybackService {
                           "문제가 발생했어요. 잠시 후 다시 시도해주세요.",
                           "TTS cache row vanished after a duplicate-key race.",
                           true));
+      linkVariantIfRequested(winner.id(), expressionVariantId, userId, text);
       return new TtsPlaybackResult(
           winner.id(),
           audioStorage.presignGet(winner.audioS3Key()),
           winner.durationMs(),
           TtsPlaybackResult.HIT);
+    }
+  }
+
+  private void validateLinkTarget(UUID userId, String text, UUID expressionVariantId) {
+    if (expressionVariantId == null) {
+      return;
+    }
+    if (userId == null) {
+      throw validationFailed("expression_variant_id requires an authenticated user.");
+    }
+    if (!cacheRepository.isLinkableVariant(expressionVariantId, userId, text)) {
+      throw new ApiErrorException(
+          HttpStatus.NOT_FOUND,
+          "not_found",
+          "찾을 수 없는 표현이에요.",
+          "expression_variant_id does not belong to the user or does not match text.",
+          false);
+    }
+  }
+
+  private void linkVariantIfRequested(
+      UUID cacheId, UUID expressionVariantId, UUID userId, String text) {
+    if (expressionVariantId == null) {
+      return;
+    }
+    if (!cacheRepository.linkVariant(cacheId, expressionVariantId, userId, text)) {
+      throw new ApiErrorException(
+          HttpStatus.NOT_FOUND,
+          "not_found",
+          "찾을 수 없는 표현이에요.",
+          "expression_variant_id could not be linked to the TTS cache row.",
+          false);
     }
   }
 
@@ -179,7 +212,7 @@ public class TtsPlaybackService {
           new ApiErrorException(
               HttpStatus.SERVICE_UNAVAILABLE,
               "provider_5xx",
-              "서비스가 일시적으로 이용 불가합니다. 잠시 후 다시 시도해주세요.",
+              "서비스가 일시적으로 이용 불가능합니다. 잠시 후 다시 시도해주세요.",
               "OpenAI provider returned 5xx error",
               true);
       case PROVIDER_429 ->
@@ -193,7 +226,7 @@ public class TtsPlaybackService {
           new ApiErrorException(
               HttpStatus.REQUEST_TIMEOUT,
               "timeout",
-              "응답 시간이 초과되었습니다. 다시 시도해주세요.",
+              "응답 시간이 초과되었어요. 다시 시도해주세요.",
               "OpenAI TTS request timed out",
               true);
       case NETWORK ->

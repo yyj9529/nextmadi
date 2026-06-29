@@ -9,13 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/**
- * {@link TtsAudioCacheRepository}의 JdbcTemplate 구현.
- *
- * <p>바인딩 스타일은 {@code JdbcAiRequestLogStore}/{@code JdbcPracticeTurnRepository}를 따른다 — UUID는 {@code
- * Types.OTHER}, nullable 컬럼은 명시 JDBC 타입. {@code insertAndLink}는 INSERT(RETURNING id)와
- * expression_variants 링크 UPDATE를 한 트랜잭션으로 묶어, 네트워크 I/O(OpenAI/S3)는 트랜잭션 밖에서 끝낸 뒤 DB 쓰기만 원자적으로 처리한다.
- */
+/** JdbcTemplate implementation of {@link TtsAudioCacheRepository}. */
 public class JdbcTtsAudioCacheRepository implements TtsAudioCacheRepository {
 
   private static final String SELECT_BY_KEY =
@@ -33,8 +27,30 @@ public class JdbcTtsAudioCacheRepository implements TtsAudioCacheRepository {
       RETURNING id
       """;
 
+  private static final String IS_LINKABLE_VARIANT_SQL =
+      """
+      SELECT EXISTS (
+        SELECT 1
+        FROM expression_variants ev
+        JOIN expressions e ON ev.expression_id = e.id
+        WHERE ev.id = ?
+          AND e.user_id = ?
+          AND e.deleted_at IS NULL
+          AND ev.english_text = ?
+      )
+      """;
+
   private static final String LINK_VARIANT_SQL =
-      "UPDATE expression_variants SET tts_audio_cache_id = ? WHERE id = ?";
+      """
+      UPDATE expression_variants ev
+      SET tts_audio_cache_id = ?
+      FROM expressions e
+      WHERE ev.expression_id = e.id
+        AND ev.id = ?
+        AND e.user_id = ?
+        AND e.deleted_at IS NULL
+        AND ev.english_text = ?
+      """;
 
   private final JdbcTemplate jdbcTemplate;
   private final TransactionTemplate transactionTemplate;
@@ -56,19 +72,10 @@ public class JdbcTtsAudioCacheRepository implements TtsAudioCacheRepository {
   }
 
   @Override
-  public TtsAudioCacheRow insertAndLink(InsertTtsCacheCommand command, UUID expressionVariantId) {
+  public TtsAudioCacheRow insert(InsertTtsCacheCommand command) {
     return transactionTemplate.execute(
         tx -> {
           UUID id = insertRow(command);
-          if (expressionVariantId != null) {
-            jdbcTemplate.update(
-                connection -> {
-                  PreparedStatement ps = connection.prepareStatement(LINK_VARIANT_SQL);
-                  ps.setObject(1, id, Types.OTHER);
-                  ps.setObject(2, expressionVariantId, Types.OTHER);
-                  return ps;
-                });
-          }
           return new TtsAudioCacheRow(
               id,
               command.textHash(),
@@ -79,9 +86,38 @@ public class JdbcTtsAudioCacheRepository implements TtsAudioCacheRepository {
         });
   }
 
+  @Override
+  public boolean isLinkableVariant(UUID expressionVariantId, UUID userId, String textContent) {
+    if (expressionVariantId == null || userId == null || textContent == null) {
+      return false;
+    }
+    Boolean linkable =
+        jdbcTemplate.queryForObject(
+            IS_LINKABLE_VARIANT_SQL, Boolean.class, expressionVariantId, userId, textContent);
+    return Boolean.TRUE.equals(linkable);
+  }
+
+  @Override
+  public boolean linkVariant(
+      UUID cacheId, UUID expressionVariantId, UUID userId, String textContent) {
+    if (cacheId == null || expressionVariantId == null || userId == null || textContent == null) {
+      return false;
+    }
+    int updated =
+        jdbcTemplate.update(
+            connection -> {
+              PreparedStatement ps = connection.prepareStatement(LINK_VARIANT_SQL);
+              ps.setObject(1, cacheId, Types.OTHER);
+              ps.setObject(2, expressionVariantId, Types.OTHER);
+              ps.setObject(3, userId, Types.OTHER);
+              ps.setString(4, textContent);
+              return ps;
+            });
+    return updated == 1;
+  }
+
   private UUID insertRow(InsertTtsCacheCommand command) {
-    // nullable 컬럼(duration_ms/expires_at)은 명시 JDBC 타입으로 바인딩해 PostgreSQL의 null 타입 추론
-    // 실패를 피한다(JdbcAiRequestLogStore와 동일). RETURNING id로 생성 행 id를 받는다.
+    // Bind nullable values with explicit JDBC types to avoid PostgreSQL null inference failures.
     return jdbcTemplate.query(
         connection -> {
           PreparedStatement ps = connection.prepareStatement(INSERT_SQL);

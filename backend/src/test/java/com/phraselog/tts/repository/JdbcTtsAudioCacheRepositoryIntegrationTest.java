@@ -19,7 +19,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** {@link JdbcTtsAudioCacheRepository}를 실제 Postgres에 대해 검증한다(#30). Docker 없으면 skip. */
+/** Verifies {@link JdbcTtsAudioCacheRepository} against Postgres for ticket #30. */
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcTtsAudioCacheRepositoryIntegrationTest {
 
@@ -61,10 +61,9 @@ class JdbcTtsAudioCacheRepositoryIntegrationTest {
   @Test
   void insertThenFindByKeyRoundtrips() {
     TtsAudioCacheRow inserted =
-        repository.insertAndLink(
+        repository.insert(
             new InsertTtsCacheCommand(
-                "hash-a", "Hello there", "shimmer", "tts-1", "tts/shimmer/hash-a.mp3", 2606, null),
-            null);
+                "hash-a", "Hello there", "shimmer", "tts-1", "tts/shimmer/hash-a.mp3", 2606, null));
 
     assertThat(inserted.id()).isNotNull();
 
@@ -77,10 +76,9 @@ class JdbcTtsAudioCacheRepositoryIntegrationTest {
 
   @Test
   void findByKeyDistinguishesVoiceAndModel() {
-    repository.insertAndLink(
+    repository.insert(
         new InsertTtsCacheCommand(
-            "hash-b", "Hi", "shimmer", "tts-1", "tts/shimmer/hash-b.mp3", 500, null),
-        null);
+            "hash-b", "Hi", "shimmer", "tts-1", "tts/shimmer/hash-b.mp3", 500, null));
 
     assertThat(repository.findByKey("hash-b", "shimmer", "tts-1")).isPresent();
     assertThat(repository.findByKey("hash-b", "nova", "tts-1")).isEmpty();
@@ -92,44 +90,93 @@ class JdbcTtsAudioCacheRepositoryIntegrationTest {
     InsertTtsCacheCommand command =
         new InsertTtsCacheCommand(
             "hash-c", "Hi", "shimmer", "tts-1", "tts/shimmer/hash-c.mp3", 500, null);
-    repository.insertAndLink(command, null);
+    repository.insert(command);
 
-    assertThatThrownBy(() -> repository.insertAndLink(command, null))
-        .isInstanceOf(DuplicateKeyException.class);
+    assertThatThrownBy(() -> repository.insert(command)).isInstanceOf(DuplicateKeyException.class);
   }
 
   @Test
   void nullDurationIsStoredAsNull() {
     TtsAudioCacheRow inserted =
-        repository.insertAndLink(
+        repository.insert(
             new InsertTtsCacheCommand(
-                "hash-d", "Hi", "shimmer", "tts-1", "tts/shimmer/hash-d.mp3", null, null),
-            null);
+                "hash-d", "Hi", "shimmer", "tts-1", "tts/shimmer/hash-d.mp3", null, null));
 
     assertThat(inserted.durationMs()).isNull();
     assertThat(repository.findByKey("hash-d", "shimmer", "tts-1").get().durationMs()).isNull();
   }
 
   @Test
-  void insertAndLinkUpdatesExpressionVariant() {
-    UUID variantId = seedExpressionVariant();
-
+  void linkVariantUpdatesOwnedMatchingExpressionVariant() {
+    SeededVariant seeded = seedExpressionVariant("Linked");
     TtsAudioCacheRow inserted =
-        repository.insertAndLink(
+        repository.insert(
             new InsertTtsCacheCommand(
-                "hash-e", "Linked", "shimmer", "tts-1", "tts/shimmer/hash-e.mp3", 800, null),
-            variantId);
+                "hash-e", "Linked", "shimmer", "tts-1", "tts/shimmer/hash-e.mp3", 800, null));
+
+    assertThat(repository.isLinkableVariant(seeded.variantId(), seeded.userId(), "Linked"))
+        .isTrue();
+    assertThat(repository.linkVariant(inserted.id(), seeded.variantId(), seeded.userId(), "Linked"))
+        .isTrue();
 
     UUID linkedCacheId =
         jdbcTemplate.queryForObject(
             "SELECT tts_audio_cache_id FROM expression_variants WHERE id = ?",
             UUID.class,
-            variantId);
+            seeded.variantId());
     assertThat(linkedCacheId).isEqualTo(inserted.id());
   }
 
-  /** users → analysis_requests → expressions(analysis) → expression_variants 최소 체인. */
-  private UUID seedExpressionVariant() {
+  @Test
+  void linkVariantRejectsWrongOwner() {
+    SeededVariant seeded = seedExpressionVariant("Owner safe");
+    TtsAudioCacheRow inserted =
+        repository.insert(
+            new InsertTtsCacheCommand(
+                "hash-f", "Owner safe", "shimmer", "tts-1", "tts/shimmer/hash-f.mp3", 800, null));
+
+    assertThat(repository.isLinkableVariant(seeded.variantId(), UUID.randomUUID(), "Owner safe"))
+        .isFalse();
+    assertThat(
+            repository.linkVariant(
+                inserted.id(), seeded.variantId(), UUID.randomUUID(), "Owner safe"))
+        .isFalse();
+    assertThat(currentLinkedCacheId(seeded.variantId())).isNull();
+  }
+
+  @Test
+  void linkVariantRejectsMismatchedText() {
+    SeededVariant seeded = seedExpressionVariant("Exact text");
+    TtsAudioCacheRow inserted =
+        repository.insert(
+            new InsertTtsCacheCommand(
+                "hash-g", "Other text", "shimmer", "tts-1", "tts/shimmer/hash-g.mp3", 800, null));
+
+    assertThat(repository.isLinkableVariant(seeded.variantId(), seeded.userId(), "Other text"))
+        .isFalse();
+    assertThat(
+            repository.linkVariant(
+                inserted.id(), seeded.variantId(), seeded.userId(), "Other text"))
+        .isFalse();
+    assertThat(currentLinkedCacheId(seeded.variantId())).isNull();
+  }
+
+  @Test
+  void isLinkableVariantRejectsDeletedExpression() {
+    SeededVariant seeded = seedExpressionVariant("Soft deleted");
+    jdbcTemplate.update(
+        "UPDATE expressions SET deleted_at = NOW() WHERE id = ?", seeded.expressionId());
+
+    assertThat(repository.isLinkableVariant(seeded.variantId(), seeded.userId(), "Soft deleted"))
+        .isFalse();
+  }
+
+  private UUID currentLinkedCacheId(UUID variantId) {
+    return jdbcTemplate.queryForObject(
+        "SELECT tts_audio_cache_id FROM expression_variants WHERE id = ?", UUID.class, variantId);
+  }
+
+  private SeededVariant seedExpressionVariant(String englishText) {
     UUID userId = UUID.randomUUID();
     jdbcTemplate.update(
         "INSERT INTO users (id, email) VALUES (?, ?)", userId, userId + "@example.com");
@@ -154,7 +201,9 @@ class JdbcTtsAudioCacheRepositoryIntegrationTest {
             + " VALUES (?, ?, 1, ?)",
         variantId,
         expressionId,
-        "Could I get a coffee?");
-    return variantId;
+        englishText);
+    return new SeededVariant(userId, expressionId, variantId);
   }
+
+  private record SeededVariant(UUID userId, UUID expressionId, UUID variantId) {}
 }

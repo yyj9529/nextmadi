@@ -3,18 +3,22 @@ package com.phraselog.tts.repository;
 import java.util.Optional;
 import java.util.UUID;
 
-/** {@code tts_audio_cache} 읽기/쓰기 경계. (#30) */
+/** Boundary for reading and writing {@code tts_audio_cache}. (#30) */
 public interface TtsAudioCacheRepository {
 
-  /** content key {@code (text_hash, voice_id, model_name)}로 캐시 행을 조회한다. */
   Optional<TtsAudioCacheRow> findByKey(String textHash, String voiceId, String modelName);
 
+  TtsAudioCacheRow insert(InsertTtsCacheCommand command);
+
   /**
-   * 캐시 행을 INSERT하고, {@code expressionVariantId}가 있으면 같은 트랜잭션에서 {@code
-   * expression_variants.tts_audio_cache_id}를 링크한 뒤, 생성된 행을 반환한다.
-   *
-   * @throws org.springframework.dao.DuplicateKeyException UNIQUE(text_hash, voice_id, model_name)
-   *     충돌 시
+   * Checks whether an expression variant belongs to the authenticated user and has the exact text
+   * being synthesized. Used before a provider call so a bad link target cannot create charged work.
    */
-  TtsAudioCacheRow insertAndLink(InsertTtsCacheCommand command, UUID expressionVariantId);
+  boolean isLinkableVariant(UUID expressionVariantId, UUID userId, String textContent);
+
+  /**
+   * Links a cache row to a variant only when the variant still belongs to the same user and text.
+   * Returns false if the row was not linked.
+   */
+  boolean linkVariant(UUID cacheId, UUID expressionVariantId, UUID userId, String textContent);
 }
