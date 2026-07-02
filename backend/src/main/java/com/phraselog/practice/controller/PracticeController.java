@@ -1,10 +1,15 @@
 package com.phraselog.practice.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.phraselog.auth.dto.InternalAuthPrincipal;
 import com.phraselog.common.web.ApiErrorException;
 import com.phraselog.common.web.ApiPaths;
+import com.phraselog.expression.dto.ExpressionResponse;
+import com.phraselog.expression.dto.SaveExpressionResult;
 import com.phraselog.practice.dto.PracticeSessionResponse;
+import com.phraselog.practice.dto.SaveRoleplayExpressionRequest;
 import com.phraselog.practice.dto.StartSessionRequest;
+import com.phraselog.practice.service.PracticeResultService;
 import com.phraselog.practice.service.PracticeSessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -28,9 +33,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class PracticeController {
 
   private final PracticeSessionService practiceSessionService;
+  private final PracticeResultService practiceResultService;
 
-  public PracticeController(PracticeSessionService practiceSessionService) {
+  public PracticeController(
+      PracticeSessionService practiceSessionService, PracticeResultService practiceResultService) {
     this.practiceSessionService = practiceSessionService;
+    this.practiceResultService = practiceResultService;
   }
 
   @PostMapping
@@ -48,6 +56,23 @@ public class PracticeController {
   public PracticeSessionResponse get(
       HttpServletRequest request, @PathVariable("session_id") String sessionId) {
     return practiceSessionService.get(principal(request), sessionId);
+  }
+
+  @PostMapping("/{session_id}/result")
+  public JsonNode result(HttpServletRequest request, @PathVariable("session_id") String sessionId) {
+    return practiceResultService.generateResult(principal(request), sessionId);
+  }
+
+  @PostMapping("/{session_id}/save-expression")
+  public ResponseEntity<ExpressionResponse> saveExpression(
+      HttpServletRequest request,
+      @PathVariable("session_id") String sessionId,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+      @RequestBody(required = false) SaveRoleplayExpressionRequest body) {
+    SaveExpressionResult result =
+        practiceResultService.saveExpression(principal(request), sessionId, body, idempotencyKey);
+    HttpStatus status = result.duplicate() ? HttpStatus.CONFLICT : HttpStatus.CREATED;
+    return ResponseEntity.status(status).body(result.expression());
   }
 
   private static InternalAuthPrincipal principal(HttpServletRequest request) {

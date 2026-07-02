@@ -3,6 +3,7 @@ package com.phraselog.expression.repository;
 import com.phraselog.expression.dto.ExpressionListItem;
 import com.phraselog.expression.dto.ExpressionResponse;
 import com.phraselog.expression.dto.NewExpression;
+import com.phraselog.expression.dto.NewRoleplayExpression;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -23,6 +24,23 @@ public final class UnavailableExpressionRepository implements ExpressionReposito
 
   @Override
   public ExpressionResponse createFromAnalysis(NewExpression expression) {
+    throw unavailable();
+  }
+
+  @Override
+  public Optional<ExpressionResponse> findByRoleplayIdempotencyKey(
+      UUID practiceSessionId, UUID userId, UUID idempotencyKey) {
+    throw unavailable();
+  }
+
+  @Override
+  public Optional<ExpressionResponse> findActiveRoleplaySaveByIndex(
+      UUID practiceSessionId, UUID userId, int roleplayResultIndex) {
+    throw unavailable();
+  }
+
+  @Override
+  public ExpressionResponse createFromRoleplayResult(NewRoleplayExpression expression) {
     throw unavailable();
   }
 

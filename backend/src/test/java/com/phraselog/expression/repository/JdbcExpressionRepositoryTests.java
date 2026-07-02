@@ -6,6 +6,7 @@ import com.phraselog.expression.dto.ExpressionListItem;
 import com.phraselog.expression.dto.ExpressionResponse;
 import com.phraselog.expression.dto.NewExpression;
 import com.phraselog.expression.dto.NewExpressionVariant;
+import com.phraselog.expression.dto.NewRoleplayExpression;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.jdbc.DataSourceBuilder;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -49,6 +51,9 @@ class JdbcExpressionRepositoryTests {
   @BeforeEach
   void setUp() {
     jdbcTemplate = new JdbcTemplate(dataSource);
+    jdbcTemplate.update("DELETE FROM practice_turn_requests");
+    jdbcTemplate.update("DELETE FROM practice_turns");
+    jdbcTemplate.update("DELETE FROM practice_sessions");
     jdbcTemplate.update("DELETE FROM review_cards");
     jdbcTemplate.update("DELETE FROM expression_variants");
     jdbcTemplate.update("DELETE FROM expressions");
@@ -282,6 +287,83 @@ class JdbcExpressionRepositoryTests {
     assertThat(repository.countActive(userId)).isZero();
   }
 
+  @Test
+  void createFromRoleplayResultCreatesExpressionVariantsAndDueReviewCard() {
+    UUID userId = insertUser("owner@example.com");
+    UUID sessionId = insertPracticeSession(userId);
+    UUID idempotencyKey = UUID.randomUUID();
+
+    ExpressionResponse response =
+        repository.createFromRoleplayResult(
+            roleplayCommand(userId, sessionId, idempotencyKey, 2, 1));
+
+    assertThat(response.sourceType()).isEqualTo("roleplay_result");
+    assertThat(response.analysisRequestId()).isNull();
+    assertThat(response.practiceSessionId()).isEqualTo(sessionId);
+    assertThat(response.originalSituation()).isEqualTo("doctor appointment");
+    assertThat(response.variants()).hasSize(3);
+    assertThat(response.selectedVariantId()).isEqualTo(response.variants().get(1).id());
+    assertThat(response.reviewCardId()).isNotNull();
+    assertThat(response.nextReviewAt()).isBeforeOrEqualTo(OffsetDateTime.now().plusSeconds(1));
+
+    Integer roleplayIndex =
+        jdbcTemplate.queryForObject(
+            "SELECT roleplay_result_index FROM expressions WHERE id = ?",
+            Integer.class,
+            response.id());
+    UUID storedIdempotencyKey =
+        jdbcTemplate.queryForObject(
+            "SELECT roleplay_save_idempotency_key FROM expressions WHERE id = ?",
+            UUID.class,
+            response.id());
+    Integer interval =
+        jdbcTemplate.queryForObject(
+            "SELECT current_interval_days FROM review_cards WHERE id = ?",
+            Integer.class,
+            response.reviewCardId());
+
+    assertThat(roleplayIndex).isEqualTo(1);
+    assertThat(storedIdempotencyKey).isEqualTo(idempotencyKey);
+    assertThat(interval).isEqualTo(1);
+  }
+
+  @Test
+  void roleplayIdempotencyAndActiveIndexLookupsReturnExistingExpression() {
+    UUID userId = insertUser("owner@example.com");
+    UUID sessionId = insertPracticeSession(userId);
+    UUID key = UUID.randomUUID();
+    ExpressionResponse created =
+        repository.createFromRoleplayResult(roleplayCommand(userId, sessionId, key, 1, 0));
+
+    assertThat(repository.findByRoleplayIdempotencyKey(sessionId, userId, key))
+        .map(ExpressionResponse::id)
+        .contains(created.id());
+    assertThat(repository.findActiveRoleplaySaveByIndex(sessionId, userId, 0))
+        .map(ExpressionResponse::id)
+        .contains(created.id());
+    assertThat(repository.findByRoleplayIdempotencyKey(sessionId, UUID.randomUUID(), key))
+        .isEmpty();
+  }
+
+  @Test
+  void roleplayUniqueIndexesPreventDuplicateIdempotencyAndActiveCardSaves() {
+    UUID userId = insertUser("owner@example.com");
+    UUID sessionId = insertPracticeSession(userId);
+    UUID key = UUID.randomUUID();
+    repository.createFromRoleplayResult(roleplayCommand(userId, sessionId, key, 1, 0));
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () ->
+                repository.createFromRoleplayResult(roleplayCommand(userId, sessionId, key, 2, 1)))
+        .isInstanceOf(DuplicateKeyException.class);
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () ->
+                repository.createFromRoleplayResult(
+                    roleplayCommand(userId, sessionId, UUID.randomUUID(), 1, 0)))
+        .isInstanceOf(DuplicateKeyException.class);
+  }
+
   private static List<String> englishTexts(String prefix) {
     return List.of(prefix + " one", prefix + " two", prefix + " three");
   }
@@ -394,5 +476,60 @@ class JdbcExpressionRepositoryTests {
                 "이즈",
                 "Link there any.",
                 "Availability is common for appointment slots.")));
+  }
+
+  private UUID insertPracticeSession(UUID userId) {
+    UUID coachId =
+        jdbcTemplate.queryForObject("SELECT id FROM coach_profiles WHERE slug = 'mia'", UUID.class);
+    UUID sessionId = UUID.randomUUID();
+    jdbcTemplate.update(
+        """
+        INSERT INTO practice_sessions (id, user_id, coach_id, status, planned_turns)
+        VALUES (?, ?, ?, 'completed', 3)
+        """,
+        sessionId,
+        userId,
+        coachId);
+    return sessionId;
+  }
+
+  private static NewRoleplayExpression roleplayCommand(
+      UUID userId,
+      UUID sessionId,
+      UUID idempotencyKey,
+      int selectedOrder,
+      int roleplayResultIndex) {
+    return new NewRoleplayExpression(
+        userId,
+        sessionId,
+        "doctor appointment",
+        selectedOrder,
+        roleplayResultIndex,
+        idempotencyKey,
+        List.of(
+            new NewExpressionVariant(
+                1,
+                "polite",
+                "Could you repeat that?",
+                "/a/",
+                "could",
+                "short could",
+                "clarification"),
+            new NewExpressionVariant(
+                2,
+                "careful",
+                "I want to make sure I understood.",
+                "/b/",
+                "want",
+                "link words",
+                "careful check"),
+            new NewExpressionVariant(
+                3,
+                "confirming",
+                "Can I say that back to you?",
+                "/c/",
+                "can",
+                "light can",
+                "paraphrase")));
   }
 }

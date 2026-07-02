@@ -755,6 +755,8 @@ paths:
                 $ref: "#/components/schemas/PracticeResult"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
 
@@ -779,6 +781,7 @@ paths:
                 recommended_expression_index:
                   type: integer
                   minimum: 0
+                  maximum: 2
                   description: Index into result_json.recommended_expressions array.
       responses:
         "201":
@@ -787,8 +790,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Expression"
+        "400":
+          $ref: "#/components/responses/ValidationError"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Session has no cached result yet, is not completed, or this save is a duplicate.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Expression"
+                  - $ref: "#/components/schemas/ErrorResponse"
 
   # ───────────────────────────────────────────────────────────────────────────
   # Usage stats (S11)
@@ -1235,6 +1250,11 @@ components:
           type: string
           format: date-time
           nullable: true
+        result_json:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PracticeResult"
+          description: Cached S12b result. Null until POST /practice/sessions/{id}/result succeeds.
         turns:
           type: array
           items:
@@ -1287,11 +1307,25 @@ components:
     PracticeResult:
       type: object
       description: Sonnet-generated session summary. See AI_PIPELINE.md roleplay_result_v1.
+      required:
+        - recommended_expressions
+        - awkward_pairs
+        - pronunciation_focus_words
+        - coach_encouragement
       properties:
         recommended_expressions:
           type: array
+          minItems: 3
+          maxItems: 3
           items:
             type: object
+            required:
+              - english
+              - tone_label
+              - ipa
+              - korean_pronunciation
+              - pronunciation_tip
+              - cultural_tip
             properties:
               english:
                 type: string
@@ -1307,8 +1341,10 @@ components:
                 type: string
         awkward_pairs:
           type: array
+          maxItems: 3
           items:
             type: object
+            required: [user_said, natural_version, comment]
             properties:
               user_said:
                 type: string

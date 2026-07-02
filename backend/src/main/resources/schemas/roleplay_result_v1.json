@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Roleplay Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recommended_expressions",
+    "awkward_pairs",
+    "pronunciation_focus_words",
+    "coach_encouragement"
+  ],
+  "properties": {
+    "recommended_expressions": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "english",
+          "tone_label",
+          "ipa",
+          "korean_pronunciation",
+          "pronunciation_tip",
+          "cultural_tip"
+        ],
+        "properties": {
+          "english": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tone_label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ipa": {
+            "type": "string",
+            "minLength": 1
+          },
+          "korean_pronunciation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pronunciation_tip": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cultural_tip": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "awkward_pairs": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["user_said", "natural_version", "comment"],
+        "properties": {
+          "user_said": {
+            "type": "string",
+            "minLength": 1
+          },
+          "natural_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "comment": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "pronunciation_focus_words": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "coach_encouragement": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

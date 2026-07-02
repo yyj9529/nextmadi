@@ -1,6 +1,8 @@
 package com.phraselog.practice.repository;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.phraselog.practice.dto.NewPracticeSession;
+import com.phraselog.practice.dto.PracticeResultContext;
 import com.phraselog.practice.dto.PracticeSessionWithTurns;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,4 +28,16 @@ public interface PracticeRepository {
    * restoration). Empty when missing or not owned — the caller maps both to 404.
    */
   Optional<PracticeSessionWithTurns> findByIdForOwner(UUID sessionId, UUID userId);
+
+  /**
+   * Loads the session, source expression, coach, current result cache, and ordered turns needed for
+   * S12b result generation/save. Empty when missing or not owned.
+   */
+  Optional<PracticeResultContext> findResultContext(UUID sessionId, UUID userId);
+
+  /**
+   * Stores result JSON only when the session still has no cached result. Returns the winner: either
+   * the JSON just stored or the existing cached JSON if another request won the race.
+   */
+  JsonNode saveResultJsonIfAbsent(UUID sessionId, UUID userId, JsonNode resultJson);
 }

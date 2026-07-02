@@ -79,6 +79,25 @@ class JsonSchemaValidatorTests {
   }
 
   @Test
+  void acceptsValidRoleplayResultResponse() throws Exception {
+    validator.validate(
+        "roleplay_result_v1",
+        objectMapper.readTree(
+            """
+            {
+              "recommended_expressions": [
+                {"english":"Could you repeat that?","tone_label":"polite","ipa":"/a/","korean_pronunciation":"could","pronunciation_tip":"short could","cultural_tip":"clarification"},
+                {"english":"I want to make sure I understood.","tone_label":"careful","ipa":"/b/","korean_pronunciation":"want","pronunciation_tip":"link words","cultural_tip":"careful check"},
+                {"english":"Can I say that back to you?","tone_label":"confirming","ipa":"/c/","korean_pronunciation":"can","pronunciation_tip":"light can","cultural_tip":"paraphrase"}
+              ],
+              "awkward_pairs": [],
+              "pronunciation_focus_words": [],
+              "coach_encouragement": "Nice work."
+            }
+            """));
+  }
+
+  @Test
   void rejectsRoleplayFeedbackTrueWithoutKoreanComment() throws Exception {
     assertThatThrownBy(
             () ->

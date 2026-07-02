@@ -5,6 +5,7 @@ import com.phraselog.expression.dto.ExpressionResponse;
 import com.phraselog.expression.dto.ExpressionVariantResponse;
 import com.phraselog.expression.dto.NewExpression;
 import com.phraselog.expression.dto.NewExpressionVariant;
+import com.phraselog.expression.dto.NewRoleplayExpression;
 import java.sql.ResultSet;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -44,6 +45,68 @@ public class JdbcExpressionRepository implements ExpressionRepository {
               expressionRowMapper(),
               analysisRequestId,
               userId);
+      return Optional.of(toResponse(row));
+    } catch (EmptyResultDataAccessException e) {
+      return Optional.empty();
+    }
+  }
+
+  @Override
+  public Optional<ExpressionResponse> findByRoleplayIdempotencyKey(
+      UUID practiceSessionId, UUID userId, UUID idempotencyKey) {
+    try {
+      ExpressionRow row =
+          jdbcTemplate.queryForObject(
+              """
+              SELECT e.id, e.source_type, e.analysis_request_id, e.practice_session_id,
+                     e.original_situation, e.selected_variant_id, e.created_at,
+                     rc.id AS review_card_id, rc.next_review_at
+                FROM expressions e
+                LEFT JOIN review_cards rc
+                  ON rc.expression_id = e.id AND rc.user_id = e.user_id
+               WHERE e.practice_session_id = ?
+                 AND e.user_id = ?
+                 AND e.source_type = 'roleplay_result'
+                 AND e.roleplay_save_idempotency_key = ?
+               ORDER BY e.created_at DESC
+               LIMIT 1
+              """,
+              expressionRowMapper(),
+              practiceSessionId,
+              userId,
+              idempotencyKey);
+      return Optional.of(toResponse(row));
+    } catch (EmptyResultDataAccessException e) {
+      return Optional.empty();
+    }
+  }
+
+  @Override
+  public Optional<ExpressionResponse> findActiveRoleplaySaveByIndex(
+      UUID practiceSessionId, UUID userId, int roleplayResultIndex) {
+    try {
+      ExpressionRow row =
+          jdbcTemplate.queryForObject(
+              """
+              SELECT e.id, e.source_type, e.analysis_request_id, e.practice_session_id,
+                     e.original_situation, e.selected_variant_id, e.created_at,
+                     rc.id AS review_card_id, rc.next_review_at
+                FROM expressions e
+                LEFT JOIN review_cards rc
+                  ON rc.expression_id = e.id AND rc.user_id = e.user_id
+                 AND rc.removed_from_queue_at IS NULL
+               WHERE e.practice_session_id = ?
+                 AND e.user_id = ?
+                 AND e.source_type = 'roleplay_result'
+                 AND e.roleplay_result_index = ?
+                 AND e.deleted_at IS NULL
+               ORDER BY e.created_at DESC
+               LIMIT 1
+              """,
+              expressionRowMapper(),
+              practiceSessionId,
+              userId,
+              roleplayResultIndex);
       return Optional.of(toResponse(row));
     } catch (EmptyResultDataAccessException e) {
       return Optional.empty();
@@ -153,6 +216,43 @@ public class JdbcExpressionRepository implements ExpressionRepository {
   @Override
   @Transactional
   public ExpressionResponse createFromAnalysis(NewExpression expression) {
+    return create(
+        expression.userId(),
+        "analysis",
+        expression.analysisRequestId(),
+        null,
+        expression.originalSituation(),
+        expression.selectedVariantOrder(),
+        null,
+        null,
+        expression.variants());
+  }
+
+  @Override
+  @Transactional
+  public ExpressionResponse createFromRoleplayResult(NewRoleplayExpression expression) {
+    return create(
+        expression.userId(),
+        "roleplay_result",
+        null,
+        expression.practiceSessionId(),
+        expression.originalSituation(),
+        expression.selectedVariantOrder(),
+        expression.roleplayResultIndex(),
+        expression.idempotencyKey(),
+        expression.variants());
+  }
+
+  private ExpressionResponse create(
+      UUID userId,
+      String sourceType,
+      UUID analysisRequestId,
+      UUID practiceSessionId,
+      String originalSituation,
+      int selectedVariantOrder,
+      Integer roleplayResultIndex,
+      UUID roleplaySaveIdempotencyKey,
+      List<NewExpressionVariant> newVariants) {
     UUID expressionId = UUID.randomUUID();
     OffsetDateTime now = OffsetDateTime.now();
 
@@ -160,17 +260,21 @@ public class JdbcExpressionRepository implements ExpressionRepository {
         """
         INSERT INTO expressions
           (id, user_id, source_type, analysis_request_id, practice_session_id,
-           original_situation, created_at)
-        VALUES (?, ?, 'analysis', ?, NULL, ?, ?)
+           original_situation, roleplay_result_index, roleplay_save_idempotency_key, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         expressionId,
-        expression.userId(),
-        expression.analysisRequestId(),
-        expression.originalSituation(),
+        userId,
+        sourceType,
+        analysisRequestId,
+        practiceSessionId,
+        originalSituation,
+        roleplayResultIndex,
+        roleplaySaveIdempotencyKey,
         now);
 
-    List<ExpressionVariantResponse> variants = new ArrayList<>(expression.variants().size());
-    for (NewExpressionVariant variant : expression.variants()) {
+    List<ExpressionVariantResponse> variants = new ArrayList<>(newVariants.size());
+    for (NewExpressionVariant variant : newVariants) {
       UUID variantId = UUID.randomUUID();
       jdbcTemplate.update(
           """
@@ -204,7 +308,7 @@ public class JdbcExpressionRepository implements ExpressionRepository {
 
     UUID selectedVariantId =
         variants.stream()
-            .filter(variant -> variant.variantOrder() == expression.selectedVariantOrder())
+            .filter(variant -> variant.variantOrder() == selectedVariantOrder)
             .findFirst()
             .orElseThrow()
             .id();
@@ -222,17 +326,17 @@ public class JdbcExpressionRepository implements ExpressionRepository {
         VALUES (?, ?, ?, ?, 1, ?)
         """,
         reviewCardId,
-        expression.userId(),
+        userId,
         expressionId,
         nextReviewAt,
         now);
 
     return new ExpressionResponse(
         expressionId,
-        "analysis",
-        expression.analysisRequestId(),
-        null,
-        expression.originalSituation(),
+        sourceType,
+        analysisRequestId,
+        practiceSessionId,
+        originalSituation,
         selectedVariantId,
         variants,
         reviewCardId,

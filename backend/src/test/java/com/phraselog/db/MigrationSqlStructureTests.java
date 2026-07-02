@@ -91,4 +91,24 @@ class MigrationSqlStructureTests {
             "CONSTRAINT chk_practice_turn_requests_status",
             "CREATE INDEX idx_practice_turn_requests_correlation");
   }
+
+  @Test
+  void roleplayResultSaveMigrationContainsIdempotencyAndDuplicateGuards() throws Exception {
+    String sql =
+        new String(
+            new ClassPathResource("db/migration/V006__roleplay_result_expression_idempotency.sql")
+                .getInputStream()
+                .readAllBytes(),
+            StandardCharsets.UTF_8);
+
+    assertThat(sql)
+        .contains(
+            "ADD COLUMN roleplay_result_index INTEGER",
+            "ADD COLUMN roleplay_save_idempotency_key UUID",
+            "CONSTRAINT chk_expressions_roleplay_result_index",
+            "CREATE UNIQUE INDEX uq_expressions_roleplay_save_idem",
+            "CREATE UNIQUE INDEX uq_expressions_roleplay_result_index_active",
+            "source_type = 'roleplay_result'",
+            "deleted_at IS NULL");
+  }
 }
