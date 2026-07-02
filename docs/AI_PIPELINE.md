@@ -81,7 +81,7 @@ Voice per coach: `coach_profiles.tts_voice_id`. v1 ships three voice IDs (one pe
 
 Used by: S07 expression playback (on user tap), S12 coach utterances (auto-play on receipt).
 
-Output: MP3 audio file, written to S3, served via signed URL with 7-day expiry.
+Output: MP3 audio file, written to S3, served via signed URL with 12-hour expiry (bounded by the EC2 instance role's temporary credential lifetime; the client refetches via `POST /tts/playback` on expiry — a cache hit, no extra cost). See `architecture.md` "S3 (audio cache)".
 
 Caching: S3 keys are computed as `tts/{voice_id}/{sha256(text)}.mp3`. Identical (voice, text) pairs reuse the cached audio without a new TTS call. Cache hit logs to `ai_request_logs` with `feature_name = "tts_synthesis"`, `status = "cache_hit"`, and `latency_ms < 50`.
 

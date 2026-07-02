@@ -56,7 +56,32 @@ describe("requestTtsPlayback", () => {
     expect(result.cache_status).toBe("hit");
   });
 
-  test("throws TtsPlaybackError on backend failure (e.g. #30 not implemented)", async () => {
+  test("passes expression_variant_id through when provided", async () => {
+    const calls: Request[] = [];
+    const fetcher: FetchLike = async (request) => {
+      calls.push(request);
+      return okPlayback("hit");
+    };
+
+    await requestTtsPlayback(
+      {
+        text: "Excuse me.",
+        voiceId: "shimmer",
+        expressionVariantId: "00000000-0000-4000-8000-000000000030",
+        userId: "user-1",
+      },
+      { backendBaseUrl: "http://backend.test", internalAuthSecret: SECRET, fetcher },
+    );
+
+    const body = await calls[0].json();
+    expect(body).toEqual({
+      text: "Excuse me.",
+      voice_id: "shimmer",
+      expression_variant_id: "00000000-0000-4000-8000-000000000030",
+    });
+  });
+
+  test("throws TtsPlaybackError on backend failure", async () => {
     const fetcher: FetchLike = async () =>
       Response.json({ error_code: "not_found" }, { status: 404 });
 

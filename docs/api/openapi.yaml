@@ -860,7 +860,12 @@ paths:
                   audio_url:
                     type: string
                     format: uri
-                    description: S3 signed URL, 7-day expiry.
+                    description: >-
+                      S3 signed GET URL, 12-hour expiry. The client refetches
+                      via this endpoint on expiry (a cache hit, no extra cost).
+                      Expiry is bounded by the EC2 instance role's temporary
+                      credential lifetime, so a 7-day presigned URL is not
+                      achievable with instance-role signing.
                   duration_ms:
                     type: integer
                   cache_status:

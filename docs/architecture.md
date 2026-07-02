@@ -142,7 +142,7 @@ Single bucket `phraselog-audio-{env}` with prefix structure:
 tts/{voice_id}/{sha256(text)}.mp3
 ```
 
-Audio access from client via signed URLs (presigned GET, 7-day expiry). Spring Boot generates signed URLs at TTS playback request time; raw bucket is not publicly accessible.
+Audio access from client via signed URLs (presigned GET, 12-hour expiry). Spring Boot generates signed URLs at TTS playback request time; raw bucket is not publicly accessible. The expiry is 12h, not 7 days: a SigV4 presigned URL signed with the EC2 instance role's temporary credentials is only valid within that credential's lifetime, so a 7-day URL is unreachable with instance-role signing. The client refetches via `POST /tts/playback` when a URL expires — a cache hit with no extra TTS cost. Switching to long-lived IAM-user access keys (in Secrets Manager) would allow longer expiries at the cost of key management; deferred unless a longer URL lifetime is needed (#30).
 
 Lifecycle policy: objects with no read access in 180 days are transitioned to Glacier (cost optimization). TBD before launch.
 

@@ -9,6 +9,8 @@ import com.phraselog.practice.repository.UnavailablePracticeRepository;
 import com.phraselog.practice.repository.UnavailablePracticeTurnRepository;
 import com.phraselog.practice.service.NoopPracticeAudioService;
 import com.phraselog.practice.service.PracticeAudioService;
+import com.phraselog.practice.service.TtsPracticeAudioService;
+import com.phraselog.tts.service.TtsPlaybackService;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,8 +29,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * com.phraselog.practice.service.PracticeTurnService} (#60), along with their controllers, are
  * ordinary component-scanned beans; the repositories are the pieces that need a database, so they
  * are the ones gated here. {@link PracticeRepository} backs session start/retrieval; {@link
- * PracticeTurnRepository} backs the turn pipeline; {@link PracticeAudioService} is a no-op until
- * the TTS backend (#30) lands.
+ * PracticeTurnRepository} backs the turn pipeline; {@link PracticeAudioService} delegates to the
+ * shared {@link TtsPlaybackService} when a database is present, falling back to a no-op in the
+ * no-DB scaffold context.
  */
 @Configuration
 public class PracticeConfiguration {
@@ -62,7 +65,13 @@ public class PracticeConfiguration {
   }
 
   @Bean
-  public PracticeAudioService practiceAudioService() {
-    return new NoopPracticeAudioService();
+  public PracticeAudioService practiceAudioService(
+      ObjectProvider<DataSource> dataSourceProvider, TtsPlaybackService ttsPlaybackService) {
+    DataSource dataSource = dataSourceProvider.getIfAvailable();
+    if (dataSource == null) {
+      log.info("No DataSource present; coach TTS is a no-op (no-DB context)");
+      return new NoopPracticeAudioService();
+    }
+    return new TtsPracticeAudioService(ttsPlaybackService);
   }
 }

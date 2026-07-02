@@ -23,6 +23,10 @@ dependencies {
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-database-postgresql'
     implementation 'io.awspring.cloud:spring-cloud-aws-starter-secrets-manager'
+    // TTS 오디오 캐시 저장/서명 URL (#30). prod에서만 실제 S3에 붙고, 기본/테스트 프로필에서는
+    // spring.cloud.aws.s3.enabled=false로 auto-config를 꺼서 region 없는 컨텍스트 로딩이 깨지지
+    // 않게 한다(Secrets Manager와 동일한 게이트 방식). 버전은 위 3.3.0 BOM이 관리.
+    implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3'
     // JSON Schema 검증 (AI 응답 스키마 검증, E04.1). org.json 브리지 포함.
     // Maven Central 최신 안정판, 검증일 2026-06-17.
     implementation 'com.github.erosb:everit-json-schema:1.14.6'
