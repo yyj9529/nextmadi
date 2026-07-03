@@ -8,9 +8,9 @@ allowed-tools: Bash(git status*), Bash(gh issue view*)
 
 !`git status --short --branch`
 
-GitHub 이슈 #$1:
+GitHub 이슈 #$ARGUMENTS:
 
-!`gh issue view $1 --comments --repo yyj9529/nextmadi`
+!`gh issue view $ARGUMENTS --comments --repo yyj9529/nextmadi`
 
 위 이슈를 처리한다. 다음 순서로 진행해라.
 
