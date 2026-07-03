@@ -53,10 +53,10 @@ class JdbcExpressionRepositoryTests {
     jdbcTemplate = new JdbcTemplate(dataSource);
     jdbcTemplate.update("DELETE FROM practice_turn_requests");
     jdbcTemplate.update("DELETE FROM practice_turns");
-    jdbcTemplate.update("DELETE FROM practice_sessions");
     jdbcTemplate.update("DELETE FROM review_cards");
     jdbcTemplate.update("DELETE FROM expression_variants");
     jdbcTemplate.update("DELETE FROM expressions");
+    jdbcTemplate.update("DELETE FROM practice_sessions");
     jdbcTemplate.update("DELETE FROM analysis_requests");
     jdbcTemplate.update("DELETE FROM ai_request_logs");
     jdbcTemplate.update("DELETE FROM users");
