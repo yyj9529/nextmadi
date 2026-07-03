@@ -177,9 +177,14 @@ CREATE TABLE expressions (
   practice_session_id  UUID REFERENCES practice_sessions(id) ON DELETE SET NULL,
   original_situation   TEXT NOT NULL,
   selected_variant_id  UUID,  -- FK declared after expression_variants exists; ON DELETE SET NULL
+  roleplay_result_index INTEGER,  -- 0-based index into practice_sessions.result_json recommendations
+  roleplay_save_idempotency_key UUID,  -- Idempotency-Key for S12b save-expression retries
   created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
   deleted_at           TIMESTAMPTZ,                          -- user-initiated soft delete; NULL if active
 
+  CONSTRAINT chk_expressions_roleplay_result_index CHECK (
+    roleplay_result_index IS NULL OR roleplay_result_index BETWEEN 0 AND 2
+  ),
   CONSTRAINT chk_expressions_source CHECK (
     (source_type = 'analysis'        AND analysis_request_id IS NOT NULL AND practice_session_id IS NULL)
     OR
@@ -188,6 +193,12 @@ CREATE TABLE expressions (
 );
 
 CREATE INDEX idx_expressions_user_date ON expressions(user_id, created_at DESC) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uq_expressions_roleplay_save_idem
+  ON expressions(user_id, practice_session_id, roleplay_save_idempotency_key)
+  WHERE source_type = 'roleplay_result' AND roleplay_save_idempotency_key IS NOT NULL;
+CREATE UNIQUE INDEX uq_expressions_roleplay_result_index_active
+  ON expressions(user_id, practice_session_id, roleplay_result_index)
+  WHERE source_type = 'roleplay_result' AND deleted_at IS NULL AND roleplay_result_index IS NOT NULL;
 ```
 
 This table is the **parent "situation grouping"**, not the English expression itself. A single user-described situation produces 3 candidate English variants. The situation context (Korean original, source provenance, soft-delete state) lives here; the actual English texts and per-variant data live in `expression_variants`.
@@ -195,6 +206,8 @@ This table is the **parent "situation grouping"**, not the English expression it
 `source_type` together with the CHECK constraint enforces that exactly one of `analysis_request_id` or `practice_session_id` is set, depending on origin. This replaces polymorphic `source_request_id` from earlier drafts — the polymorphic pattern is removed because it cannot be FK-enforced at the database level.
 
 `selected_variant_id` points to the currently preferred variant (default: variant_order = 1). Used by S04 recent expressions, S08 library cards, S10 review front, and S12b result references. The FK is declared after `expression_variants` is created (see below) to avoid circular dependency at table-creation time.
+
+For `source_type = 'roleplay_result'`, `roleplay_result_index` stores the 0-based recommendation chosen from `practice_sessions.result_json.recommended_expressions`; the saved `selected_variant_id` points to the copied variant with `variant_order = roleplay_result_index + 1`. `roleplay_save_idempotency_key` deduplicates `POST /practice/sessions/{id}/save-expression` retries, while the active partial index prevents saving the same recommendation twice for one session unless the earlier expression is soft-deleted.
 
 **`deleted_at` and ADR-002 — the important distinction**
 

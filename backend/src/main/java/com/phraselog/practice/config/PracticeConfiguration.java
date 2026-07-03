@@ -39,14 +39,15 @@ public class PracticeConfiguration {
   private static final Logger log = LoggerFactory.getLogger(PracticeConfiguration.class);
 
   @Bean
-  public PracticeRepository practiceRepository(ObjectProvider<DataSource> dataSourceProvider) {
+  public PracticeRepository practiceRepository(
+      ObjectProvider<DataSource> dataSourceProvider, ObjectMapper objectMapper) {
     DataSource dataSource = dataSourceProvider.getIfAvailable();
     if (dataSource == null) {
       log.info(
           "No DataSource present; POST/GET /practice/sessions are unavailable (no-DB context)");
       return new UnavailablePracticeRepository();
     }
-    return new JdbcPracticeRepository(new JdbcTemplate(dataSource));
+    return new JdbcPracticeRepository(new JdbcTemplate(dataSource), objectMapper);
   }
 
   @Bean

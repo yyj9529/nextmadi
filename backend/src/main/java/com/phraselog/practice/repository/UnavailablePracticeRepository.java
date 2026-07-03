@@ -1,6 +1,8 @@
 package com.phraselog.practice.repository;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.phraselog.practice.dto.NewPracticeSession;
+import com.phraselog.practice.dto.PracticeResultContext;
 import com.phraselog.practice.dto.PracticeSessionWithTurns;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +32,16 @@ public final class UnavailablePracticeRepository implements PracticeRepository {
 
   @Override
   public Optional<PracticeSessionWithTurns> findByIdForOwner(UUID sessionId, UUID userId) {
+    throw unavailable();
+  }
+
+  @Override
+  public Optional<PracticeResultContext> findResultContext(UUID sessionId, UUID userId) {
+    throw unavailable();
+  }
+
+  @Override
+  public JsonNode saveResultJsonIfAbsent(UUID sessionId, UUID userId, JsonNode resultJson) {
     throw unavailable();
   }
 }

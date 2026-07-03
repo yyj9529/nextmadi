@@ -1,5 +1,6 @@
 package com.phraselog.practice.dto;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -12,4 +13,5 @@ public record PracticeSessionRow(
     String status,
     int plannedTurns,
     OffsetDateTime startedAt,
-    OffsetDateTime endedAt) {}
+    OffsetDateTime endedAt,
+    JsonNode resultJson) {}

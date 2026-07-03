@@ -204,9 +204,9 @@ Returned by Sonnet 4.6 once when the session reaches its final turn. Stored in `
 }
 ```
 
-`recommended_expressions` has 0-3 entries. The user can save any of them via S12b → S08; saving creates an `expressions` row with `source_type = 'roleplay_result'`.
+`recommended_expressions` has exactly 3 entries. The user can save any of them via S12b → S08; the request sends a 0-based `recommended_expression_index`, and saving creates an `expressions` row with `source_type = 'roleplay_result'`.
 
-`awkward_pairs` has 0-N entries.
+`awkward_pairs` has 0-3 entries.
 
 `pronunciation_focus_words` may be empty; the UI shows "발음 깔끔했어요" in that case.
 

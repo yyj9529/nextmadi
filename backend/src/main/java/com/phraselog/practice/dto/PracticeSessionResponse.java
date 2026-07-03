@@ -2,6 +2,7 @@ package com.phraselog.practice.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -23,5 +24,6 @@ public record PracticeSessionResponse(
     @JsonProperty("expression_id") UUID expressionId,
     @JsonProperty("started_at") OffsetDateTime startedAt,
     @JsonProperty("ended_at") OffsetDateTime endedAt,
+    @JsonInclude(JsonInclude.Include.ALWAYS) @JsonProperty("result_json") JsonNode resultJson,
     List<PracticeTurnResponse> turns,
     @JsonProperty("opening_turn") PracticeTurnResponse openingTurn) {}

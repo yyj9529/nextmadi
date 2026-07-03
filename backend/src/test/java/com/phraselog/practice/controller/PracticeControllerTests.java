@@ -14,8 +14,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.phraselog.auth.dto.InternalAuthPrincipal;
 import com.phraselog.common.web.GlobalExceptionHandler;
+import com.phraselog.expression.dto.ExpressionResponse;
+import com.phraselog.expression.dto.SaveExpressionResult;
 import com.phraselog.practice.dto.PracticeSessionResponse;
 import com.phraselog.practice.dto.PracticeTurnResponse;
+import com.phraselog.practice.service.PracticeResultService;
 import com.phraselog.practice.service.PracticeSessionService;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -29,13 +32,16 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 class PracticeControllerTests {
 
   private PracticeSessionService service;
+  private PracticeResultService resultService;
+  private ObjectMapper objectMapper;
   private MockMvc mockMvc;
 
   @BeforeEach
   void setUp() {
     service = mock(PracticeSessionService.class);
-    PracticeController controller = new PracticeController(service);
-    ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    resultService = mock(PracticeResultService.class);
+    PracticeController controller = new PracticeController(service, resultService);
+    objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     mockMvc =
         MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new GlobalExceptionHandler())
@@ -96,6 +102,57 @@ class PracticeControllerTests {
     verify(service).get(eq(principal), eq(response.id().toString()));
   }
 
+  @Test
+  void postResultReturnsGeneratedJsonAndDelegatesPathId() throws Exception {
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(UUID.randomUUID().toString(), null);
+    UUID sessionId = UUID.randomUUID();
+    when(resultService.generateResult(eq(principal), eq(sessionId.toString())))
+        .thenReturn(objectMapper.readTree("{\"coach_encouragement\":\"nice\"}"));
+
+    mockMvc
+        .perform(
+            post("/api/v1/practice/sessions/{id}/result", sessionId.toString())
+                .requestAttr(InternalAuthPrincipal.REQUEST_ATTRIBUTE, principal))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.coach_encouragement").value("nice"));
+
+    verify(resultService).generateResult(eq(principal), eq(sessionId.toString()));
+  }
+
+  @Test
+  void postSaveExpressionReturns201ForNewSaveAnd409ForDuplicate() throws Exception {
+    InternalAuthPrincipal principal = new InternalAuthPrincipal(UUID.randomUUID().toString(), null);
+    UUID sessionId = UUID.randomUUID();
+    String firstKey = UUID.randomUUID().toString();
+    String duplicateKey = UUID.randomUUID().toString();
+    ExpressionResponse expression = expressionResponse(sessionId);
+    when(resultService.saveExpression(eq(principal), eq(sessionId.toString()), any(), eq(firstKey)))
+        .thenReturn(new SaveExpressionResult(expression, false));
+    when(resultService.saveExpression(
+            eq(principal), eq(sessionId.toString()), any(), eq(duplicateKey)))
+        .thenReturn(new SaveExpressionResult(expression, true));
+
+    mockMvc
+        .perform(
+            post("/api/v1/practice/sessions/{id}/save-expression", sessionId.toString())
+                .requestAttr(InternalAuthPrincipal.REQUEST_ATTRIBUTE, principal)
+                .header("Idempotency-Key", firstKey)
+                .contentType("application/json")
+                .content("{\"recommended_expression_index\":1}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.id").value(expression.id().toString()));
+
+    mockMvc
+        .perform(
+            post("/api/v1/practice/sessions/{id}/save-expression", sessionId.toString())
+                .requestAttr(InternalAuthPrincipal.REQUEST_ATTRIBUTE, principal)
+                .header("Idempotency-Key", duplicateKey)
+                .contentType("application/json")
+                .content("{\"recommended_expression_index\":1}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.id").value(expression.id().toString()));
+  }
+
   private static PracticeSessionResponse startResponse() {
     return new PracticeSessionResponse(
         UUID.randomUUID(),
@@ -104,6 +161,7 @@ class PracticeControllerTests {
         UUID.randomUUID(),
         UUID.randomUUID(),
         OffsetDateTime.parse("2026-06-26T10:00:00Z"),
+        null,
         null,
         null,
         openingTurn());
@@ -118,6 +176,7 @@ class PracticeControllerTests {
         UUID.randomUUID(),
         OffsetDateTime.parse("2026-06-26T10:00:00Z"),
         null,
+        null,
         List.of(openingTurn()),
         null);
   }
@@ -131,6 +190,20 @@ class PracticeControllerTests {
         null,
         null,
         false,
+        OffsetDateTime.parse("2026-06-26T10:00:00Z"));
+  }
+
+  private static ExpressionResponse expressionResponse(UUID sessionId) {
+    return new ExpressionResponse(
+        UUID.randomUUID(),
+        "roleplay_result",
+        null,
+        sessionId,
+        "doctor appointment",
+        UUID.randomUUID(),
+        List.of(),
+        UUID.randomUUID(),
+        OffsetDateTime.parse("2026-06-26T10:00:00Z"),
         OffsetDateTime.parse("2026-06-26T10:00:00Z"));
   }
 }

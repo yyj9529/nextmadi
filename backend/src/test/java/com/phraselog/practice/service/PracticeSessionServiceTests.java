@@ -351,6 +351,7 @@ class PracticeSessionServiceTests {
               "active",
               session.plannedTurns(),
               now,
+              null,
               null);
       PracticeTurnRow turn =
           new PracticeTurnRow(
@@ -382,6 +383,17 @@ class PracticeSessionServiceTests {
         return Optional.empty();
       }
       return Optional.of(saved);
+    }
+
+    @Override
+    public Optional<com.phraselog.practice.dto.PracticeResultContext> findResultContext(
+        UUID sessionId, UUID userId) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public JsonNode saveResultJsonIfAbsent(UUID sessionId, UUID userId, JsonNode resultJson) {
+      throw new UnsupportedOperationException();
     }
   }
 }

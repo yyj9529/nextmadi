@@ -69,6 +69,7 @@ class FlywayMigrationTests {
               "uq_review_cards_user_expression",
               "uq_practice_turns_session_turn",
               "uq_tts_audio_cache_key",
+              "chk_expressions_roleplay_result_index",
               "pk_anonymous_analysis_usage");
 
       assertThat(indexes(connection))
@@ -78,10 +79,13 @@ class FlywayMigrationTests {
               "idx_variants_search",
               "idx_users_email_active",
               "idx_tts_cache_lookup",
-              "idx_logs_correlation");
+              "idx_logs_correlation",
+              "uq_expressions_roleplay_save_idem",
+              "uq_expressions_roleplay_result_index_active");
 
       assertThat(columns(connection, "users")).contains("deleted_at", "scheduled_deletion_at");
-      assertThat(columns(connection, "expressions")).contains("deleted_at");
+      assertThat(columns(connection, "expressions"))
+          .contains("deleted_at", "roleplay_result_index", "roleplay_save_idempotency_key");
       assertThat(columns(connection, "review_cards")).contains("removed_from_queue_at");
     }
   }

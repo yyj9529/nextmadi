@@ -230,6 +230,7 @@ public class PracticeSessionService {
         s.expressionId(),
         s.startedAt(),
         s.endedAt(),
+        s.resultJson(),
         null,
         openingTurn);
   }
@@ -248,6 +249,7 @@ public class PracticeSessionService {
         s.expressionId(),
         s.startedAt(),
         s.endedAt(),
+        s.resultJson(),
         turns,
         null);
   }
