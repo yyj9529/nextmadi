@@ -11,6 +11,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
@@ -25,12 +26,16 @@ import org.springframework.web.client.RestClient;
  * https://api.anthropic.com/v1/messages}.
  */
 @Component
+@ConditionalOnProperty(
+    name = "anthropic.mock.enabled",
+    havingValue = "false",
+    matchIfMissing = true)
 public class RestClientAnthropicClient implements AnthropicClient {
 
   private static final Logger log = LoggerFactory.getLogger(RestClientAnthropicClient.class);
 
   private static final String ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-  private static final String ANTHROPIC_API_VERSION = "2024-06-01";
+  private static final String ANTHROPIC_API_VERSION = "2023-06-01";
 
   private final RestClient restClient;
   private final String apiKey;
@@ -130,7 +135,29 @@ public class RestClientAnthropicClient implements AnthropicClient {
     if (!firstContent.has("text")) {
       throw new IOException("First content block has no text");
     }
-    String text = firstContent.get("text").asText();
+    String text = stripJsonFence(firstContent.get("text").asText());
     return objectMapper.readTree(text);
+  }
+
+  /**
+   * Claude commonly wraps a JSON answer in a markdown fence (```json ... ``` or ``` ... ```). The
+   * schema-validated callers parse the text as bare JSON, so strip a surrounding fence before
+   * parsing. Non-fenced text is returned unchanged.
+   */
+  private static String stripJsonFence(String text) {
+    String trimmed = text.strip();
+    if (!trimmed.startsWith("```")) {
+      return trimmed;
+    }
+    int firstNewline = trimmed.indexOf('\n');
+    if (firstNewline < 0) {
+      return trimmed;
+    }
+    String inner = trimmed.substring(firstNewline + 1);
+    int closingFence = inner.lastIndexOf("```");
+    if (closingFence >= 0) {
+      inner = inner.substring(0, closingFence);
+    }
+    return inner.strip();
   }
 }
