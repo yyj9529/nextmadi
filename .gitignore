@@ -24,5 +24,13 @@ eval/runs/*.json
 # Local Claude/Codex permission allowlists are machine-specific.
 **/.claude/settings.local.json
 
+# Local-only Spring profile: holds local DB credentials + dev toggles (e.g. the
+# mock Anthropic client). Never commit — see the file header.
+**/application-local.yml
+
+# IDE / build artifacts
+**/.idea/
+backend/bin/
+
 .playwright-mcp/
 docs/.playwright-mcp/
