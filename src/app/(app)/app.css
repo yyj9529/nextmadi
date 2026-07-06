@@ -1329,6 +1329,59 @@
   color: var(--app-blue);
 }
 
+/* ---- S03b Selecting: 저장 중 나머지 카드는 흐리게, 선택 카드에 스피너 ---- */
+
+.coach-card-list.is-busy .coach-card:not(.is-saving) {
+  opacity: 0.5;
+}
+
+.coach-card[disabled] {
+  cursor: default;
+}
+
+.coach-card-spinner {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid rgb(31 36 51 / 0.15);
+  border-top-color: var(--app-blue);
+  border-radius: 50%;
+  animation: loading-spin 0.9s linear infinite;
+}
+
+.coach-select-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.coach-select-unavailable {
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+
+/* ---- S03b Loading: 카드 3개 스켈레톤 ---- */
+
+.coach-card-skeleton {
+  background: #f2f4f7;
+}
+
+.coach-skeleton-headline {
+  width: 60%;
+}
+
+.coach-skeleton-sub {
+  width: 40%;
+  margin-top: 10px;
+}
+
+.coach-skeleton-name {
+  width: 45%;
+}
+
 .coach-select-footer {
   margin-top: auto;
   padding-top: 24px;
