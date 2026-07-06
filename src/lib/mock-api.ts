@@ -390,7 +390,7 @@ export const mockPracticeResult: PracticeResult = {
   pronunciation_focus_comment: "한국인이 자주 헷갈리는 발음 위주",
 };
 
-// ---- S04: GET /home/dashboard (참고: home/page.tsx의 mockDashboard) ----
+// ---- S04: GET /home/dashboard (실데이터 연결 완료: home/HomeDashboard.tsx, #55) ----
 // S05a/S06 → POST /analysis (성공 시 /save/result/mock-analysis 라우팅)
 // S02 음성 → POST /transcriptions 후 텍스트 확정 → POST /analysis
 export const mockAnalysisResultPath = `/save/result/${MOCK_ANALYSIS_ID}`;

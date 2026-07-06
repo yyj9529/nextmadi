@@ -254,6 +254,33 @@
   text-overflow: ellipsis;
 }
 
+/* recent_expressions가 0개일 때(신규 사용자) 플레이스홀더. (s04.md UI states: Empty) */
+.recent-empty {
+  margin: 0;
+  border: 1px dashed var(--app-border);
+  border-radius: 10px;
+  padding: 16px 12px;
+  color: var(--app-faint);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+/* 대시보드 조회 실패 — 풀스크린 재시도. (s04.md UI states: Network error) */
+.home-error {
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.home-error-title {
+  margin: 0 0 16px;
+  color: var(--app-muted);
+  font-size: 0.9375rem;
+}
+
+.home-retry {
+  display: inline-block;
+}
+
 /* ---- S04: 하단 네비 ---- */
 
 .bottom-nav {
