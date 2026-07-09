@@ -64,7 +64,7 @@ public class AnonymousAnalysisUsageService {
     return new ApiErrorException(
         HttpStatus.TOO_MANY_REQUESTS,
         "rate_limit_exceeded",
-        "?ㅻ뒛 ?ъ슜?????덈뒗 ?잛닔瑜?紐⑤몢 ?쇱뼱??",
+        "오늘 사용할 수 있는 횟수를 모두 썼어요.",
         "Check anonymous_analysis_usage or per-user daily limit counters.",
         true);
   }
