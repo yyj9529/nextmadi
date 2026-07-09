@@ -9,8 +9,9 @@ export type OAuthCallbackSearchParams =
   | undefined;
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  // 이메일 로그인은 아직 미구현(#19)이라 안내하지 않는다. 현재 지원하는 방법(Google/Kakao)만 제시한다.
   account_link_required:
-    "이미 가입된 계정이에요. 기존 로그인 방법이나 이메일 링크로 로그인해주세요.",
+    "이미 가입된 계정이에요. 처음 가입할 때 사용한 방법(Google 또는 카카오)으로 로그인해주세요.",
 };
 
 const DEFAULT_OAUTH_ERROR_MESSAGE =
