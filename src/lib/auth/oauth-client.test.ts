@@ -50,7 +50,7 @@ describe("OAuth client flow", () => {
         callback_error: "account_link_required",
       }),
     ).toBe(
-      "이미 가입된 계정이에요. 기존 로그인 방법이나 이메일 링크로 로그인해주세요.",
+      "이미 가입된 계정이에요. 처음 가입할 때 사용한 방법(Google 또는 카카오)으로 로그인해주세요.",
     );
     expect(
       getOAuthCallbackErrorMessage(new URLSearchParams("error=AccessDenied")),
