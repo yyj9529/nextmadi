@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { requireAuthenticatedUserId } from "@/lib/auth/require-authenticated-user";
 import { ExpressionDetailExperience } from "./ExpressionDetailExperience";
 
 export const metadata: Metadata = {
@@ -12,12 +13,13 @@ type ExpressionDetailPageProps = {
   }>;
 };
 
-// PPT 충실도 패스: s09_detail.PNG. 데이터는 GET /expressions/{expression_id}
-// 목(mockExpressionDetail). id는 라우트 마운트 확인용으로만 받는다.
+// S09 표현 상세. 인증된 사용자만 진입하며, 상세/삭제/큐 제거는 BFF 라우트로 조회·변경한다. (#47)
+// 데이터 페칭은 클라이언트 훅(useExpressionDetail)이 담당해 로딩/404/에러 상태를 화면에서 다룬다.
 export default async function ExpressionDetailPage({
   params,
 }: ExpressionDetailPageProps) {
-  await params;
+  await requireAuthenticatedUserId();
+  const { expression_id: expressionId } = await params;
 
-  return <ExpressionDetailExperience />;
+  return <ExpressionDetailExperience expressionId={expressionId} />;
 }

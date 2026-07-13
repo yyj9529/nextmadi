@@ -173,9 +173,9 @@ export const mockVariants: ExpressionVariant[] = [
   },
 ];
 
-// ---- S09: GET /expressions/{expression_id} ----
-// DELETE /expressions/{id} → 목에서는 확인 후 /library 라우팅.
-// POST /review/{review_card_id}/remove-from-queue · re-add-to-queue → 로컬 토글.
+// ---- S09: GET /expressions/{expression_id} (실데이터 연결 완료: #47) ----
+// 상세/삭제/큐 제거는 BFF(/api/expressions/[id], /api/review/[id]/remove-from-queue)로 연동됨.
+// 아래 목은 참조용으로만 남긴다. re-add-to-queue는 상세 GET이 제거된 카드 id를 안 내려 v1 보류.
 export const mockExpressionDetail: Expression = {
   id: MOCK_EXPRESSION_ID,
   source_type: "analysis",
