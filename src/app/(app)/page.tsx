@@ -1,16 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
-import { mockLandingExamples } from "@/lib/mock-api";
+import { auth } from "@/auth";
+import { getLandingExamples } from "@/lib/landing/get-landing-examples";
 
 export const metadata: Metadata = {
   title: "PhraseLog — 못한 말, 다음엔 할 수 있게",
 };
 
-// PPT 충실도 패스: s01_landing.PNG 기준 정적 목 데이터.
-// 예시 카드는 GET /landing/examples 응답(무작위 3개)을 목으로 대체.
-// 로그인 상태면 /home 자동 이동(스펙)이지만 목 패스에서는 비로그인 가정.
-export default function LandingPage() {
+// S01 랜딩. (#33)
+// - 이미 로그인한 사용자가 / 로 오면 /home(S04)으로 자동 이동한다(s01 AC3).
+// - 예시 카드는 GET /landing/examples(공개, 무작위 3개)에서 실데이터로 채운다.
+//   네트워크 오류/0건이면 getLandingExamples가 []를 돌려주고, 예시 섹션은 조용히
+//   생략된다(s01 UI states). 방문자는 이 데이터 없이도 CTA로 행동할 수 있다.
+export default async function LandingPage() {
+  const session = await auth();
+  if (session?.user?.id) {
+    redirect("/home");
+  }
+
+  const examples = await getLandingExamples();
+
   return (
     <div className="app-screen landing-screen">
       <header className="app-topbar">
@@ -37,21 +48,23 @@ export default function LandingPage() {
           </Link>
         </section>
 
-        <section className="landing-examples" aria-label="상황 예시">
-          <h2 className="landing-examples-title">이런 상황 어떻게 말할까?</h2>
-          <ul className="landing-example-list">
-            {mockLandingExamples.map((example) => (
-              <li key={example.id}>
-                <Link
-                  className="landing-example-card"
-                  href={`/try?example=${example.id}`}
-                >
-                  “{example.korean_text}”
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+        {examples.length > 0 && (
+          <section className="landing-examples" aria-label="상황 예시">
+            <h2 className="landing-examples-title">이런 상황 어떻게 말할까?</h2>
+            <ul className="landing-example-list">
+              {examples.map((example) => (
+                <li key={example.id}>
+                  <Link
+                    className="landing-example-card"
+                    href={`/try?example=${example.id}`}
+                  >
+                    “{example.korean_text}”
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </div>
   );
