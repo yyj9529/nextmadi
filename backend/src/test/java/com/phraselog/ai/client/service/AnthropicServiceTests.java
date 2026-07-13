@@ -218,8 +218,7 @@ class AnthropicServiceTests {
   void timeoutDoesNotRetry() {
     RecordingLogStore logStore = new RecordingLogStore();
     RecordingSleeper sleeper = new RecordingSleeper();
-    ScriptedAnthropicClient client =
-        new ScriptedAnthropicClient(error(AiErrorCode.TIMEOUT, false));
+    ScriptedAnthropicClient client = new ScriptedAnthropicClient(error(AiErrorCode.TIMEOUT, false));
     AnthropicService service = serviceWith(client, logStore, sleeper);
 
     assertThatThrownBy(
