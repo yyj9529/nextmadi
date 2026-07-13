@@ -25,9 +25,10 @@ Source of truth: `docs/exec-plans/2026-06-12-fable-ai-ticket-handoff.md` (#26 fa
    재시도는 수행되지 않음(5xx budget 소진). deterministic·bounded·계획서에 명시된 의도된 설계.
    → **수용**. 동작을 고정하는 테스트
    `mixedFirst5xxThenSchemaFailureUsesFirstErrorScheduleAndLastErrorCode` 추가(2026-07-13).
-2. **[Low, diff 범위 밖] "5개 스키마 필수필드 누락 거부" 미충족** — `JsonSchemaValidatorTests`에
-   reject 테스트가 s07_analysis·roleplay_turn_feedback만 존재. 나머지 3개 스키마 및
-   `roleplay_session_init` planned_turns 3-10 range 미검증. → **티켓 close 전 별도 보강**(추적).
+2. **[Low] "5개 스키마 필수필드 누락 거부" — 해결(2026-07-13)**. `JsonSchemaValidatorTests`에
+   `roleplay_session_init`(accept + planned_turns 3-10 range reject), `roleplay_turn_response`
+   (coach_utterance non-empty reject), `roleplay_result`(coach_encouragement 필수 reject) 추가.
+   5개 스키마 전부 accept + reject 커버 → #26 close criteria 충족.
 3. **[Low] 미분류 RuntimeException 경로** — 인터페이스 계약상 발생 안 하도록 되어 있으나,
    계약 외 런타임 예외는 #27 로깅·ApiError 매핑 없이 전파. robustness 노트.
 

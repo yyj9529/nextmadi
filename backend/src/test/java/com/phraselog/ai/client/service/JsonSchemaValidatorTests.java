@@ -113,6 +113,76 @@ class JsonSchemaValidatorTests {
         .isInstanceOf(JsonSchemaValidator.JsonSchemaValidationException.class);
   }
 
+  @Test
+  void acceptsValidRoleplaySessionInit() throws Exception {
+    validator.validate(
+        "roleplay_session_init_v1",
+        objectMapper.readTree(
+            """
+            {
+              "planned_turns": 5,
+              "scenario_setup": "You are returning a wrong coffee order.",
+              "complexity_rationale": "Short, low-stakes service exchange."
+            }
+            """));
+  }
+
+  @Test
+  void rejectsRoleplaySessionInitWithPlannedTurnsBelowMinimum() throws Exception {
+    // planned_turns must be in the 3..10 range (handoff schema rule); 2 is out of range.
+    assertThatThrownBy(
+            () ->
+                validator.validate(
+                    "roleplay_session_init_v1",
+                    objectMapper.readTree(
+                        """
+                        {
+                          "planned_turns": 2,
+                          "scenario_setup": "You are returning a wrong coffee order.",
+                          "complexity_rationale": "Short, low-stakes service exchange."
+                        }
+                        """)))
+        .isInstanceOf(JsonSchemaValidator.JsonSchemaValidationException.class);
+  }
+
+  @Test
+  void rejectsRoleplayTurnResponseWithEmptyCoachUtterance() throws Exception {
+    // coach_utterance must be non-empty (handoff schema rule); "" violates minLength 1.
+    assertThatThrownBy(
+            () ->
+                validator.validate(
+                    "roleplay_turn_response_v1",
+                    objectMapper.readTree(
+                        """
+                        {
+                          "coach_utterance": ""
+                        }
+                        """)))
+        .isInstanceOf(JsonSchemaValidator.JsonSchemaValidationException.class);
+  }
+
+  @Test
+  void rejectsRoleplayResultMissingCoachEncouragement() throws Exception {
+    // coach_encouragement is required even when the array fields are empty (handoff schema rule).
+    assertThatThrownBy(
+            () ->
+                validator.validate(
+                    "roleplay_result_v1",
+                    objectMapper.readTree(
+                        """
+                        {
+                          "recommended_expressions": [
+                            {"english":"Could you repeat that?","tone_label":"polite","ipa":"/a/","korean_pronunciation":"could","pronunciation_tip":"short could","cultural_tip":"clarification"},
+                            {"english":"I want to make sure I understood.","tone_label":"careful","ipa":"/b/","korean_pronunciation":"want","pronunciation_tip":"link words","cultural_tip":"careful check"},
+                            {"english":"Can I say that back to you?","tone_label":"confirming","ipa":"/c/","korean_pronunciation":"can","pronunciation_tip":"light can","cultural_tip":"paraphrase"}
+                          ],
+                          "awkward_pairs": [],
+                          "pronunciation_focus_words": []
+                        }
+                        """)))
+        .isInstanceOf(JsonSchemaValidator.JsonSchemaValidationException.class);
+  }
+
   private static String validS07Analysis() {
     return """
         {

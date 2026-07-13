@@ -70,8 +70,9 @@ fallback 추가는 설계 변경이므로 별도 결정 사항.
   lastError. 첫 5xx 후 재시도에서 스키마 실패 시 reminder 재시도 없이
   `schema_validation_failed`로 종료. deterministic·bounded한 의도된 동작 →
   `mixedFirst5xxThenSchemaFailureUsesFirstErrorScheduleAndLastErrorCode` 테스트로 고정.
-- **티켓 close 추적(이 diff 범위 밖)**:
-  - `JsonSchemaValidatorTests`에 5개 스키마 전부의 필수필드 누락 reject 테스트 보강
-    (현재 s07_analysis·roleplay_turn_feedback만). `roleplay_session_init` planned_turns
-    3-10 range 검증 포함.
-  - 미분류 RuntimeException 경로는 인터페이스 계약상 미발생, robustness 노트로만 남김.
+- **5개 스키마 reject 테스트 보강(완료, 2026-07-13)**: `JsonSchemaValidatorTests`에
+  `roleplay_session_init`(accept + planned_turns 3-10 range reject),
+  `roleplay_turn_response`(coach_utterance non-empty reject),
+  `roleplay_result`(coach_encouragement 필수 reject) 추가. 이제 5개 스키마 전부 accept +
+  reject 커버. → #26 close criteria "tests for all 5 schemas" 충족.
+- **미분류 RuntimeException 경로**: 인터페이스 계약상 미발생, robustness 노트로만 남김.
