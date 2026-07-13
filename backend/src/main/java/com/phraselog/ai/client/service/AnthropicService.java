@@ -12,6 +12,8 @@ import com.phraselog.ai.logging.service.AiRequestLogger;
 import com.phraselog.ai.prompt.dto.PromptDefinition;
 import com.phraselog.common.web.ApiErrorException;
 import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.OptionalLong;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +31,12 @@ public class AnthropicService {
   private final AiCostCalculator costCalculator;
   private final JsonSchemaValidator schemaValidator;
 
+  /**
+   * Seam for the inter-attempt backoff. Defaults to {@link Thread#sleep(long)}; tests inject a fake
+   * so the 429 1s/3s schedule can be verified without real waiting.
+   */
+  private Sleeper sleeper = Thread::sleep;
+
   public AnthropicService(
       AnthropicClient client,
       AiRequestLogger aiRequestLogger,
@@ -38,6 +46,17 @@ public class AnthropicService {
     this.aiRequestLogger = aiRequestLogger;
     this.costCalculator = costCalculator;
     this.schemaValidator = schemaValidator;
+  }
+
+  /** Test-only: override the backoff sleeper so retry schedules run without real delays. */
+  void setSleeper(Sleeper sleeper) {
+    this.sleeper = sleeper;
+  }
+
+  /** Backoff seam; records the millis it was asked to wait so tests can assert the schedule. */
+  @FunctionalInterface
+  interface Sleeper {
+    void sleep(long millis) throws InterruptedException;
   }
 
   public JsonNode callClaude(
@@ -51,75 +70,138 @@ public class AnthropicService {
     long startTimeMs = System.currentTimeMillis();
     String modelId = FeatureRouting.getModelForFeature(feature);
     String outputSchema = prompt.outputSchema();
+    AnthropicMessage[] baseMessages = buildMessages(prompt.body(), userContent);
 
-    try {
-      AnthropicMessage[] messages = buildMessages(prompt.body(), userContent);
+    log.debug(
+        "Calling Claude feature={} model={} output_schema={}",
+        feature.wireName(),
+        modelId,
+        outputSchema);
 
-      log.debug(
-          "Calling Claude feature={} model={} output_schema={}",
-          feature.wireName(),
-          modelId,
-          outputSchema);
+    // Retry loop per the ticket #26 fallback matrix. The retry SCHEDULE is fixed by the first
+    // failure (deterministic), while the terminal error_code reflects the last attempt. Each
+    // iteration re-invokes the client and re-validates; #27 logging fires exactly once, only for
+    // the terminal outcome (success or final failure).
+    AiErrorCode firstError = null;
+    AiErrorCode lastError = null;
+    int attempt = 0;
 
-      JsonNode response = attemptCall(feature, modelId, messages);
-      schemaValidator.validate(outputSchema, response);
+    while (true) {
+      // A schema failure retries with the constraint reminder appended exactly once; transport
+      // retries (5xx/429/network) resend the original messages unchanged.
+      AnthropicMessage[] messages =
+          lastError == AiErrorCode.SCHEMA_VALIDATION_FAILED
+              ? withConstraintReminder(baseMessages, outputSchema)
+              : baseMessages;
 
-      long latencyMs = System.currentTimeMillis() - startTimeMs;
-      Integer inputTokens = extractTokenCount(response, "input_tokens");
-      Integer outputTokens = extractTokenCount(response, "output_tokens");
-      BigDecimal cost =
-          (inputTokens != null && outputTokens != null)
-              ? costCalculator.llm(modelId, inputTokens, outputTokens)
-              : null;
+      try {
+        JsonNode response =
+            client.sendMessage(modelId, messages, FeatureRouting.getTimeoutForFeature(feature));
+        schemaValidator.validate(outputSchema, response);
 
-      logCall(
-          feature,
-          modelId,
-          prompt.promptVersion(),
-          inputTokens,
-          outputTokens,
-          latencyMs,
-          AiRequestStatus.SUCCESS,
-          null,
-          userId,
-          correlationId,
-          cost);
+        long latencyMs = System.currentTimeMillis() - startTimeMs;
+        Integer inputTokens = extractTokenCount(response, "input_tokens");
+        Integer outputTokens = extractTokenCount(response, "output_tokens");
+        BigDecimal cost =
+            (inputTokens != null && outputTokens != null)
+                ? costCalculator.llm(modelId, inputTokens, outputTokens)
+                : null;
 
-      return response;
+        logCall(
+            feature,
+            modelId,
+            prompt.promptVersion(),
+            inputTokens,
+            outputTokens,
+            latencyMs,
+            AiRequestStatus.SUCCESS,
+            null,
+            userId,
+            correlationId,
+            cost);
+        return response;
 
-    } catch (AnthropicClient.AnthropicClientException e) {
-      return handleClientException(
-          e, feature, modelId, prompt.promptVersion(), startTimeMs, userId, correlationId);
-    } catch (JsonSchemaValidator.JsonSchemaValidationException e) {
-      long latencyMs = System.currentTimeMillis() - startTimeMs;
-      logCall(
-          feature,
-          modelId,
-          prompt.promptVersion(),
-          null,
-          null,
-          latencyMs,
-          AiRequestStatus.ERROR,
-          AiErrorCode.SCHEMA_VALIDATION_FAILED,
-          userId,
-          correlationId,
-          null);
-      throw new ApiErrorException(
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          "schema_validation_failed",
-          "응답 형식이 유효하지 않습니다.",
-          "Schema validation failed",
-          true);
+      } catch (AnthropicClient.AnthropicClientException e) {
+        lastError = e.errorCode();
+        if (!e.isRetryable()) {
+          break;
+        }
+      } catch (JsonSchemaValidator.JsonSchemaValidationException e) {
+        lastError = AiErrorCode.SCHEMA_VALIDATION_FAILED;
+      }
+
+      if (firstError == null) {
+        firstError = lastError;
+      }
+
+      OptionalLong backoffMs = retryDelayMs(firstError, attempt);
+      if (backoffMs.isEmpty()) {
+        break;
+      }
+
+      log.warn(
+          "Retryable error calling Claude ({}), retry attempt {} after {}ms",
+          lastError,
+          attempt + 1,
+          backoffMs.getAsLong());
+      try {
+        sleeper.sleep(backoffMs.getAsLong());
+      } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
+        break;
+      }
+      attempt++;
     }
+
+    long latencyMs = System.currentTimeMillis() - startTimeMs;
+    logCall(
+        feature,
+        modelId,
+        prompt.promptVersion(),
+        null,
+        null,
+        latencyMs,
+        statusForErrorCode(lastError),
+        lastError,
+        userId,
+        correlationId,
+        null);
+    throw toApiError(lastError);
   }
 
-  private JsonNode attemptCall(AiFeature feature, String modelId, AnthropicMessage[] messages)
-      throws AnthropicClient.AnthropicClientException {
-    return client.sendMessage(modelId, messages, FeatureRouting.getTimeoutForFeature(feature));
+  /**
+   * Backoff schedule for a retry, keyed by the first failure and the zero-based retry attempt.
+   * Empty means "no further retry". Mirrors the ticket #26 fallback matrix: schema retries once
+   * immediately, 5xx/network retry once after 500ms, 429 retries at 1s then 3s, timeout never
+   * retries.
+   */
+  private OptionalLong retryDelayMs(AiErrorCode firstError, int attempt) {
+    return switch (firstError) {
+      case SCHEMA_VALIDATION_FAILED -> attempt == 0 ? OptionalLong.of(0L) : OptionalLong.empty();
+      case PROVIDER_5XX, NETWORK -> attempt == 0 ? OptionalLong.of(500L) : OptionalLong.empty();
+      case PROVIDER_429 ->
+          switch (attempt) {
+            case 0 -> OptionalLong.of(1000L);
+            case 1 -> OptionalLong.of(3000L);
+            default -> OptionalLong.empty();
+          };
+      default -> OptionalLong.empty();
+    };
   }
 
   private AnthropicMessage[] buildMessages(String systemPrompt, String userContent) {
     return new AnthropicMessage[] {AnthropicMessage.user(systemPrompt + "\n\n" + userContent)};
+  }
+
+  /** Appends a single constraint-reminder user turn used only on the schema-validation retry. */
+  private AnthropicMessage[] withConstraintReminder(AnthropicMessage[] base, String outputSchema) {
+    AnthropicMessage[] withReminder = Arrays.copyOf(base, base.length + 1);
+    withReminder[base.length] =
+        AnthropicMessage.user(
+            "이전 응답이 요구된 JSON 스키마("
+                + outputSchema
+                + ")를 만족하지 않았습니다. 설명이나 코드펜스 없이, 스키마 제약을 지킨 유효한 JSON만 다시 출력하세요.");
+    return withReminder;
   }
 
   private Integer extractTokenCount(JsonNode response, String field) {
@@ -127,82 +209,6 @@ public class AnthropicService {
       return response.get("usage").get(field).asInt();
     }
     return null;
-  }
-
-  private JsonNode handleClientException(
-      AnthropicClient.AnthropicClientException e,
-      AiFeature feature,
-      String modelId,
-      String promptVersion,
-      long startTimeMs,
-      UUID userId,
-      UUID correlationId)
-      throws ApiErrorException {
-
-    long latencyMs = System.currentTimeMillis() - startTimeMs;
-    AiErrorCode errorCode = e.errorCode();
-
-    if (!e.isRetryable()) {
-      logCall(
-          feature,
-          modelId,
-          promptVersion,
-          null,
-          null,
-          latencyMs,
-          statusForErrorCode(errorCode),
-          errorCode,
-          userId,
-          correlationId,
-          null);
-      throw toApiError(errorCode);
-    }
-
-    log.warn(
-        "Retryable error calling Claude, attempting retry: {} ({})", e.getMessage(), errorCode);
-
-    long backoffMs = backoffForErrorCode(errorCode);
-    try {
-      Thread.sleep(backoffMs);
-    } catch (InterruptedException ie) {
-      Thread.currentThread().interrupt();
-      logCall(
-          feature,
-          modelId,
-          promptVersion,
-          null,
-          null,
-          latencyMs,
-          AiRequestStatus.ERROR,
-          errorCode,
-          userId,
-          correlationId,
-          null);
-      throw toApiError(errorCode);
-    }
-
-    long totalLatencyMs = System.currentTimeMillis() - startTimeMs;
-    logCall(
-        feature,
-        modelId,
-        promptVersion,
-        null,
-        null,
-        totalLatencyMs,
-        AiRequestStatus.ERROR,
-        errorCode,
-        userId,
-        correlationId,
-        null);
-    throw toApiError(errorCode);
-  }
-
-  private long backoffForErrorCode(AiErrorCode errorCode) {
-    return switch (errorCode) {
-      case PROVIDER_5XX, NETWORK -> 500L;
-      case PROVIDER_429 -> 1000L;
-      default -> 0L;
-    };
   }
 
   private AiRequestStatus statusForErrorCode(AiErrorCode errorCode) {
