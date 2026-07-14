@@ -300,9 +300,9 @@ export const mockUsageToday = {
 };
 
 // ---- S12: POST /practice/sessions → GET /practice/sessions/{session_id} ----
-// 세션 시작 시 코치 오프닝 턴 포함. 이후 사용자 입력마다
-// POST /practice/sessions/{session_id}/turns 가 user_turn + coach_turn +
-// feedback을 돌려준다. 목에서는 아래 스크립트를 순서대로 재생한다.
+// 실데이터 연결 완료(#61): 화면은 BFF(/api/practice/sessions[/{id}][/turns])로
+// 세션 시작·조회·턴 제출을 한다. 아래 mockSession/mockTurnScript는 더 이상 화면에서
+// 쓰지 않으며 참조/S12b 목 잔여용으로만 남긴다.
 export const mockSession = {
   id: MOCK_SESSION_ID,
   status: "active" as const,
