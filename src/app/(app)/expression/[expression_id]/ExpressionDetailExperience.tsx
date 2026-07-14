@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { BackIcon, ChevronDownIcon, MoreIcon } from "@/components/app/icons";
 import { PlayButton } from "@/components/app/PlayButton";
-import { MOCK_SESSION_ID } from "@/lib/mock-api";
 import { useExpressionDetail } from "./useExpressionDetail";
 
 // S09 표현 상세. (#47 실데이터 연결)
@@ -14,7 +13,8 @@ import { useExpressionDetail } from "./useExpressionDetail";
 // 삭제: DELETE /api/expressions/{id} → 확인 후 /library 복귀.
 // 복습 큐에서 제거: POST /api/review/{review_card_id}/remove-from-queue.
 //   re-add 방향은 상세 GET이 제거된 카드의 id를 안 내려 v1 보류(s09.md).
-// 연습하기: POST /practice/sessions는 #59 별도 티켓 — 그 전까지 목 세션으로 라우팅.
+// 연습하기: POST /api/practice/sessions { expression_id } → /practice/{session_id} (#61).
+//   일일 한도 초과(429)는 안내만 하고 라우팅하지 않는다(s12.md US1 AC3).
 
 const NOT_FOUND_REDIRECT_MS = 2000;
 
@@ -52,7 +52,6 @@ export function ExpressionDetailExperience({
       expression={expression}
       onLocalUpdate={setExpression}
       onDeleted={() => router.push("/library")}
-      onPractice={() => router.push(`/practice/${MOCK_SESSION_ID}`)}
     />
   );
 }
@@ -61,23 +60,64 @@ type LoadedDetailProps = {
   expression: NonNullable<ReturnType<typeof useExpressionDetail>["expression"]>;
   onLocalUpdate: (next: LoadedDetailProps["expression"]) => void;
   onDeleted: () => void;
-  onPractice: () => void;
 };
 
 function LoadedDetail({
   expression,
   onLocalUpdate,
   onDeleted,
-  onPractice,
 }: LoadedDetailProps) {
+  const router = useRouter();
   const [expandedId, setExpandedId] = useState(expression.selected_variant_id);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [starting, setStarting] = useState(false);
+  // 재시도 시 같은 Idempotency-Key를 유지해 세션(=일일 슬롯) 중복 생성을 막는다.
+  const startKeyRef = useRef<string | null>(null);
 
   const inQueue = expression.review_card_id !== null;
+
+  // "이 표현으로 연습하기" → 실세션 생성 후 S12로 이동. 한도 초과/실패는 안내만.
+  const handlePractice = async () => {
+    if (starting) {
+      return;
+    }
+    setStarting(true);
+    setNotice(null);
+    const idempotencyKey = startKeyRef.current ?? crypto.randomUUID();
+    startKeyRef.current = idempotencyKey;
+    try {
+      const res = await fetch("/api/practice/sessions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": idempotencyKey,
+        },
+        body: JSON.stringify({ expression_id: expression.id }),
+      });
+      // 서버 응답 도달 = 확정. 다음 시도는 새 키로 시작한다.
+      startKeyRef.current = null;
+      if (res.status === 201) {
+        const created = (await res.json()) as { id: string };
+        // 성공 — 라우팅 중 재클릭 방지를 위해 starting을 유지한다.
+        router.push(`/practice/${created.id}`);
+        return;
+      }
+      if (res.status === 429) {
+        setNotice("오늘은 2번 다 썼어요. 내일 다시 만나요.");
+      } else {
+        setNotice("연습을 시작하지 못했어요. 다시 시도해주세요.");
+      }
+      setStarting(false);
+    } catch {
+      // 결과 불명(네트워크 오류) — startKeyRef를 남겨 재시도가 중복 세션을 막게 한다.
+      setNotice("연습을 시작하지 못했어요. 다시 시도해주세요.");
+      setStarting(false);
+    }
+  };
 
   const handleRemoveFromQueue = async () => {
     const reviewCardId = expression.review_card_id;
@@ -178,9 +218,11 @@ function LoadedDetail({
             <button
               className="practice-button"
               type="button"
-              onClick={onPractice}
+              onClick={handlePractice}
+              disabled={starting}
+              aria-busy={starting}
             >
-              🎤 이 표현으로 연습하기
+              {starting ? "연습 준비 중…" : "🎤 이 표현으로 연습하기"}
             </button>
             {inQueue ? (
               <button

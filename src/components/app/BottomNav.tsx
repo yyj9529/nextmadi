@@ -1,16 +1,15 @@
 import Link from "next/link";
 
-import { MOCK_SESSION_ID } from "@/lib/mock-api";
-
 type BottomNavProps = {
   active: "home" | "roleplay" | "library" | "review";
 };
 
-// S04/S08 하단 네비. 롤플레이 탭은 실제로는 세션 생성(POST /practice/sessions)
-// 후 진입하지만, 목 패스에서는 고정 세션으로 라우팅한다.
+// S04/S08 하단 네비. 롤플레이는 저장된 표현에서 세션을 시작하므로(POST /practice/sessions,
+// #61) 탭은 표현을 고르는 /library로 보낸다. 표현 없음 empty-state 게이트(s12.md US1 AC4)는
+// 아직 TBD.
 const items = [
   { key: "home", label: "홈", href: "/home" },
-  { key: "roleplay", label: "롤플레이", href: `/practice/${MOCK_SESSION_ID}` },
+  { key: "roleplay", label: "롤플레이", href: "/library" },
   { key: "library", label: "기록", href: "/library" },
   { key: "review", label: "복습", href: "/review" },
 ] as const;
