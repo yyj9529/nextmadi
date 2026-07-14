@@ -112,7 +112,7 @@ CREATE TABLE landing_examples (
 CREATE INDEX idx_landing_active ON landing_examples(is_active) WHERE is_active = true;
 ```
 
-Seed pool for S01 landing page. v1 query: `SELECT * FROM landing_examples WHERE is_active = true ORDER BY random() LIMIT 3`. Rotation logic (e.g., CTR-based activation) is deferred to v1.1+ — v1 keeps all seeded rows active.
+Seed pool for S01 landing page. v1 query: `SELECT * FROM landing_examples WHERE is_active = true ORDER BY random() LIMIT 3`. Seeded with 12 desire-framed situation examples in `V007__seed_landing_examples.sql`. Rotation logic (e.g., CTR-based activation) is deferred to v1.1+ — v1 keeps all seeded rows active.
 
 ### analysis_requests
 

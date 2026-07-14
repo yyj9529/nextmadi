@@ -111,4 +111,21 @@ class MigrationSqlStructureTests {
             "source_type = 'roleplay_result'",
             "deleted_at IS NULL");
   }
+
+  @Test
+  void seedLandingExamplesMigrationInsertsActiveRowsIdempotently() throws Exception {
+    String sql =
+        new String(
+            new ClassPathResource("db/migration/V007__seed_landing_examples.sql")
+                .getInputStream()
+                .readAllBytes(),
+            StandardCharsets.UTF_8);
+
+    assertThat(sql)
+        .contains(
+            "INSERT INTO landing_examples (korean_text)",
+            // per-row idempotency guard: no unique constraint on korean_text
+            "WHERE NOT EXISTS (",
+            "FROM landing_examples le WHERE le.korean_text = v.korean_text");
+  }
 }
