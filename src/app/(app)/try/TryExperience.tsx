@@ -38,6 +38,18 @@ export function isRateLimitExceededError(error: unknown) {
   return "error_code" in error && error.error_code === RATE_LIMIT_ERROR_CODE;
 }
 
+// 브라우저 요청 타임아웃(ms). 이 값이 지나면 fetch를 우리가 취소한다. 타임아웃 시 AbortSignal이
+// fetch를 reject하면 handleSubmit의 catch가 잡아 기존 networkError 토스트("연결이 불안정해요")를
+// 재사용한다.
+//
+// 기준은 s07_analysis의 서버 예산 60초(AI_PIPELINE.md, docs/screens/s06.md). 거기에 응답이
+// 돌아오는 시간만큼 여유를 더한다 — 정확히 동률로 두면 클라이언트가 먼저 끊어, 백엔드는 계속
+// 일하고 과금하는데 사용자만 에러를 보는 경합이 생긴다. 여유를 두면 백엔드 자신의 타임아웃
+// 에러가 이기므로 사용자는 파이프라인이 분류한 에러를 본다.
+const ANALYSIS_SERVER_BUDGET_MS = 60_000;
+const TRANSPORT_MARGIN_MS = 5_000;
+const REQUEST_TIMEOUT_MS = ANALYSIS_SERVER_BUDGET_MS + TRANSPORT_MARGIN_MS;
+
 // 실제 제출: BFF 라우트로 input_text를 보낸다. 비-ok 응답은 본문 JSON(있으면 error_code 포함)을
 // throw해 handleSubmit의 rate-limit / 네트워크 에러 분기가 그대로 동작하게 한다.
 async function postTryAnalysis(inputText: string): Promise<TryAnalysisResult> {
@@ -46,6 +58,7 @@ async function postTryAnalysis(inputText: string): Promise<TryAnalysisResult> {
     headers: { "content-type": "application/json" },
     credentials: "same-origin",
     body: JSON.stringify({ input_text: inputText }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
   if (!response.ok) {
