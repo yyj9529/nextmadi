@@ -56,7 +56,7 @@ export default async function LandingPage() {
                 <li key={example.id}>
                   <Link
                     className="landing-example-card"
-                    href={`/try?example=${example.id}`}
+                    href={`/try?text=${encodeURIComponent(example.korean_text)}`}
                   >
                     “{example.korean_text}”
                   </Link>
