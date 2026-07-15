@@ -87,6 +87,19 @@ class FlywayMigrationTests {
       assertThat(columns(connection, "expressions"))
           .contains("deleted_at", "roleplay_result_index", "roleplay_save_idempotency_key");
       assertThat(columns(connection, "review_cards")).contains("removed_from_queue_at");
+
+      // S01 samples LIMIT 3 over is_active rows; seed must always fill that sample.
+      assertThat(activeLandingExampleCount(connection)).isGreaterThanOrEqualTo(3);
+    }
+  }
+
+  private static int activeLandingExampleCount(Connection connection) throws Exception {
+    try (var statement =
+            connection.prepareStatement(
+                "SELECT count(*) AS n FROM landing_examples WHERE is_active = true");
+        ResultSet resultSet = statement.executeQuery()) {
+      resultSet.next();
+      return resultSet.getInt("n");
     }
   }
 
