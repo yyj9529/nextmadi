@@ -2487,6 +2487,15 @@
   line-height: 1.5;
 }
 
+.awkward-said,
+.awkward-natural {
+  display: block;
+}
+
+.awkward-natural {
+  margin-top: 2px;
+}
+
 .awkward-comment {
   margin: 6px 0 0;
   color: #a07f24;
@@ -2513,6 +2522,18 @@
   font-size: 0.75rem;
 }
 
+.practiced-tone {
+  margin-left: 8px;
+  border-radius: 6px;
+  background: var(--app-blue-bg, #ebf3ff);
+  padding: 2px 7px;
+  color: var(--app-blue-deep);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 .result12b-source-link {
   display: block;
   margin-top: 18px;
@@ -2520,6 +2541,35 @@
   font-size: 0.875rem;
   font-weight: 700;
   text-align: center;
+}
+
+/* 저장 성공 토스트: 화면 하단 중앙에 잠깐 뜬다(s12b.md US2 AC2). */
+.result12b-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  z-index: 40;
+  margin: 0;
+  border-radius: 10px;
+  background: #181b26;
+  padding: 12px 18px;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.2);
+  animation: result12b-toast-in 180ms ease-out;
+}
+
+@keyframes result12b-toast-in {
+  from {
+    transform: translate(-50%, 8px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
 }
 
 .result12b-footer {

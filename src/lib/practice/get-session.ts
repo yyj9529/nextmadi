@@ -1,7 +1,7 @@
 import "server-only";
 
 import { mintInternalAuthToken } from "../internal-auth";
-import type { RoleplaySession, RoleplayTurn } from "./types";
+import type { RoleplayResult, RoleplaySession, RoleplayTurn } from "./types";
 
 // BFF → Spring Boot 롤플레이 세션 상태 조회. (#61, S12 · 백엔드 #59)
 //
@@ -72,6 +72,7 @@ export async function getSession(
 
   const body = (await response.json()) as RoleplaySession & {
     turns?: RoleplayTurn[] | null;
+    result_json?: RoleplayResult | null;
   };
 
   return {
@@ -82,6 +83,7 @@ export async function getSession(
     expression_id: body.expression_id ?? null,
     started_at: body.started_at,
     ended_at: body.ended_at ?? null,
+    result_json: body.result_json ?? null,
     turns: body.turns ?? [],
   };
 }
