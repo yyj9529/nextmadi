@@ -42,10 +42,6 @@ export function HomeAnalysisCard() {
       <TextInputSheet
         open={textSheetOpen}
         onClose={() => setTextSheetOpen(false)}
-        onSubmit={() => {
-          setTextSheetOpen(false);
-          setAnalyzing(true);
-        }}
       />
       <AnalysisLoadingModal
         open={analyzing}
