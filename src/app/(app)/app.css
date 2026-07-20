@@ -912,6 +912,80 @@
   margin-top: 14px;
 }
 
+/* 제출 중: 버튼 안에 작은 스피너를 보여준다(스펙 s05a: submit spinner). */
+.text-input-sheet .primary-button .loading-spinner {
+  width: 18px;
+  height: 18px;
+  border-width: 3px;
+  border-color: rgba(255, 255, 255, 0.45);
+  border-top-color: #ffffff;
+}
+
+/* 붙여넣기 초과 1회성 토스트. */
+.sheet-paste-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #181b26;
+  padding: 6px 12px;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sheet-error-toast {
+  margin: 12px 0 0;
+  border-radius: 10px;
+  background: #181b26;
+  padding: 10px 12px;
+  color: #ffffff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* 429: S02 rate-limit 상태를 미러링한다. */
+.sheet-rate-limit-state {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 240px;
+  border: 1px solid #ffd8a8;
+  border-radius: 16px;
+  background: #fff9db;
+  padding: 28px 22px;
+  text-align: center;
+}
+
+.sheet-rate-limit-title {
+  margin: 0;
+  color: #855e0a;
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.sheet-rate-limit-copy {
+  margin: 10px 0 0;
+  color: #9a6a09;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.sheet-rate-limit-cta {
+  margin-top: 24px;
+}
+
+.sheet-rate-limit-reset {
+  margin: 12px 0 0;
+  color: #a07f24;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
 /* ---- S01: 랜딩 ---- */
 
 .landing-login-link {
