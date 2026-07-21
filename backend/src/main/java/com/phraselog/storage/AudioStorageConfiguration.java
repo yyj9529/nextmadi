@@ -8,6 +8,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.util.StringUtils;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
@@ -24,7 +25,10 @@ public class AudioStorageConfiguration {
 
   private static final Logger log = LoggerFactory.getLogger(AudioStorageConfiguration.class);
 
+  // local 프로필은 LocalAudioStorageConfiguration이 파일시스템 기반 AudioStorage를 배선한다(#118).
+  // 이 빈은 prod(S3)와 default/test(Unavailable 폴백)에서만 활성화해 빈 중복 정의를 막는다.
   @Bean
+  @Profile("!local")
   public AudioStorage audioStorage(
       ObjectProvider<S3Template> s3TemplateProvider,
       ObjectProvider<S3Presigner> s3PresignerProvider,
