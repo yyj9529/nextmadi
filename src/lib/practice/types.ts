@@ -21,6 +21,30 @@ export type RoleplayTurnFeedback = {
   korean_comment: string | null;
 };
 
+/**
+ * Sonnet가 생성해 practice_sessions.result_json에 캐시하는 S12b 결과.
+ * openapi PracticeResult / roleplay_result_v1.json 스키마에 대응한다.
+ * (mock-api의 PracticeResult와 달리 실제 스키마엔 pronunciation_focus_comment가 없고,
+ * 추천 표현엔 pronunciation_tip / cultural_tip가 있다.)
+ */
+export type RoleplayResult = {
+  coach_encouragement: string;
+  recommended_expressions: {
+    english: string;
+    tone_label: string;
+    ipa: string;
+    korean_pronunciation: string;
+    pronunciation_tip: string;
+    cultural_tip: string;
+  }[];
+  awkward_pairs: {
+    user_said: string;
+    natural_version: string;
+    comment: string;
+  }[];
+  pronunciation_focus_words: string[];
+};
+
 /** GET /practice/sessions/{id} 상태. turns는 turn_number 오름차순. */
 export type RoleplaySession = {
   id: string;
@@ -30,6 +54,8 @@ export type RoleplaySession = {
   expression_id: string | null;
   started_at: string;
   ended_at: string | null;
+  /** S12b 캐시 결과. POST /result 성공 전에는 null(s12b.md AC1). */
+  result_json: RoleplayResult | null;
   turns: RoleplayTurn[];
 };
 

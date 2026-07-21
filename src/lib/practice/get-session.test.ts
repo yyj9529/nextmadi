@@ -74,6 +74,26 @@ describe("getSession", () => {
     expect(result.turns).toEqual([]);
   });
 
+  test("defaults missing result_json to null and passes it through when present", async () => {
+    const withoutResult = await getSession(
+      { userId: "user-1", sessionId: "session-1" },
+      { ...OPTS, fetcher: async () => okSession() },
+    );
+    expect(withoutResult.result_json).toBeNull();
+
+    const resultJson = {
+      coach_encouragement: "잘했어요!",
+      recommended_expressions: [],
+      awkward_pairs: [],
+      pronunciation_focus_words: [],
+    };
+    const withResult = await getSession(
+      { userId: "user-1", sessionId: "session-1" },
+      { ...OPTS, fetcher: async () => okSession({ result_json: resultJson }) },
+    );
+    expect(withResult.result_json).toEqual(resultJson);
+  });
+
   test("throws SessionNotFoundError on 404", async () => {
     const fetcher: FetchLike = async () =>
       Response.json({ error_code: "not_found" }, { status: 404 });
