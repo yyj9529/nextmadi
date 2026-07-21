@@ -6,6 +6,7 @@ import com.phraselog.ai.logging.dto.AiErrorCode;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +23,10 @@ import org.springframework.web.client.RestClient;
  * <p>요청 본문은 {@code {model, voice, input}} JSON, 응답은 바이너리 MP3. 기본 응답 포맷이 mp3이므로 별도 {@code
  * response_format}을 지정하지 않는다.
  */
+// openai.mock.enabled=true(로컬 전용, application-local.yml)면 이 실호출 클라이언트 대신
+// MockOpenAiTtsClient가 배선된다. 기본/prod/CI는 속성이 없어 matchIfMissing으로 실호출을 쓴다(#117).
 @Component
+@ConditionalOnProperty(name = "openai.mock.enabled", havingValue = "false", matchIfMissing = true)
 public class RestClientOpenAiTtsClient implements OpenAiTtsClient {
 
   static final String MODEL = "tts-1";
