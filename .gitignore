@@ -28,9 +28,23 @@ eval/runs/*.json
 # mock Anthropic client). Never commit — see the file header.
 **/application-local.yml
 
+# Local-only Postman collection: holds the dev X-Internal-Auth signing secret +
+# token-minting script for hitting the backend directly. Never commit — see the
+# collection description.
+**/*.postman_collection.json
+
 # IDE / build artifacts
 **/.idea/
+**/.vscode/
 backend/bin/
+
+# Generated docs index (`bun run docs:index`). Rebuildable from docs/**, so the
+# HTML output stays out of the repo.
+docs/_site/
 
 .playwright-mcp/
 docs/.playwright-mcp/
+
+# Ad-hoc screenshots dropped at the repo root during UI verification. Browser
+# evidence belongs on the issue/PR, not in the tree.
+/*.png
