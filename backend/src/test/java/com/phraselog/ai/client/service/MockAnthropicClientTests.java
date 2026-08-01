@@ -19,7 +19,10 @@ class MockAnthropicClientTests {
 
   private JsonNode call(String promptBody) throws Exception {
     return mock.sendMessage(
-        "model", new AnthropicMessage[] {AnthropicMessage.user(promptBody)}, Duration.ofSeconds(1));
+            "model",
+            new AnthropicMessage[] {AnthropicMessage.user(promptBody)},
+            Duration.ofSeconds(1))
+        .payload();
   }
 
   private void assertValid(String promptBody, String schemaId) throws Exception {
