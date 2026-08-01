@@ -468,9 +468,17 @@
 
 .result-actions {
   display: flex;
+  /* 저장 토스트(.save-toast)는 flex-basis:100%로 아랫줄에 놓인다. wrap이 없으면
+     토스트가 버튼과 같은 줄을 차지해 저장 버튼이 눌린 순간 좁아진다. */
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: auto;
   padding-top: 20px;
+}
+
+/* 줄바꿈 간격은 위 gap이 담당하므로 여기서는 토스트 자체 margin을 쓰지 않는다. */
+.result-actions .save-toast {
+  margin-top: 0;
 }
 
 .save-button {
