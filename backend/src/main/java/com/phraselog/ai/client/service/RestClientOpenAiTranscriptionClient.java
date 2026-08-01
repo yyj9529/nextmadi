@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -20,7 +21,10 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
+// openai.mock.enabled=true(로컬 전용, application-local.yml)면 이 실호출 클라이언트 대신
+// MockOpenAiTranscriptionClient가 배선된다. 기본/prod/CI는 matchIfMissing으로 실호출을 쓴다(#117).
 @Component
+@ConditionalOnProperty(name = "openai.mock.enabled", havingValue = "false", matchIfMissing = true)
 public class RestClientOpenAiTranscriptionClient implements OpenAiTranscriptionClient {
 
   static final String MODEL = "whisper-1";
