@@ -3,6 +3,7 @@ package com.phraselog.ai.client.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.phraselog.ai.client.config.FeatureRouting;
 import com.phraselog.ai.client.dto.AnthropicMessage;
+import com.phraselog.ai.client.dto.AnthropicResponse;
 import com.phraselog.ai.logging.dto.AiErrorCode;
 import com.phraselog.ai.logging.dto.AiFeature;
 import com.phraselog.ai.logging.dto.AiRequestLogEntry;
@@ -95,13 +96,14 @@ public class AnthropicService {
               : baseMessages;
 
       try {
-        JsonNode response =
+
+        AnthropicResponse response =
             client.sendMessage(modelId, messages, FeatureRouting.getTimeoutForFeature(feature));
-        schemaValidator.validate(outputSchema, response);
+        schemaValidator.validate(outputSchema, response.payload());
 
         long latencyMs = System.currentTimeMillis() - startTimeMs;
-        Integer inputTokens = extractTokenCount(response, "input_tokens");
-        Integer outputTokens = extractTokenCount(response, "output_tokens");
+        Integer inputTokens = response.inputTokens();
+        Integer outputTokens = response.outputTokens();
         BigDecimal cost =
             (inputTokens != null && outputTokens != null)
                 ? costCalculator.llm(modelId, inputTokens, outputTokens)
@@ -119,7 +121,7 @@ public class AnthropicService {
             userId,
             correlationId,
             cost);
-        return response;
+        return response.payload();
 
       } catch (AnthropicClient.AnthropicClientException e) {
         lastError = e.errorCode();
@@ -202,13 +204,6 @@ public class AnthropicService {
                 + outputSchema
                 + ")를 만족하지 않았습니다. 설명이나 코드펜스 없이, 스키마 제약을 지킨 유효한 JSON만 다시 출력하세요.");
     return withReminder;
-  }
-
-  private Integer extractTokenCount(JsonNode response, String field) {
-    if (response.has("usage") && response.get("usage").has(field)) {
-      return response.get("usage").get(field).asInt();
-    }
-    return null;
   }
 
   private AiRequestStatus statusForErrorCode(AiErrorCode errorCode) {

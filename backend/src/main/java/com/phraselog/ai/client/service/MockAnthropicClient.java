@@ -1,8 +1,8 @@
 package com.phraselog.ai.client.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.phraselog.ai.client.dto.AnthropicMessage;
+import com.phraselog.ai.client.dto.AnthropicResponse;
 import com.phraselog.ai.logging.dto.AiErrorCode;
 import java.time.Duration;
 import org.slf4j.Logger;
@@ -40,12 +40,16 @@ public class MockAnthropicClient implements AnthropicClient {
   }
 
   @Override
-  public JsonNode sendMessage(String modelId, AnthropicMessage[] messages, Duration timeout)
+  public AnthropicResponse sendMessage(
+      String modelId, AnthropicMessage[] messages, Duration timeout)
       throws AnthropicClientException {
     String prompt = joinContent(messages);
     String payload = cannedPayloadFor(prompt);
     try {
-      return objectMapper.readTree(payload);
+      // No usage: the mock bills nothing, and inventing token counts would put fabricated cost
+      // figures in ai_request_logs. Null here is the honest value — and it is precisely why the
+      // real client's dropped usage stayed invisible locally until a keyed call was made (#107).
+      return AnthropicResponse.withoutUsage(objectMapper.readTree(payload));
     } catch (Exception e) {
       // Should never happen — the canned strings are compile-time constants.
       throw new AnthropicClientException(

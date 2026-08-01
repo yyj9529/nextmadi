@@ -71,7 +71,13 @@ All LLM calls:
 
 Schema validation failures retry once with a constraint reminder appended to the prompt ("Your previous response did not match the required JSON schema. Return only the JSON object."). Second failure returns a structured error to the application. The application surfaces an end-user message and logs the failure.
 
-Timeout: 30 seconds for `s07_analysis`, `roleplay_session_init`, `roleplay_result`. 15 seconds for `roleplay_turn_response`. 10 seconds for `roleplay_turn_feedback` (must not block the next turn). All timeout values are v1 working defaults — to be tuned against `ai_request_logs.latency_ms` data during W4-8.
+Timeout: 60 seconds for `s07_analysis`. 30 seconds for `roleplay_session_init`, `roleplay_result`. 15 seconds for `roleplay_turn_response`. 10 seconds for `roleplay_turn_feedback` (must not block the next turn).
+
+`s07_analysis` was 30 seconds until 2026-07-25. Two things were true at once: the value came from a planning storyboard rather than measurement, and the client accepted the timeout argument without ever applying it to the HTTP call — so nothing enforced any limit. Once enforcement was fixed, three real keyed calls measured 25.7s / 27.8s / 35.1s (`ai_request_logs.latency_ms`, 2026-07-25, prompt `s07-v1`, `claude-sonnet-4-6`), a mean sitting on top of the old limit. 60 seconds is set from that measurement. Sample size is three; re-check against accumulated `latency_ms` once real traffic exists.
+
+The roleplay values remain unmeasured v1 working defaults. Their outputs are at least as large as S07's, so they are likely to need the same correction — measure before changing them, rather than generalizing from S07.
+
+A 30-second wait is a UX problem independent of the timeout value; reducing latency (model routing, streaming) is tracked separately and is not solved by widening the budget.
 
 ### Stage 3 — TTS (OpenAI TTS)
 
@@ -253,7 +259,7 @@ Timeouts per feature are in the routing table above. Behavior on failure:
 
 User-visible error messages live in `docs/screens/*.md` (S06 for analysis, S12 for roleplay). The pipeline returns a structured error object — UI copy is the screen's responsibility, not the pipeline's.
 
-S07 specifically: the S06 loading modal shows a cancel button at 10 seconds and times out at 30 seconds (PPT v2.2 slide 8). On timeout, the modal transitions to an error state in place rather than redirecting.
+S07 specifically: the S06 loading modal shows a cancel button at 10 seconds and times out at 60 seconds, matching the `s07_analysis` backend budget above (raised from the storyboard's 30 seconds on 2026-07-25 — see Stage 2). The two must stay equal: a client that gives up first shows the user an error while the backend is still working and still billing the call. On timeout, the modal transitions to an error state in place rather than redirecting.
 
 S12 specifically: TTS failure mid-session continues the session in text-only mode without failing the turn. STT failure (timeout or low confidence) prompts the user to retry the turn — the turn is not consumed against `planned_turns`.
 

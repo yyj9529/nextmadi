@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.phraselog.ai.client.config.FeatureRouting;
 import com.phraselog.ai.client.dto.AnthropicMessage;
+import com.phraselog.ai.client.dto.AnthropicResponse;
 import com.phraselog.ai.logging.dto.AiErrorCode;
 import com.phraselog.ai.logging.dto.AiFeature;
 import com.phraselog.ai.logging.dto.AiRequestLogEntry;
@@ -46,7 +47,13 @@ class AnthropicServiceTests {
 
   @Test
   void testTimeoutForFeatures() {
+    // 60s for S07, set from measured latency (25.7s / 27.8s / 35.1s, 2026-07-25) after the
+    // timeout became enforceable; the other Sonnet features stay at the unmeasured 30s default.
     assertThat(FeatureRouting.getTimeoutForFeature(AiFeature.S07_ANALYSIS))
+        .isEqualTo(Duration.ofSeconds(60));
+    assertThat(FeatureRouting.getTimeoutForFeature(AiFeature.ROLEPLAY_SESSION_INIT))
+        .isEqualTo(Duration.ofSeconds(30));
+    assertThat(FeatureRouting.getTimeoutForFeature(AiFeature.ROLEPLAY_RESULT))
         .isEqualTo(Duration.ofSeconds(30));
     assertThat(FeatureRouting.getTimeoutForFeature(AiFeature.ROLEPLAY_TURN_RESPONSE))
         .isEqualTo(Duration.ofSeconds(15));
@@ -80,7 +87,8 @@ class AnthropicServiceTests {
   void callClaudeValidatesS07ResponseAgainstClasspathSchema() throws Exception {
     RecordingLogStore logStore = new RecordingLogStore();
     JsonNode providerResponse = MAPPER.readTree(validS07Analysis());
-    AnthropicClient client = (modelId, messages, timeout) -> providerResponse;
+    AnthropicClient client =
+        (modelId, messages, timeout) -> AnthropicResponse.withoutUsage(providerResponse);
     AnthropicService service =
         new AnthropicService(
             client,
@@ -107,11 +115,78 @@ class AnthropicServiceTests {
             });
   }
 
+  /**
+   * Regression for the usage loss found by the first real keyed call (#107): the client reported
+   * token counts, but they never reached {@code ai_request_logs}, so every real row stored null
+   * tokens and null cost. No test covered the token/cost columns at all, which is why the mock —
+   * which reports no usage — kept the gap invisible.
+   */
+  @Test
+  void callClaudeLogsReportedTokensAndDerivedCost() throws Exception {
+    RecordingLogStore logStore = new RecordingLogStore();
+    AnthropicResponse withUsage =
+        new AnthropicResponse(MAPPER.readTree(validS07Analysis()), 1500, 1200);
+    AnthropicService service =
+        new AnthropicService(
+            new CapturingAnthropicClient(withUsage),
+            new AiRequestLogger(logStore),
+            new AiCostCalculator(),
+            new JsonSchemaValidator(MAPPER));
+
+    service.callClaude(
+        AiFeature.S07_ANALYSIS,
+        promptDefinition(),
+        "user situation",
+        UUID.randomUUID(),
+        UUID.randomUUID());
+
+    assertThat(logStore.entries())
+        .singleElement()
+        .satisfies(
+            entry -> {
+              assertThat(entry.inputTokens()).isEqualTo(1500);
+              assertThat(entry.outputTokens()).isEqualTo(1200);
+              assertThat(entry.estimatedCostUsd())
+                  .isEqualByComparingTo(
+                      new AiCostCalculator().llm("claude-sonnet-4-6", 1500, 1200));
+            });
+  }
+
+  /** A provider that omits usage must log null cost rather than a fabricated zero. */
+  @Test
+  void callClaudeLogsNullCostWhenProviderReportsNoUsage() throws Exception {
+    RecordingLogStore logStore = new RecordingLogStore();
+    AnthropicService service =
+        new AnthropicService(
+            new CapturingAnthropicClient(
+                AnthropicResponse.withoutUsage(MAPPER.readTree(validS07Analysis()))),
+            new AiRequestLogger(logStore),
+            new AiCostCalculator(),
+            new JsonSchemaValidator(MAPPER));
+
+    service.callClaude(
+        AiFeature.S07_ANALYSIS,
+        promptDefinition(),
+        "user situation",
+        UUID.randomUUID(),
+        UUID.randomUUID());
+
+    assertThat(logStore.entries())
+        .singleElement()
+        .satisfies(
+            entry -> {
+              assertThat(entry.inputTokens()).isNull();
+              assertThat(entry.outputTokens()).isNull();
+              assertThat(entry.estimatedCostUsd()).isNull();
+            });
+  }
+
   @Test
   void callClaudeUsesFeatureSpecificTimeoutForRoleplayTurnResponse() throws Exception {
     RecordingLogStore logStore = new RecordingLogStore();
     CapturingAnthropicClient client =
-        new CapturingAnthropicClient(MAPPER.readTree(validS07Analysis()));
+        new CapturingAnthropicClient(
+            AnthropicResponse.withoutUsage(MAPPER.readTree(validS07Analysis())));
     AnthropicService service =
         new AnthropicService(
             client,
@@ -452,15 +527,16 @@ class AnthropicServiceTests {
 
   private static final class CapturingAnthropicClient implements AnthropicClient {
 
-    private final JsonNode response;
+    private final AnthropicResponse response;
     private Duration timeout;
 
-    private CapturingAnthropicClient(JsonNode response) {
+    private CapturingAnthropicClient(AnthropicResponse response) {
       this.response = response;
     }
 
     @Override
-    public JsonNode sendMessage(String modelId, AnthropicMessage[] messages, Duration timeout) {
+    public AnthropicResponse sendMessage(
+        String modelId, AnthropicMessage[] messages, Duration timeout) {
       this.timeout = timeout;
       return response;
     }
@@ -485,7 +561,8 @@ class AnthropicServiceTests {
     }
 
     @Override
-    public JsonNode sendMessage(String modelId, AnthropicMessage[] messages, Duration timeout)
+    public AnthropicResponse sendMessage(
+        String modelId, AnthropicMessage[] messages, Duration timeout)
         throws AnthropicClientException {
       calls.add(messages);
       if (outcomes.isEmpty()) {
@@ -495,7 +572,10 @@ class AnthropicServiceTests {
       if (next instanceof AnthropicClientException e) {
         throw e;
       }
-      return (JsonNode) next;
+      if (next instanceof AnthropicResponse response) {
+        return response;
+      }
+      return AnthropicResponse.withoutUsage((JsonNode) next);
     }
 
     int callCount() {

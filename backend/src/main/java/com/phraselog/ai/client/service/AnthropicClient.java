@@ -1,7 +1,7 @@
 package com.phraselog.ai.client.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.phraselog.ai.client.dto.AnthropicMessage;
+import com.phraselog.ai.client.dto.AnthropicResponse;
 import com.phraselog.ai.logging.dto.AiErrorCode;
 import java.time.Duration;
 
@@ -9,15 +9,16 @@ import java.time.Duration;
 public interface AnthropicClient {
 
   /**
-   * Sends a message to Claude and receives the JSON response.
+   * Sends a message to Claude and receives the model output together with its token accounting.
    *
    * @param modelId the model identifier, e.g. "claude-sonnet-4-6" or "claude-haiku-4-5"
    * @param messages the message history for the API call
-   * @param timeout the request timeout; must be positive
-   * @return the API response as a JsonNode
+   * @param timeout the request timeout; must be positive and must be applied to the actual HTTP
+   *     call, not merely accepted (see {@code RestClientAnthropicClient})
+   * @return the parsed payload plus reported usage; see {@link AnthropicResponse}
    * @throws AnthropicClientException on any error (network, timeout, provider error, parsing)
    */
-  JsonNode sendMessage(String modelId, AnthropicMessage[] messages, Duration timeout)
+  AnthropicResponse sendMessage(String modelId, AnthropicMessage[] messages, Duration timeout)
       throws AnthropicClientException;
 
   /**
