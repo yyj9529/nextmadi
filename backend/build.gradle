@@ -38,6 +38,11 @@ dependencies {
 
     runtimeOnly 'org.postgresql:postgresql'
 
+    // 로컬 디버깅 전용: 실제 파라미터 값이 박힌 완성 SQL을 로깅한다(spy.properties + application-local.yml).
+    // developmentOnly라 배포 bootJar에는 포함되지 않는다. prod/CI는 P6Spy 드라이버를 쓰지 않으므로
+    // (org.postgresql.Driver 직접 사용) 완전히 무해. Maven Central 안정판 3.9.1(검증 2026-07-22).
+    developmentOnly 'p6spy:p6spy:3.9.1'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'
