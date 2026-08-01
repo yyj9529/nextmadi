@@ -17,8 +17,14 @@ import {
 // - 로그인 저장: BFF(POST /api/expressions) 호출 → 저장됨 상태.
 // - 자동 재개: 로그인/온보딩 후 이 분석의 pending_save가 남아 있으면 탭 없이 자동 저장하고 정리한다.
 // - claim 실패(404): 사과 문구 + /home CTA.
+//
+// 저장 성공 후에는 "저장됨 ✓" + 토스트를 잠깐 보여준 뒤 S08(/library)로 이동한다(owner 결정
+// 2026-07-28). 직접 탭한 경우와 로그인 복귀 후 자동 저장된 경우 모두 같은 목적지로 보낸다.
 
 const DEFAULT_VARIANT_ORDER = 1;
+
+/** 저장 확인(토스트)을 보여준 뒤 책장으로 넘어가기까지의 지연. */
+const SAVED_REDIRECT_DELAY_MS = 800;
 
 type SaveState = "idle" | "saving" | "saved" | "not_found" | "error";
 
@@ -36,6 +42,17 @@ export function ResultActions({
   const router = useRouter();
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const autoResumeAttempted = useRef(false);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 언마운트 후 남은 타이머가 엉뚱한 시점에 라우팅하지 않도록 정리한다.
+  useEffect(
+    () => () => {
+      if (redirectTimer.current !== null) {
+        clearTimeout(redirectTimer.current);
+      }
+    },
+    [],
+  );
 
   const runSave = useCallback(async () => {
     setSaveState("saving");
@@ -61,10 +78,17 @@ export function ResultActions({
       // 저장 성공(201) 또는 이미 저장됨(200/409 정규화) → 저장됨 상태.
       clearPendingSave();
       setSaveState("saved");
+      // 저장 확인을 잠깐 노출한 뒤 책장으로. replace가 아니라 push인 이유: 로그인 복귀
+      // 경로에서는 S07 직전 히스토리가 /login이라, replace하면 뒤로가기가 이미 로그인한
+      // 사용자를 로그인 화면에 떨어뜨린다. push면 뒤로가기가 결과 화면으로 돌아온다.
+      redirectTimer.current = setTimeout(() => {
+        redirectTimer.current = null;
+        router.push("/library");
+      }, SAVED_REDIRECT_DELAY_MS);
     } catch {
       setSaveState("error");
     }
-  }, [analysisRequestId, selectedVariantOrder]);
+  }, [analysisRequestId, selectedVariantOrder, router]);
 
   // 로그인 후 자동 재개: 이 분석에 대한 pending_save가 있으면 탭 없이 한 번 저장한다.
   useEffect(() => {
@@ -122,6 +146,14 @@ export function ResultActions({
             ? "저장 중..."
             : "저장하기"}
       </button>
+      <button
+        className="retry-button"
+        type="button"
+        onClick={() => router.push("/home")}
+      >
+        <RetryIcon /> 다시
+      </button>
+      {/* 토스트는 버튼 뒤에 둔다. flex-wrap 기준으로 버튼 줄 아래에 놓여야 버튼 폭이 안 변한다. */}
       {saveState === "saved" ? (
         <p className="save-toast" role="status">
           📚 책장에 추가했어요
@@ -132,13 +164,6 @@ export function ResultActions({
           저장에 실패했어요. 다시 시도해주세요.
         </p>
       ) : null}
-      <button
-        className="retry-button"
-        type="button"
-        onClick={() => router.push("/home")}
-      >
-        <RetryIcon /> 다시
-      </button>
     </div>
   );
 }
