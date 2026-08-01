@@ -19,8 +19,9 @@ public class JdbcAiRequestLogStore implements AiRequestLogStore {
       INSERT INTO ai_request_logs
         (user_id, feature_name, model_name, prompt_version,
          input_tokens, output_tokens, latency_ms, estimated_cost_usd,
-         status, error_code, request_correlation_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         status, error_code, request_correlation_id,
+         attempt_group_id, attempt_number, is_final_attempt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       """;
 
   private final JdbcTemplate jdbcTemplate;
@@ -50,6 +51,9 @@ public class JdbcAiRequestLogStore implements AiRequestLogStore {
           setNullableString(
               ps, 10, entry.errorCode() == null ? null : entry.errorCode().wireName());
           setUuid(ps, 11, entry.requestCorrelationId());
+          setUuid(ps, 12, entry.attemptGroupId());
+          ps.setInt(13, entry.attemptNumber());
+          ps.setBoolean(14, entry.isFinalAttempt());
           return ps;
         });
   }

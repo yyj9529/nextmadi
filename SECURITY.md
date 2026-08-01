@@ -48,9 +48,12 @@ production, or migrations, and the diff is reviewed before merge.
 ## Logging discipline
 
 `ai_request_logs` stores `feature_name`, `model_name`, `prompt_version`,
-`latency_ms`, `estimated_cost_usd`, `status`, and `request_correlation_id` — metadata,
+`latency_ms`, `estimated_cost_usd`, `status`, `request_correlation_id`,
+`attempt_group_id`, `attempt_number`, and `is_final_attempt` — metadata,
 not raw user content. Keep it that way. Diagnostics use the correlation id to trace a
-pipeline run, not stored transcripts.
+pipeline run, and the attempt group to trace the retries within one call — never stored
+transcripts. The retry columns are counters and identifiers only; nothing about a retry
+reveals what the user said.
 
 ## Related
 

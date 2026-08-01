@@ -220,6 +220,25 @@ class JdbcAnalysisRepositoryTests {
     assertThat(repository.findLogIdByCorrelation(UUID.randomUUID())).isEmpty();
   }
 
+  /**
+   * Regression for the query ADR-011 breaks: a retried call leaves several rows under one
+   * correlation id, and analysis_requests.ai_request_log_id must point at the final attempt. Both
+   * rows are inserted with the same created_at so ordering alone cannot resolve it — only the
+   * is_final_attempt predicate can.
+   */
+  @Test
+  void findLogIdByCorrelationResolvesTheFinalAttemptWhenACallWasRetried() {
+    UUID correlationId = UUID.randomUUID();
+    UUID group = UUID.randomUUID();
+    insertAiRequestLogAttempt(correlationId, group, 1, false);
+    UUID finalAttemptId = insertAiRequestLogAttempt(correlationId, group, 2, true);
+    jdbcTemplate.update(
+        "UPDATE ai_request_logs SET created_at = now() WHERE request_correlation_id = ?",
+        correlationId);
+
+    assertThat(repository.findLogIdByCorrelation(correlationId)).contains(finalAttemptId);
+  }
+
   private JsonNode output() {
     try {
       return MAPPER.readTree(
@@ -246,13 +265,22 @@ class JdbcAnalysisRepositoryTests {
   }
 
   private UUID insertAiRequestLogWithCorrelation(UUID correlationId) {
+    return insertAiRequestLogAttempt(correlationId, UUID.randomUUID(), 1, true);
+  }
+
+  private UUID insertAiRequestLogAttempt(
+      UUID correlationId, UUID attemptGroupId, int attemptNumber, boolean isFinalAttempt) {
     UUID id = UUID.randomUUID();
     jdbcTemplate.update(
         "INSERT INTO ai_request_logs"
-            + " (id, feature_name, model_name, latency_ms, status, request_correlation_id)"
-            + " VALUES (?, 's07_analysis', 'claude-sonnet-4-6', 1200, 'success', ?)",
+            + " (id, feature_name, model_name, latency_ms, status, request_correlation_id,"
+            + "  attempt_group_id, attempt_number, is_final_attempt)"
+            + " VALUES (?, 's07_analysis', 'claude-sonnet-4-6', 1200, 'success', ?, ?, ?, ?)",
         id,
-        correlationId);
+        correlationId,
+        attemptGroupId,
+        attemptNumber,
+        isFinalAttempt);
     return id;
   }
 

@@ -121,6 +121,100 @@ class JdbcAiRequestLogStoreIntegrationTest {
     assertThat(row.get("created_at")).isNotNull();
   }
 
+  /**
+   * ADR-011 round-trip: a retried call writes one row per attempt, and the cost of the retry is
+   * only recoverable by summing without an {@code is_final_attempt} filter. The filtered sum is
+   * asserted too, because it is the wrong query — pinning both makes the difference visible if
+   * anyone "optimises" a cost dashboard by adding the filter.
+   */
+  @Test
+  void retriedCallPersistsEveryAttemptAndOnlyUnfilteredSumIsTheRealBill() {
+    UUID correlation = UUID.randomUUID();
+    UUID group = UUID.randomUUID();
+
+    store.save(
+        AiRequestLogEntry.builder()
+            .feature(AiFeature.S07_ANALYSIS)
+            .modelName("claude-sonnet-4-6")
+            .promptVersion("v1")
+            .inputTokens(900)
+            .outputTokens(100)
+            .latencyMs(1200)
+            .estimatedCostUsd(new BigDecimal("0.004200"))
+            .status(AiRequestStatus.ERROR)
+            .errorCode(AiErrorCode.SCHEMA_VALIDATION_FAILED)
+            .requestCorrelationId(correlation)
+            .attemptGroupId(group)
+            .attemptNumber(1)
+            .isFinalAttempt(false)
+            .build());
+    store.save(
+        AiRequestLogEntry.builder()
+            .feature(AiFeature.S07_ANALYSIS)
+            .modelName("claude-sonnet-4-6")
+            .promptVersion("v1")
+            .inputTokens(900)
+            .outputTokens(270)
+            .latencyMs(1400)
+            .estimatedCostUsd(new BigDecimal("0.006750"))
+            .status(AiRequestStatus.SUCCESS)
+            .requestCorrelationId(correlation)
+            .attemptGroupId(group)
+            .attemptNumber(2)
+            .isFinalAttempt(true)
+            .build());
+
+    List<Map<String, Object>> rows =
+        jdbcTemplate.queryForList(
+            "SELECT attempt_number, is_final_attempt, attempt_group_id FROM ai_request_logs"
+                + " WHERE attempt_group_id = ? ORDER BY attempt_number",
+            group);
+    assertThat(rows).hasSize(2);
+    assertThat(((Number) rows.get(0).get("attempt_number")).intValue()).isEqualTo(1);
+    assertThat(rows.get(0).get("is_final_attempt")).isEqualTo(false);
+    assertThat(((Number) rows.get(1).get("attempt_number")).intValue()).isEqualTo(2);
+    assertThat(rows.get(1).get("is_final_attempt")).isEqualTo(true);
+
+    BigDecimal billed =
+        jdbcTemplate.queryForObject(
+            "SELECT sum(estimated_cost_usd) FROM ai_request_logs WHERE attempt_group_id = ?",
+            BigDecimal.class,
+            group);
+    assertThat(billed).isEqualByComparingTo("0.010950");
+
+    BigDecimal underCounted =
+        jdbcTemplate.queryForObject(
+            "SELECT sum(estimated_cost_usd) FROM ai_request_logs"
+                + " WHERE attempt_group_id = ? AND is_final_attempt",
+            BigDecimal.class,
+            group);
+    assertThat(underCounted).isEqualByComparingTo("0.006750");
+    assertThat(underCounted).isLessThan(billed);
+  }
+
+  /** Single-attempt callers (STT, TTS) get a valid group without setting any attempt field. */
+  @Test
+  void oneShotCallersDefaultToASingleFinalAttemptGroup() {
+    // Mirrors TtsPlaybackService's cache-hit row: no attempt fields set, cost a known zero.
+    store.save(
+        AiRequestLogEntry.builder()
+            .feature(AiFeature.TTS_SYNTHESIS)
+            .modelName("tts-1")
+            .latencyMs(40)
+            .estimatedCostUsd(BigDecimal.ZERO)
+            .status(AiRequestStatus.CACHE_HIT)
+            .requestCorrelationId(UUID.randomUUID())
+            .build());
+
+    Map<String, Object> row = jdbcTemplate.queryForMap("SELECT * FROM ai_request_logs LIMIT 1");
+
+    assertThat(row.get("attempt_group_id")).isNotNull();
+    assertThat(((Number) row.get("attempt_number")).intValue()).isEqualTo(1);
+    assertThat(row.get("is_final_attempt")).isEqualTo(true);
+    // cache_hit is a known-free call: zero, not the NULL used for "unknown".
+    assertThat((BigDecimal) row.get("estimated_cost_usd")).isEqualByComparingTo("0");
+  }
+
   @Test
   void groupsCallsOfOnePipelineRunByCorrelationId() {
     UUID turnCorrelation = UUID.randomUUID();

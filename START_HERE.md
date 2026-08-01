@@ -7,7 +7,7 @@ Core promise: "Turn what I couldn't say today into something I can say next time
 
 ## Status (May 2026)
 
-Planning phase. ADRs 001~007 accepted; 008~009 proposed. PRD, screen specs, the eval
+Planning phase. ADRs 001~007 and 010~011 accepted; 008~009 proposed. PRD, screen specs, the eval
 plan, and the agent harness docs exist; the codebase begins at W4.
 
 Target: v1 launch at W12 of the launch phase (12 weeks from planning start, per ADR-004).
@@ -36,7 +36,7 @@ These have been explicitly considered and rejected. Re-proposing them without ne
 
 ## When making new architectural decisions
 
-Follow the ADR writing principles applied to ADRs 001~007. Summary:
+Follow the ADR writing principles applied to ADRs 001~011. Summary:
 
 - Decisions justified by product / user / engineering logic — not by experience level, learning goals, or portfolio language
 - Specific numbers (thresholds, counts, page lengths, milestone values) only when explicitly agreed with the project owner; otherwise mark "TBD in planning"

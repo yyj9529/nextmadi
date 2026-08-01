@@ -41,6 +41,24 @@ Tracked from launch to inform v1.1. Specific thresholds will be benchmarked agai
 - **Product**: try-without-login completion, save rate, signup-after-save rate, expressions per user, review completion, roleplay completion, D7/D30 return
 - **AI quality**: S07 mini eval pass rate, JSON schema failure rate, LLM/STT/TTS latency, cost per analysis and per roleplay session
 
+**JSON schema failure rate** is the share of logical LLM calls where at least one attempt
+failed schema validation — counted across all attempts, not only the final one, so calls that
+a retry recovered still count as failures. This is the metric's point: a prompt that needs a
+second attempt half the time is degrading, even at a 0% user-visible error rate. It is
+measurable only because `ai_request_logs` stores one row per attempt (ADR-011); the earlier
+one-row-per-call contract made recovered failures invisible.
+
+```sql
+SELECT count(DISTINCT attempt_group_id)
+         FILTER (WHERE error_code = 'schema_validation_failed')::float
+       / count(DISTINCT attempt_group_id) AS schema_failure_rate
+FROM ai_request_logs
+WHERE prompt_version IS NOT NULL;   -- LLM calls only
+```
+
+Latency is per attempt and excludes retry backoff. Cost per analysis and per roleplay session
+sums every attempt row, since retries are billed.
+
 ## 4. MVP scope
 
 ### 4.1 Core loop

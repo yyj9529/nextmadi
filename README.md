@@ -123,6 +123,8 @@ Each non-trivial architectural decision lives in `docs/decisions/`:
 | 007 | Documentation structure and division of responsibility |
 | 008 | AGENTS.md as the canonical agent-rules source for both tools (proposed) |
 | 009 | Eval trial repetition for variance measurement (proposed) |
+| 010 | BFF auth handoff — browser to Next.js to Spring Boot with a signed internal token |
+| 011 | `ai_request_logs` records one row per attempt, so retries are billed and countable |
 
 Each ADR is 300–500 words, follows Drew DeVault's sourcehut style.
 

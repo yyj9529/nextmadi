@@ -113,6 +113,27 @@ class MigrationSqlStructureTests {
   }
 
   @Test
+  void aiRequestLogAttemptMigrationAddsColumnsBackfillsGroupAndIndexes() throws Exception {
+    String sql =
+        new String(
+            new ClassPathResource("db/migration/V008__ai_request_logs_attempt.sql")
+                .getInputStream()
+                .readAllBytes(),
+            StandardCharsets.UTF_8);
+
+    assertThat(sql)
+        .contains(
+            "ADD COLUMN attempt_group_id UUID",
+            "ADD COLUMN attempt_number SMALLINT NOT NULL DEFAULT 1",
+            "ADD COLUMN is_final_attempt BOOLEAN NOT NULL DEFAULT true",
+            // Existing rows were one row per call, so each becomes its own single-attempt group.
+            "UPDATE ai_request_logs SET attempt_group_id = id",
+            "ALTER COLUMN attempt_group_id SET NOT NULL",
+            "CONSTRAINT chk_ai_request_logs_attempt_number CHECK (attempt_number >= 1)",
+            "CREATE INDEX idx_logs_attempt_group");
+  }
+
+  @Test
   void seedLandingExamplesMigrationInsertsActiveRowsIdempotently() throws Exception {
     String sql =
         new String(
