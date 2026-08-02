@@ -276,16 +276,25 @@ STEP 1~4 완료 (2026-08-02). A안 채택, owner 마이그레이션 승인 후 �
 
 `./gradlew spotlessCheck test build --no-daemon` BUILD SUCCESSFUL (389 tests).
 
-**단, 로컬에 Docker가 없어 Testcontainers 테스트가 전부 skip됐다.** 실행되지 않은 것:
+로컬에는 Docker가 없어 Testcontainers 테스트 79건이 skip됐다(로컬 집계: 389 tests,
+309 passed, 80 skipped). **CI(PR #130, ubuntu-24.04)에서 전부 실행됐다:**
 
-- `JdbcAiRequestLogStoreIntegrationTest` — 6/6 skip (신규 2건 포함)
-- `JdbcAnalysisRepositoryTests` — 11/11 skip (`findLogIdByCorrelation` 최종시도 회귀 포함)
-- `FlywayMigrationTests` — 1/1 skip
+```
+CI: 389 tests, 388 passed, 0 failed, 1 skipped
+```
 
-따라서 **V008이 실제 PostgreSQL에 적용된 적은 없다.** 인수 조건 1~5(단위 테스트)와 8은
-검증됐고, 6~7(마이그레이션 백필, is_final_attempt 카운트 동등성)은 미검증이다.
-`.github/workflows/lint-test.yml`의 backend job이 ubuntu-latest에서 같은 명령을 돌리므로
-PR 시 CI에서 실행된다 — 병합 판단은 그 결과를 보고 내려야 한다.
+남은 1건은 실제 OpenAI 키가 필요한 `OpenAiTranscriptionLiveTest`로, CI에서 스킵되는 것이
+정상이다. 즉 `FlywayMigrationTests`(V008이 빈 PostgreSQL에 적용), 신규 2건을 포함한
+`JdbcAiRequestLogStoreIntegrationTest` 6건, `findLogIdByCorrelation` 최종시도 회귀를 포함한
+`JdbcAnalysisRepositoryTests` 11건이 모두 통과했다.
+
+**인수 조건 1~8 전부 충족.** 미검증으로 남아 있던 6(카운트 동등성)과 7(백필)도 실제 DB에서
+확인됐다.
+
+부수 작업: 로컬 skip과 CI 실행을 로그로 구분할 수 없어 `build.gradle`의 test 태스크에
+pass/fail/skip 집계 출력을 추가했다(커밋 `5a30fda`). `@Testcontainers(disabledWithoutDocker
+= true)`는 Docker가 없으면 조용히 skip하고 BUILD SUCCESSFUL을 내므로, 집계 없이는 "검증된
+초록불"과 "전부 스킵된 초록불"이 구분되지 않는다. 스키마를 건드리는 후속 작업 전반에 적용된다.
 
 ## What changed after execution
 
