@@ -55,6 +55,16 @@ verification against W4-8 data.
 One query breaks: `findLogIdByCorrelation` must now select the final attempt
 rather than any single row for the correlation id.
 
+Rollback is asymmetric, and the boundary is the first production deploy. Before
+it, V008 is additive over a deterministic backfill and reverses cleanly: roll the
+backend back, then drop `idx_logs_attempt_group`,
+`chk_ai_request_logs_attempt_number`, and the three columns. After production
+traffic has written per-attempt rows, that same drop destroys the attempt grain —
+retry rows survive, but which attempt belonged to which call is gone and cost sums
+double-count. Past that boundary, roll the application back and leave the schema;
+an older backend ignores the columns. No compensating migration is written in
+advance, because having one invites running it after it turns destructive.
+
 This ADR does not supersede ADR-001. It changes what the pipeline records, not
 which services it calls or how it retries them; the fallback matrix is unchanged.
 
