@@ -310,13 +310,49 @@ Infrastructure and error rate:
 - RDS storage > 80% capacity
 - RDS CPU > 80% for 5 minutes
 - 5xx response rate > 1% over 10 minutes
-- `ai_request_logs.status = 'error'` rate > 5% in any 10-minute window per `feature_name`
+
+AI failure rate — two alerts, because `ai_request_logs` stores one row per attempt and the
+two grains answer different questions (see `AI_PIPELINE.md` Logging contract):
+
+- **User-visible failure** — final-attempt failure rate > 5% in any 10-minute window per
+  `feature_name`. This is what the single pre-ADR-011 alert was trying to measure: the share
+  of requests where the user actually saw an error.
+
+  ```sql
+  SELECT feature_name,
+         count(*) FILTER (WHERE status IN ('error', 'timeout'))::float / count(*) AS rate
+  FROM ai_request_logs
+  WHERE created_at > now() - interval '10 minutes' AND is_final_attempt
+  GROUP BY feature_name;
+  ```
+
+- **Degradation early warning** — all-attempt failure rate per `feature_name`, same window.
+  Catches failures that a retry recovered, which the query above cannot see by construction.
+  A feature that silently needs two attempts for most calls is burning double tokens and is
+  one provider hiccup away from user-visible breakage.
+
+  ```sql
+  SELECT feature_name,
+         count(*) FILTER (WHERE status IN ('error', 'timeout'))::float / count(*) AS rate
+  FROM ai_request_logs
+  WHERE created_at > now() - interval '10 minutes' AND status <> 'cache_hit'
+  GROUP BY feature_name;
+  ```
+
+  Threshold **TBD** — set from a W4-8 baseline. Reusing 5% here would be a guess: the
+  all-attempt rate is structurally higher than the final-attempt rate, and no measurement of
+  the normal retry rate exists yet.
 
 AI cost (added because runaway prompt loops or abusive user patterns can produce four-figure unexpected bills within hours — this is a documented production failure mode in LLM applications, not a theoretical risk):
 
 - **Daily total AI cost** — sum of `ai_request_logs.estimated_cost_usd` across all rows for current day > $T_daily threshold
 - **Per-user daily AI cost** — same sum filtered by `user_id` > $T_per_user threshold (detects single-user runaway or abuse)
 - **7-day cost trend deviation** — today's running total > 1.5× 7-day rolling median by 6 PM local time
+
+All three cost queries sum **every** row with no attempt filter — retried attempts are billed
+and must be counted. Adding `is_final_attempt` to a cost query under-reports spend. Sums are a
+lower bound because unknown costs are stored as NULL (`AI_PIPELINE.md` Cost and token
+semantics).
 
 Thresholds (`$T_daily`, `$T_per_user`) set during W1-3 using `AI_PIPELINE.md` per-action estimates × expected daily volume × 2 safety factor. Tuned from W4-8 actuals.
 

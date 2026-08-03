@@ -17,6 +17,7 @@ import com.phraselog.ai.logging.service.AiCostCalculator;
 import com.phraselog.ai.logging.service.AiRequestLogger;
 import com.phraselog.ai.prompt.dto.PromptDefinition;
 import com.phraselog.common.web.ApiErrorException;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -224,9 +225,24 @@ class AnthropicServiceTests {
     assertThat(response.get("expressions")).hasSize(3);
     assertThat(client.callCount()).isEqualTo(2);
     assertThat(sleeper.sleeps()).containsExactly(500L);
-    assertThat(logStore.entries())
-        .singleElement()
-        .satisfies(e -> assertThat(e.status()).isEqualTo(AiRequestStatus.SUCCESS));
+    // ADR-011: the failed attempt keeps its own row rather than being folded into the success.
+    assertThat(logStore.entries()).hasSize(2);
+    assertAttemptGroup(logStore);
+    assertThat(logStore.entries().get(0))
+        .satisfies(
+            e -> {
+              assertThat(e.status()).isEqualTo(AiRequestStatus.ERROR);
+              assertThat(e.errorCode()).isEqualTo(AiErrorCode.PROVIDER_5XX);
+              assertThat(e.attemptNumber()).isEqualTo(1);
+              assertThat(e.isFinalAttempt()).isFalse();
+            });
+    assertThat(logStore.entries().get(1))
+        .satisfies(
+            e -> {
+              assertThat(e.status()).isEqualTo(AiRequestStatus.SUCCESS);
+              assertThat(e.attemptNumber()).isEqualTo(2);
+              assertThat(e.isFinalAttempt()).isTrue();
+            });
   }
 
   @Test
@@ -252,13 +268,16 @@ class AnthropicServiceTests {
 
     assertThat(client.callCount()).isEqualTo(2);
     assertThat(sleeper.sleeps()).containsExactly(500L);
+    assertThat(logStore.entries()).hasSize(2);
+    assertAttemptGroup(logStore);
     assertThat(logStore.entries())
-        .singleElement()
-        .satisfies(
+        .allSatisfy(
             e -> {
               assertThat(e.status()).isEqualTo(AiRequestStatus.ERROR);
               assertThat(e.errorCode()).isEqualTo(AiErrorCode.PROVIDER_5XX);
               assertThat(e.requestCorrelationId()).isEqualTo(correlationId);
+              // No usable response on either attempt: cost is unknown, not zero.
+              assertThat(e.estimatedCostUsd()).isNull();
             });
   }
 
@@ -286,7 +305,11 @@ class AnthropicServiceTests {
 
     assertThat(client.callCount()).isEqualTo(3);
     assertThat(sleeper.sleeps()).containsExactly(1000L, 3000L);
-    assertThat(logStore.entries()).singleElement();
+    // Three attempts, three rows — the retry rate is now countable in SQL (ADR-011).
+    assertThat(logStore.entries()).hasSize(3);
+    assertAttemptGroup(logStore);
+    assertThat(logStore.entries())
+        .allSatisfy(e -> assertThat(e.errorCode()).isEqualTo(AiErrorCode.PROVIDER_429));
   }
 
   @Test
@@ -311,7 +334,16 @@ class AnthropicServiceTests {
     assertThat(sleeper.sleeps()).isEmpty();
     assertThat(logStore.entries())
         .singleElement()
-        .satisfies(e -> assertThat(e.status()).isEqualTo(AiRequestStatus.TIMEOUT));
+        .satisfies(
+            e -> {
+              assertThat(e.status()).isEqualTo(AiRequestStatus.TIMEOUT);
+              assertThat(e.attemptNumber()).isEqualTo(1);
+              assertThat(e.isFinalAttempt()).isTrue();
+              // No response arrived, so the token count is genuinely unknown — NULL, not 0.
+              assertThat(e.inputTokens()).isNull();
+              assertThat(e.outputTokens()).isNull();
+              assertThat(e.estimatedCostUsd()).isNull();
+            });
   }
 
   @Test
@@ -332,9 +364,8 @@ class AnthropicServiceTests {
 
     assertThat(client.callCount()).isEqualTo(2);
     assertThat(sleeper.sleeps()).containsExactly(500L);
-    assertThat(logStore.entries())
-        .singleElement()
-        .satisfies(e -> assertThat(e.status()).isEqualTo(AiRequestStatus.SUCCESS));
+    assertThat(logStore.entries()).hasSize(2);
+    assertAttemptGroup(logStore);
   }
 
   @Test
@@ -360,9 +391,12 @@ class AnthropicServiceTests {
     assertThat(client.messagesAt(0)).hasSize(1);
     assertThat(client.messagesAt(1)).hasSize(2);
     assertThat(client.messagesAt(1)[1].content()).contains("s07_analysis_v1");
+    assertThat(logStore.entries()).hasSize(2);
+    assertAttemptGroup(logStore);
+    // prompt_version is the prompt file's version. The constraint reminder is an extra message,
+    // not a different prompt, so both attempts carry the same value (ADR-011).
     assertThat(logStore.entries())
-        .singleElement()
-        .satisfies(e -> assertThat(e.status()).isEqualTo(AiRequestStatus.SUCCESS));
+        .allSatisfy(e -> assertThat(e.promptVersion()).isEqualTo("s07-v1"));
   }
 
   @Test
@@ -389,9 +423,10 @@ class AnthropicServiceTests {
                     .isEqualTo("schema_validation_failed"));
 
     assertThat(client.callCount()).isEqualTo(2);
+    assertThat(logStore.entries()).hasSize(2);
+    assertAttemptGroup(logStore);
     assertThat(logStore.entries())
-        .singleElement()
-        .satisfies(
+        .allSatisfy(
             e -> {
               assertThat(e.status()).isEqualTo(AiRequestStatus.ERROR);
               assertThat(e.errorCode()).isEqualTo(AiErrorCode.SCHEMA_VALIDATION_FAILED);
@@ -433,13 +468,108 @@ class AnthropicServiceTests {
     assertThat(client.callCount()).isEqualTo(2);
     assertThat(sleeper.sleeps()).containsExactly(500L);
     assertThat(client.messagesAt(1)).hasSize(1);
+    // Per-attempt rows keep BOTH codes. The pre-ADR-011 single row recorded only the last, so the
+    // 5xx that actually started the sequence vanished from error_code distributions.
+    assertThat(logStore.entries()).hasSize(2);
+    assertAttemptGroup(logStore);
+    assertThat(logStore.entries().get(0).errorCode()).isEqualTo(AiErrorCode.PROVIDER_5XX);
+    assertThat(logStore.entries().get(1).errorCode())
+        .isEqualTo(AiErrorCode.SCHEMA_VALIDATION_FAILED);
+  }
+
+  /**
+   * A schema failure differs from a transport failure in cost accounting: the provider DID return a
+   * response and DID bill for it, so those tokens must survive into the attempt's row. Folding
+   * retries into one row lost them entirely, which was the under-counting this change fixes.
+   */
+  @Test
+  void schemaFailureRetryKeepsTheFailedAttemptsTokensInCost() throws Exception {
+    RecordingLogStore logStore = new RecordingLogStore();
+    RecordingSleeper sleeper = new RecordingSleeper();
+    ScriptedAnthropicClient client =
+        new ScriptedAnthropicClient(
+            new AnthropicResponse(readTree("{\"expressions\":[]}"), 900, 100),
+            new AnthropicResponse(MAPPER.readTree(validS07Analysis()), 1500, 1200));
+    AnthropicService service = serviceWith(client, logStore, sleeper);
+
+    service.callClaude(
+        AiFeature.S07_ANALYSIS,
+        promptDefinition(),
+        "user situation",
+        UUID.randomUUID(),
+        UUID.randomUUID());
+
+    assertThat(logStore.entries()).hasSize(2);
+    assertAttemptGroup(logStore);
+    AiCostCalculator calculator = new AiCostCalculator();
+    assertThat(logStore.entries().get(0))
+        .satisfies(
+            e -> {
+              assertThat(e.status()).isEqualTo(AiRequestStatus.ERROR);
+              assertThat(e.inputTokens()).isEqualTo(900);
+              assertThat(e.outputTokens()).isEqualTo(100);
+              assertThat(e.estimatedCostUsd())
+                  .isEqualByComparingTo(calculator.llm("claude-sonnet-4-6", 900, 100));
+            });
+
+    // The bill is the sum over the group, with no is_final_attempt filter.
+    BigDecimal groupCost =
+        logStore.entries().stream()
+            .map(AiRequestLogEntry::estimatedCostUsd)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    assertThat(groupCost)
+        .isEqualByComparingTo(
+            calculator
+                .llm("claude-sonnet-4-6", 900, 100)
+                .add(calculator.llm("claude-sonnet-4-6", 1500, 1200)));
+  }
+
+  /**
+   * The success path is unchanged in shape: one attempt, one row, marked final. Pins that the new
+   * columns do not perturb the common case.
+   */
+  @Test
+  void firstAttemptSuccessWritesOneFinalAttemptRow() throws Exception {
+    RecordingLogStore logStore = new RecordingLogStore();
+    AnthropicService service =
+        serviceWith(
+            new CapturingAnthropicClient(
+                new AnthropicResponse(MAPPER.readTree(validS07Analysis()), 10, 20)),
+            logStore,
+            new RecordingSleeper());
+
+    service.callClaude(
+        AiFeature.S07_ANALYSIS,
+        promptDefinition(),
+        "user situation",
+        UUID.randomUUID(),
+        UUID.randomUUID());
+
     assertThat(logStore.entries())
         .singleElement()
         .satisfies(
             e -> {
-              assertThat(e.status()).isEqualTo(AiRequestStatus.ERROR);
-              assertThat(e.errorCode()).isEqualTo(AiErrorCode.SCHEMA_VALIDATION_FAILED);
+              assertThat(e.attemptNumber()).isEqualTo(1);
+              assertThat(e.isFinalAttempt()).isTrue();
+              assertThat(e.attemptGroupId()).isNotNull();
             });
+  }
+
+  /**
+   * Group invariants that must hold for every logical call: one shared group id, dense 1-based
+   * numbering in call order, and exactly one final attempt — the last one.
+   */
+  private static void assertAttemptGroup(RecordingLogStore logStore) {
+    List<AiRequestLogEntry> entries = logStore.entries();
+    assertThat(entries).isNotEmpty();
+    assertThat(entries)
+        .extracting(AiRequestLogEntry::attemptGroupId)
+        .containsOnly(entries.get(0).attemptGroupId());
+    for (int i = 0; i < entries.size(); i++) {
+      assertThat(entries.get(i).attemptNumber()).isEqualTo(i + 1);
+    }
+    assertThat(entries.stream().filter(AiRequestLogEntry::isFinalAttempt)).hasSize(1);
+    assertThat(entries.get(entries.size() - 1).isFinalAttempt()).isTrue();
   }
 
   private AnthropicService serviceWith(

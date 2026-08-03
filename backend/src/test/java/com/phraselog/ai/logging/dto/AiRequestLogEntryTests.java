@@ -35,7 +35,12 @@ class AiRequestLogEntryTests {
             "estimatedCostUsd",
             "status",
             "errorCode",
-            "requestCorrelationId");
+            "requestCorrelationId",
+            // ADR-011 attempt grain. Reviewed against the privacy rule: a group id, an ordinal, and
+            // a boolean. Knowing a call was retried reveals nothing about what the user said.
+            "attemptGroupId",
+            "attemptNumber",
+            "isFinalAttempt");
   }
 
   @Test

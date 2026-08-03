@@ -17,7 +17,10 @@ authoritative for eval numbers and this file is corrected.
   no increase in cases with any dimension below 2.0.
 - Prompt version bumped if prompt content changed.
 - `ai_request_logs` fields preserved (`feature_name`, `model_name`, `prompt_version`,
-  `latency_ms`, `estimated_cost_usd`, `status`, `request_correlation_id`).
+  `latency_ms`, `estimated_cost_usd`, `status`, `request_correlation_id`,
+  `attempt_group_id`, `attempt_number`, `is_final_attempt`).
+- One row written per attempt, not per call — a retried call writes every attempt
+  (`AI_PIPELINE.md` Logging contract).
 - No raw user text written to `eval/runs/`.
 
 ## S12 roleplay (turn logic, coach prompt, or session-state change)

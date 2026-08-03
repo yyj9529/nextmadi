@@ -15,6 +15,15 @@ import java.util.UUID;
  *
  * <p>{@code inputTokens}/{@code outputTokens} are counts, not content; {@code estimatedCostUsd}
  * uses scale 6 to match {@code NUMERIC(10,6)}. Build instances via {@link #builder()}.
+ *
+ * <p><strong>Attempt grain (ADR-011).</strong> One instance is one <em>attempt</em>, not one
+ * logical call. A call the fallback policy retries produces several entries sharing an {@code
+ * attemptGroupId}, numbered from 1, with {@code isFinalAttempt} true on exactly one of them. {@code
+ * latencyMs}, the token counts, and {@code estimatedCostUsd} describe that single attempt — never a
+ * roll-up — so cost queries sum every row with no attempt filter.
+ *
+ * <p>Callers that cannot retry (STT, TTS) need not set any of the three: the builder defaults to a
+ * fresh single-attempt group, which is exactly what a one-shot call means.
  */
 public record AiRequestLogEntry(
     UUID userId,
@@ -27,7 +36,10 @@ public record AiRequestLogEntry(
     BigDecimal estimatedCostUsd,
     AiRequestStatus status,
     AiErrorCode errorCode,
-    UUID requestCorrelationId) {
+    UUID requestCorrelationId,
+    UUID attemptGroupId,
+    int attemptNumber,
+    boolean isFinalAttempt) {
 
   public AiRequestLogEntry {
     if (feature == null) {
@@ -50,6 +62,12 @@ public record AiRequestLogEntry(
       throw new IllegalArgumentException(
           "errorCode must be null when status is " + status.wireName());
     }
+    if (attemptGroupId == null) {
+      throw new IllegalArgumentException("attemptGroupId is required");
+    }
+    if (attemptNumber < 1) {
+      throw new IllegalArgumentException("attemptNumber must be >= 1");
+    }
   }
 
   public static Builder builder() {
@@ -59,6 +77,10 @@ public record AiRequestLogEntry(
   /**
    * Fluent builder; only {@code feature}, {@code modelName}, {@code status}, and a non-negative
    * {@code latencyMs} are mandatory. Validation runs in the record's compact constructor.
+   *
+   * <p>The attempt fields default to a fresh single-attempt group ({@code attemptNumber} 1, {@code
+   * isFinalAttempt} true, a generated {@code attemptGroupId}). Only a caller that retries needs to
+   * set them, and it must reuse one group id across the attempts of the same logical call.
    */
   public static final class Builder {
     private UUID userId;
@@ -72,6 +94,9 @@ public record AiRequestLogEntry(
     private AiRequestStatus status;
     private AiErrorCode errorCode;
     private UUID requestCorrelationId;
+    private UUID attemptGroupId;
+    private int attemptNumber = 1;
+    private boolean isFinalAttempt = true;
 
     private Builder() {}
 
@@ -130,6 +155,21 @@ public record AiRequestLogEntry(
       return this;
     }
 
+    public Builder attemptGroupId(UUID attemptGroupId) {
+      this.attemptGroupId = attemptGroupId;
+      return this;
+    }
+
+    public Builder attemptNumber(int attemptNumber) {
+      this.attemptNumber = attemptNumber;
+      return this;
+    }
+
+    public Builder isFinalAttempt(boolean isFinalAttempt) {
+      this.isFinalAttempt = isFinalAttempt;
+      return this;
+    }
+
     public AiRequestLogEntry build() {
       return new AiRequestLogEntry(
           userId,
@@ -142,7 +182,10 @@ public record AiRequestLogEntry(
           estimatedCostUsd,
           status,
           errorCode,
-          requestCorrelationId);
+          requestCorrelationId,
+          attemptGroupId == null ? UUID.randomUUID() : attemptGroupId,
+          attemptNumber,
+          isFinalAttempt);
     }
   }
 }

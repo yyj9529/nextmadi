@@ -457,6 +457,9 @@ CREATE TABLE ai_request_logs (
   status                 VARCHAR(20) NOT NULL,                           -- 'success' | 'error' | 'timeout' | 'cache_hit'
   error_code             VARCHAR(50),
   request_correlation_id UUID,                                           -- groups STT + LLM + TTS in one pipeline run
+  attempt_group_id       UUID NOT NULL,                                  -- groups the attempts of one logical call
+  attempt_number         SMALLINT NOT NULL DEFAULT 1,                    -- 1-based; 2+ means this row is a retry
+  is_final_attempt       BOOLEAN NOT NULL DEFAULT true,                  -- the attempt whose outcome the caller saw
   created_at             TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -464,9 +467,17 @@ CREATE INDEX idx_logs_feature_date ON ai_request_logs(feature_name, created_at D
 CREATE INDEX idx_logs_correlation ON ai_request_logs(request_correlation_id);
 CREATE INDEX idx_logs_user_date ON ai_request_logs(user_id, created_at DESC) WHERE user_id IS NOT NULL;
 CREATE INDEX idx_logs_status_date ON ai_request_logs(status, created_at DESC) WHERE status != 'success';
+CREATE INDEX idx_logs_attempt_group ON ai_request_logs(attempt_group_id, attempt_number);
 ```
 
-Core observability table. Every AI API call writes one row (success or failure). PRD §6 Cross-cutting requirements depend on this table.
+Core observability table. **One row per attempt**, not per logical call: a call that is
+retried under the `AI_PIPELINE.md` fallback policy writes one row per attempt, all sharing
+an `attempt_group_id`. Both successes and failures are written. PRD section 6 Cross-cutting
+requirements depend on this table.
+
+The per-attempt grain exists because retries consume billed tokens. Folding them into one
+row made failed attempts invisible to cost sums and made the retry rate unmeasurable in
+SQL. See ADR-011.
 
 `feature_name` enumerated values (defined in `AI_PIPELINE.md`):
 
@@ -478,9 +489,42 @@ Core observability table. Every AI API call writes one row (success or failure).
 - `stt_transcription`
 - `tts_synthesis`
 
-`request_correlation_id` groups all calls produced by one user action. Example: a single S12 user turn produces four log rows that share a correlation id — `stt_transcription`, `roleplay_turn_response`, `roleplay_turn_feedback`, `tts_synthesis`. This enables end-to-end latency and cost roll-ups per turn.
+`request_correlation_id` groups all calls produced by one user action. Example: a single S12 user turn produces four log groups that share a correlation id — `stt_transcription`, `roleplay_turn_response`, `roleplay_turn_feedback`, `tts_synthesis`. This enables end-to-end latency and cost roll-ups per turn.
 
-The partial index `idx_logs_status_date` accelerates the most common production diagnostic query ("recent failures across all features").
+Two levels of grouping, outer to inner:
+
+| Column | Groups | Cardinality |
+| --- | --- | --- |
+| `request_correlation_id` | one user action | 1 action → N logical calls |
+| `attempt_group_id` | one logical call | 1 call → 1..3 attempt rows |
+
+Retries exist only on the Claude path (`AI_PIPELINE.md` fallback policy). STT and TTS calls
+never retry, so their groups always hold exactly one row.
+
+`attempt_number` is 1-based and dense within a group. `is_final_attempt` is true on exactly
+one row per group — the attempt whose outcome the caller and the end user actually saw.
+Queries that mean "how many requests" filter `WHERE is_final_attempt`; queries that mean
+"how much did we spend" or "how often do we retry" must not filter at all.
+
+`prompt_version` is the version of the loaded prompt file. The constraint reminder appended
+on a schema-validation retry does not change it — that a row carried the reminder is derived
+from `attempt_number > 1` plus the preceding attempt's `error_code`, not stored.
+
+Per-attempt values: `latency_ms`, `input_tokens`, `output_tokens`, and `estimated_cost_usd`
+each describe **that one attempt**, never a roll-up. Inter-attempt backoff is excluded from
+every row's `latency_ms`. It is not stored: the backoff schedule is deterministic from the
+first attempt's `error_code` and the attempt number (`AI_PIPELINE.md` fallback policy), and a
+non-final row is written after its backoff elapses, so `created_at` gaps do not measure it.
+
+`estimated_cost_usd` distinguishes NULL from zero: NULL means the cost is unknown (the
+provider returned no usage, or the attempt timed out with no response), while `0` means a
+known-free call. Only `cache_hit` rows carry a known `0`. Cost sums are therefore a lower
+bound, and the share of NULL-cost rows is itself worth watching.
+
+The partial index `idx_logs_status_date` accelerates the most common production diagnostic query ("recent failures across all features"). Under the per-attempt grain it also surfaces retried-then-recovered failures, which the `architecture.md` degradation alert depends on.
+
+`idx_logs_attempt_group` serves per-call roll-ups and final-attempt lookup (for example
+`analysis_requests.ai_request_log_id`, which must resolve to the final attempt).
 
 ## Schema dependency order
 

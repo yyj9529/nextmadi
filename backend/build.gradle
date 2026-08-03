@@ -50,6 +50,23 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+
+    // Print the pass/fail/SKIPPED tally. The Testcontainers suites are annotated
+    // @Testcontainers(disabledWithoutDocker = true), so on a machine without Docker they are
+    // silently skipped and the build still reports SUCCESS. Without this summary a green CI run
+    // cannot be distinguished from one where every DB-backed test was skipped — which matters most
+    // exactly when a migration needs proving.
+    testLogging {
+        events 'skipped', 'failed'
+        exceptionFormat 'full'
+    }
+    afterSuite { desc, result ->
+        if (desc.parent == null) {
+            logger.lifecycle(
+                "Test summary: ${result.testCount} tests, ${result.successfulTestCount} passed, " +
+                "${result.failedTestCount} failed, ${result.skippedTestCount} skipped")
+        }
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {

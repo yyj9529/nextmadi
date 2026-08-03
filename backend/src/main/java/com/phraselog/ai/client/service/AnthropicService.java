@@ -68,7 +68,6 @@ public class AnthropicService {
       UUID correlationId)
       throws ApiErrorException {
 
-    long startTimeMs = System.currentTimeMillis();
     String modelId = FeatureRouting.getModelForFeature(feature);
     String outputSchema = prompt.outputSchema();
     AnthropicMessage[] baseMessages = buildMessages(prompt.body(), userContent);
@@ -80,9 +79,12 @@ public class AnthropicService {
         outputSchema);
 
     // Retry loop per the ticket #26 fallback matrix. The retry SCHEDULE is fixed by the first
-    // failure (deterministic), while the terminal error_code reflects the last attempt. Each
-    // iteration re-invokes the client and re-validates; #27 logging fires exactly once, only for
-    // the terminal outcome (success or final failure).
+    // failure (deterministic), while the caller-visible error_code reflects the last attempt.
+    //
+    // Logging is per ATTEMPT (ADR-011): every iteration writes its own row, sharing one
+    // attemptGroupId, so the tokens burned by a failed attempt stay in the cost sums and the retry
+    // rate is countable in SQL. Exactly one row per group carries isFinalAttempt.
+    UUID attemptGroupId = UUID.randomUUID();
     AiErrorCode firstError = null;
     AiErrorCode lastError = null;
     int attempt = 0;
@@ -95,40 +97,64 @@ public class AnthropicService {
               ? withConstraintReminder(baseMessages, outputSchema)
               : baseMessages;
 
+      int attemptNumber = attempt + 1;
+      long attemptStartMs = System.currentTimeMillis();
+      long attemptLatencyMs;
+      // A schema failure still received a billable response, so its tokens must survive into the
+      // log row. A transport failure has no response and leaves these null — "unknown", not zero.
+      Integer inputTokens = null;
+      Integer outputTokens = null;
+
       try {
 
         AnthropicResponse response =
             client.sendMessage(modelId, messages, FeatureRouting.getTimeoutForFeature(feature));
+        inputTokens = response.inputTokens();
+        outputTokens = response.outputTokens();
         schemaValidator.validate(outputSchema, response.payload());
 
-        long latencyMs = System.currentTimeMillis() - startTimeMs;
-        Integer inputTokens = response.inputTokens();
-        Integer outputTokens = response.outputTokens();
-        BigDecimal cost =
-            (inputTokens != null && outputTokens != null)
-                ? costCalculator.llm(modelId, inputTokens, outputTokens)
-                : null;
-
-        logCall(
+        logAttempt(
             feature,
             modelId,
             prompt.promptVersion(),
             inputTokens,
             outputTokens,
-            latencyMs,
+            System.currentTimeMillis() - attemptStartMs,
             AiRequestStatus.SUCCESS,
             null,
             userId,
             correlationId,
-            cost);
+            cost(modelId, inputTokens, outputTokens),
+            attemptGroupId,
+            attemptNumber,
+            true);
         return response.payload();
 
       } catch (AnthropicClient.AnthropicClientException e) {
+        attemptLatencyMs = System.currentTimeMillis() - attemptStartMs;
         lastError = e.errorCode();
+        inputTokens = null;
+        outputTokens = null;
         if (!e.isRetryable()) {
-          break;
+          logAttempt(
+              feature,
+              modelId,
+              prompt.promptVersion(),
+              null,
+              null,
+              attemptLatencyMs,
+              statusForErrorCode(lastError),
+              lastError,
+              userId,
+              correlationId,
+              null,
+              attemptGroupId,
+              attemptNumber,
+              true);
+          throw toApiError(lastError);
         }
       } catch (JsonSchemaValidator.JsonSchemaValidationException e) {
+        attemptLatencyMs = System.currentTimeMillis() - attemptStartMs;
         lastError = AiErrorCode.SCHEMA_VALIDATION_FAILED;
       }
 
@@ -137,38 +163,55 @@ public class AnthropicService {
       }
 
       OptionalLong backoffMs = retryDelayMs(firstError, attempt);
-      if (backoffMs.isEmpty()) {
-        break;
+      boolean willRetry = backoffMs.isPresent();
+
+      if (willRetry) {
+        log.warn(
+            "Retryable error calling Claude ({}), retry attempt {} after {}ms",
+            lastError,
+            attemptNumber,
+            backoffMs.getAsLong());
+        try {
+          sleeper.sleep(backoffMs.getAsLong());
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+          // No further attempt will be made, so this one is the final attempt after all. Deciding
+          // that before writing the row keeps "exactly one is_final_attempt per group" true even
+          // on shutdown.
+          willRetry = false;
+        }
       }
 
-      log.warn(
-          "Retryable error calling Claude ({}), retry attempt {} after {}ms",
+      logAttempt(
+          feature,
+          modelId,
+          prompt.promptVersion(),
+          inputTokens,
+          outputTokens,
+          attemptLatencyMs,
+          statusForErrorCode(lastError),
           lastError,
-          attempt + 1,
-          backoffMs.getAsLong());
-      try {
-        sleeper.sleep(backoffMs.getAsLong());
-      } catch (InterruptedException ie) {
-        Thread.currentThread().interrupt();
+          userId,
+          correlationId,
+          cost(modelId, inputTokens, outputTokens),
+          attemptGroupId,
+          attemptNumber,
+          !willRetry);
+
+      if (!willRetry) {
         break;
       }
       attempt++;
     }
 
-    long latencyMs = System.currentTimeMillis() - startTimeMs;
-    logCall(
-        feature,
-        modelId,
-        prompt.promptVersion(),
-        null,
-        null,
-        latencyMs,
-        statusForErrorCode(lastError),
-        lastError,
-        userId,
-        correlationId,
-        null);
     throw toApiError(lastError);
+  }
+
+  /** Cost of one attempt; null when the provider reported no usage, which means unknown. */
+  private BigDecimal cost(String modelId, Integer inputTokens, Integer outputTokens) {
+    return (inputTokens != null && outputTokens != null)
+        ? costCalculator.llm(modelId, inputTokens, outputTokens)
+        : null;
   }
 
   /**
@@ -257,7 +300,11 @@ public class AnthropicService {
     };
   }
 
-  private void logCall(
+  /**
+   * Writes one {@code ai_request_logs} row for a single attempt. {@code latencyMs} is that
+   * attempt's own duration and excludes any backoff that preceded or followed it.
+   */
+  private void logAttempt(
       AiFeature feature,
       String modelId,
       String promptVersion,
@@ -268,7 +315,10 @@ public class AnthropicService {
       AiErrorCode errorCode,
       UUID userId,
       UUID correlationId,
-      BigDecimal estimatedCostUsd) {
+      BigDecimal estimatedCostUsd,
+      UUID attemptGroupId,
+      int attemptNumber,
+      boolean isFinalAttempt) {
     AiRequestLogEntry entry =
         AiRequestLogEntry.builder()
             .userId(userId)
@@ -282,6 +332,9 @@ public class AnthropicService {
             .status(status)
             .errorCode(errorCode)
             .requestCorrelationId(correlationId)
+            .attemptGroupId(attemptGroupId)
+            .attemptNumber(attemptNumber)
+            .isFinalAttempt(isFinalAttempt)
             .build();
     aiRequestLogger.log(entry);
   }

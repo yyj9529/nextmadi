@@ -135,8 +135,11 @@ public class JdbcAnalysisRepository implements AnalysisRepository {
     try {
       UUID logId =
           jdbcTemplate.queryForObject(
+              // A correlation now holds one row per attempt (ADR-011), so the final attempt must
+              // be selected explicitly — created_at alone cannot separate attempts written in the
+              // same millisecond.
               "SELECT id FROM ai_request_logs WHERE request_correlation_id = ?"
-                  + " ORDER BY created_at DESC LIMIT 1",
+                  + " AND is_final_attempt ORDER BY created_at DESC LIMIT 1",
               UUID.class,
               correlationId);
       return Optional.ofNullable(logId);

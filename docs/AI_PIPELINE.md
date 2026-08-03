@@ -218,21 +218,26 @@ Returned by Sonnet 4.6 once when the session reaches its final turn. Stored in `
 
 ## Logging contract
 
-Every external API call (Whisper, Sonnet, Haiku, OpenAI TTS) writes exactly one row to `ai_request_logs`, regardless of success or failure. Success and failure paths are equally important — error rates are the regression signal for model and prompt changes.
+Every **attempt** at an external API call (Whisper, Sonnet, Haiku, OpenAI TTS) writes one row to `ai_request_logs`, regardless of success or failure. A logical call that the fallback policy below retries therefore writes one row per attempt — two rows for a single retry, up to three for the 429 schedule. Success and failure paths are equally important — error rates are the regression signal for model and prompt changes.
+
+The per-attempt grain is deliberate: a retried attempt consumes billed tokens, and a logging contract that folds retries into a single row cannot account for them (ADR-011). Retries exist only on the Claude path; STT and TTS never retry, so those calls always produce exactly one row.
 
 Required fields on every row:
 
 - `feature_name` — from the enum above
 - `model_name` — exact model identifier (e.g., `claude-sonnet-4-6`, `whisper-1`)
-- `latency_ms` — measured from request send to response receive, including retries
+- `latency_ms` — measured from request send to response receive **for that attempt**, excluding inter-attempt backoff
 - `status` — `success` | `error` | `timeout` | `cache_hit` (TTS only)
 - `created_at` — write time
 - `request_correlation_id` — UUID generated at the start of a user-initiated action; all downstream calls share it
+- `attempt_group_id` — UUID generated per logical call; all attempts of that call share it
+- `attempt_number` — 1-based; `1` on a first attempt, `2`/`3` on retries
+- `is_final_attempt` — true on exactly one row per group: the attempt whose outcome the caller saw
 
 For LLM calls additionally:
 
 - `prompt_version` — from the prompt file front-matter
-- `input_tokens`, `output_tokens` — from the API response
+- `input_tokens`, `output_tokens` — from that attempt's API response
 - `estimated_cost_usd` — computed at log time using current public pricing
 
 For TTS additionally:
@@ -241,9 +246,21 @@ For TTS additionally:
 
 For failures additionally:
 
-- `error_code` — one of `schema_validation_failed`, `provider_5xx`, `provider_429`, `timeout`, `network`, `unknown`
+- `error_code` — one of `schema_validation_failed`, `provider_5xx`, `provider_429`, `timeout`, `network`, `unknown`. Each attempt records **its own** failure code, so a mixed sequence (5xx, then a schema failure on the retry) preserves both.
 
-The `request_correlation_id` groups calls produced by one user action. Example: a single S12 user turn produces four log rows that share a correlation id — `stt_transcription`, `roleplay_turn_response`, `roleplay_turn_feedback`, `tts_synthesis`. This allows end-to-end latency and cost roll-ups per turn.
+### Cost and token semantics
+
+`estimated_cost_usd`, `input_tokens`, and `output_tokens` record the cost of **that one attempt**, never a roll-up. The cost of a logical call is `SUM(estimated_cost_usd)` grouped by `attempt_group_id`; total spend is `SUM(estimated_cost_usd)` with no attempt filter at all. A `NULL` means the cost is unknown (no usage returned), not zero — sums are therefore a lower bound. Only `cache_hit` rows carry a known `0`.
+
+Adding a `WHERE is_final_attempt` filter to a cost query is a bug: it silently drops the tokens burned by failed attempts, which is the exact defect this contract replaces.
+
+`prompt_version` is the version of the loaded prompt file. The constraint reminder appended on a schema-validation retry is an extra user message, not a different prompt — it does not change `prompt_version`. Whether an attempt carried the reminder is derived from `attempt_number > 1` plus the preceding attempt's `error_code = 'schema_validation_failed'`; it is not stored.
+
+### Grouping
+
+The `request_correlation_id` groups calls produced by one user action; `attempt_group_id` groups the attempts within one of those calls. Example: a single S12 user turn produces four logical calls that share a correlation id — `stt_transcription`, `roleplay_turn_response`, `roleplay_turn_feedback`, `tts_synthesis` — each of which is one or more attempt rows. This allows end-to-end latency and cost roll-ups per turn.
+
+Counting rule: rows for "how many attempts", `is_final_attempt` for "how many requests", `DISTINCT attempt_group_id` for "how many logical calls".
 
 ## Timeout and fallback policy
 
@@ -256,6 +273,25 @@ Timeouts per feature are in the routing table above. Behavior on failure:
 | Provider 429 (rate limit)  | Retry once with exponential backoff (1s, then 3s). Second failure → log, surface error.    |
 | Timeout                    | No retry. Log, surface error with retry CTA to user.                                       |
 | Network error              | Retry once with 500ms backoff. Second failure → log, surface error.                        |
+
+### How each failure mode is recorded
+
+Rows are per attempt (see Logging contract). "Rows" below is the count for one logical call.
+
+| Failure mode | Rows | Terminal `status` | Tokens / cost on the failed rows |
+|---|---|---|---|
+| First attempt succeeds | 1 | `success` | from the response |
+| Schema validation failed, retry succeeds | 2 | `error` then `success` | attempt 1 has tokens (a response arrived, it just did not validate) and its real cost |
+| Schema validation failed twice | 2 | both `error` | both attempts have tokens and cost |
+| Provider 5xx or network, retry succeeds | 2 | `error` then `success` | attempt 1 has no usable response → tokens and cost `NULL` |
+| Provider 5xx or network twice | 2 | both `error` | both `NULL` |
+| Provider 429, retries exhausted | 3 | all `error` | all `NULL` (request rejected, nothing billed) |
+| Timeout | 1 | `timeout` | `NULL` — no response, so the token count is genuinely unknown |
+| TTS cache hit | 1 | `cache_hit` | `estimated_cost_usd = 0`, tokens `NULL` (not a model call) |
+
+A timeout's input tokens may still be billed by the provider even though no response arrived. The contract records `NULL` rather than estimating from prompt length: an unverifiable number in a cost column degrades trust in every other value in that column. The resulting under-count is bounded by the timeout rate, which is itself queryable as `status = 'timeout'`.
+
+A 429 is a rejected request, so nothing is billed — `NULL` here means "no usage reported", and the true value is zero. The distinction from a timeout matters only if provider billing behavior changes; re-check before treating either as authoritative for reconciliation.
 
 User-visible error messages live in `docs/screens/*.md` (S06 for analysis, S12 for roleplay). The pipeline returns a structured error object — UI copy is the screen's responsibility, not the pipeline's.
 
