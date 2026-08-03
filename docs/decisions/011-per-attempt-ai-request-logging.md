@@ -59,9 +59,13 @@ Rollback is asymmetric, and the boundary is the first production deploy. Before
 it, V008 is additive over a deterministic backfill and reverses cleanly: roll the
 backend back, then drop `idx_logs_attempt_group`,
 `chk_ai_request_logs_attempt_number`, and the three columns. After production
-traffic has written per-attempt rows, that same drop destroys the attempt grain —
-retry rows survive, but which attempt belonged to which call is gone and cost sums
-double-count. Past that boundary, roll the application back and leave the schema;
+traffic has written per-attempt rows, that same drop destroys the attempt grain.
+The retry rows survive but stop being identifiable as retries, so a pre-ADR-011
+reader counting one row per call reads a retried call as two calls: request counts
+inflate, cost per request falls against that inflated denominator, and a recovered
+call's failed attempt reads as a standalone failure. The total cost sum stays
+correct — both attempts were genuinely billed. Past that boundary, roll the
+application back and leave the schema;
 an older backend ignores the columns. No compensating migration is written in
 advance, because having one invites running it after it turns destructive.
 
