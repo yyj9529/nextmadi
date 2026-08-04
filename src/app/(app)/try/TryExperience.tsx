@@ -5,16 +5,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { AnalysisLoadingModal } from "@/components/app/AnalysisModals";
-import { BackIcon, MicIcon } from "@/components/app/icons";
+import { BackIcon } from "@/components/app/icons";
+import { VoiceInput } from "@/components/app/VoiceInput";
+import { useVoiceRecorder } from "@/lib/voice/use-voice-recorder";
 
 // S02 첫 체험 (비로그인).
 // 기본 제출 함수는 BFF 라우트 POST /api/analysis를 호출한다. 익명 session_token은 라우트가
 // httpOnly 쿠키로 관리하므로 클라이언트는 input_text만 보낸다(ADR-010). 테스트에서는
 // submitAnalysis prop으로 mock을 주입한다.
+//
+// 음성 입력(#36)은 2-스텝이다: 녹음 → POST /api/transcriptions → 전사문을 아래 입력창에
+// 채워 사용자가 확인·편집 → 기존 텍스트 제출 경로로 분석. 오전사가 분석 호출과 익명 2회
+// 한도를 태우지 않게 하려는 것이다(s02.md US1-4).
 
 const MAX_INPUT_LENGTH = 500;
-const MOCK_TRANSCRIPT =
-  "마트에서 줄 새치기한 사람한테 한마디 하고 싶었는데 영어가 안 떠올랐어요...";
 const RATE_LIMIT_ERROR_CODE = "rate_limit_exceeded";
 
 export type TryAnalysisResult = {
@@ -80,7 +84,6 @@ export function TryExperience({
 }: TryExperienceProps) {
   const router = useRouter();
   const [text, setText] = useState(initialText);
-  const [transcribing, setTranscribing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [rateLimited, setRateLimited] = useState(false);
   const [networkError, setNetworkError] = useState(false);
@@ -93,17 +96,10 @@ export function TryExperience({
         ? " is-warning"
         : "";
 
-  const handleMicTap = () => {
-    if (transcribing || analyzing || rateLimited) {
-      return;
-    }
-
-    setTranscribing(true);
-    window.setTimeout(() => {
-      setText(MOCK_TRANSCRIPT.slice(0, MAX_INPUT_LENGTH));
-      setTranscribing(false);
-    }, 1000);
-  };
+  // 전사문은 제출하지 않고 입력창에 채우기만 한다 — 사용자가 확인·수정한 뒤 직접 제출한다.
+  const recorder = useVoiceRecorder({
+    onTranscript: (transcript) => setText(transcript.slice(0, MAX_INPUT_LENGTH)),
+  });
 
   const handleSubmit = async () => {
     if (text.length === 0 || analyzing || rateLimited) {
@@ -193,18 +189,7 @@ export function TryExperience({
             ) : null}
 
             <div className="try-mic-area">
-              <button
-                className="try-mic-button"
-                type="button"
-                aria-label="마이크로 말하기"
-                onClick={handleMicTap}
-                disabled={analyzing}
-              >
-                <MicIcon size={26} />
-              </button>
-              <p className="try-mic-caption">
-                {transcribing ? "변환 중..." : "또는 마이크로 말하기"}
-              </p>
+              <VoiceInput recorder={recorder} disabled={analyzing} />
             </div>
 
             <button
@@ -219,11 +204,7 @@ export function TryExperience({
         )}
       </main>
 
-      <AnalysisLoadingModal
-        open={analyzing}
-        autoRoute={false}
-        onCancel={handleCancel}
-      />
+      <AnalysisLoadingModal open={analyzing} onCancel={handleCancel} />
     </div>
   );
 }
