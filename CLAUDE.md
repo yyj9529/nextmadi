@@ -36,7 +36,7 @@ Strategic context: `PROJECT_CONTEXT.md`. Current scope: `docs/PRD.md`. Key decis
 - **Source citation with date.** Pricing, model names, library versions, regulations — cite source URL and verification date in the doc.
 - **Cross-validation for strong claims.** Before accepting external feedback as "valuable" (especially from ChatGPT/Gemini suggestions), apply 3-axis validation below.
 - **Decision-logged > implementation-pre-specified.** Document decisions made. Don't pre-spec implementation details that should be discovered during coding (e.g., exact JWT claim structure, specific error strings, library version pins).
-- **Session log on task completion.** At the end of any work session involving code changes, decisions, errors, or debugging — write a log file to `%USERPROFILE%\Desktop\dev-logs\` named `YYYYMMDD_HHMM_<short-title>.md`. Cover: decisions made and why, commands run, errors encountered and how they were fixed. Skip only for trivial one-liner answers with no side effects.
+- **Session log on task completion.** At the end of any work session involving code changes, decisions, errors, or debugging — write a log file to `%USERPROFILE%\Desktop\dev-logs\` named `YYYYMMDD_HHMM_<short-title>.md`. Cover: decisions made and why, commands run, errors encountered and how they were fixed. Skip only for trivial one-liner answers with no side effects. 에러가 있었다면 dev-log에 더해 `docs/solutions/README.md` 대장의 재발 횟수도 갱신한다 (워크플로 4번).
 
 ### ADR style
 - 300–500 words. Drew DeVault sourcehut style: short, decision-focused.
@@ -90,11 +90,20 @@ Before adopting a piece of feedback (from ChatGPT, blog posts, AI critiques) int
 Only feedback passing all three goes into docs. Authority-sounding details that fail any axis are pre-spec'd over-engineering. Document the rejection too (so the same feedback doesn't keep returning).
 
 ### 4. Self-improvement loop
-- When the owner corrects you, update this file (or `lessons.md` if it grows) with:
-  - The specific mistake pattern
-  - The rule to prevent recurrence
-  - Why the original pattern was attractive but wrong
-- This file grows over time. Treat it as authoritative for future sessions.
+실수는 비용이 아니라 자산이다. 단, 기록 → 분석 → 시스템 반영까지 갔을 때만 그렇다.
+기록만 쌓이면 그냥 비용이다.
+
+- **저장소는 `docs/solutions/` 하나다.** 실수 대장(`docs/solutions/README.md`)에 패턴별
+  재발 횟수를 세고, 패턴마다 노트 파일 하나를 둔다. 별도 `lessons.md`는 만들지 않는다.
+- 세션에서 실수가 나왔으면 dev-log에 서술로 남긴 뒤, 대장에서 해당 패턴의 재발 횟수를
+  +1 한다. 대장에 없는 패턴이면 새 줄을 추가한다.
+- **에스컬레이션은 심각도가 아니라 횟수로 판단한다.** 1회 기록만, 2회 노트 작성,
+  3회 자동 차단(hook/테스트/lint/CI), 4회 이상이면 3회 조치가 틀렸다는 뜻이니 조치를
+  재설계한다.
+- "다음엔 주의하겠다"는 조치가 아니다. 사람의 기억에 의존하는 대책은 3회 칸에 쓸 수 없다.
+  실제로 메모리에 규칙이 있는데도 재발한 사례가 있다 (`docs/solutions/tool-syntax-mixing.md`).
+- 오너의 지적으로 배운 것은 아래 자기개선 로그에 한 줄, 재현 가능한 기술적 실수는
+  `docs/solutions/`에 노트로 — 두 곳의 역할이 다르다. 로그는 작업 태도, 노트는 기술 패턴.
 
 ### 5. Verification before done
 - Never claim "완료" without confirming output exists and matches intent.
@@ -168,6 +177,7 @@ Single source of truth per topic. Cross-reference, don't duplicate.
 | ADR one-line index (always-loaded) | `docs/decisions/INDEX.md` |
 | Implementation plans + retros | `docs/exec-plans/` |
 | Two-gate review records | `docs/reviews/` |
+| 실수 대장 + 재발 방지 노트 | `docs/solutions/` |
 | Codex protocol pointer | `AGENTS.md` (points to this file) |
 
 ## Session entry sequence
