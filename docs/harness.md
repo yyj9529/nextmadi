@@ -50,7 +50,8 @@ canonical) and ADR-009 (eval trial repetition).
 ## 3. Layered structure
 
 - **Layer 1 — always loaded.** `CLAUDE.md`, `START_HERE.md`, `SECURITY.md`, current
-  sprint goal, recent ADR summaries.
+  sprint goal, recent ADR summaries, `docs/solutions/README.md` (mistake ledger table
+  only — the per-pattern notes stay on demand).
 - **Layer 2 — canonical project artifacts.** `PROJECT_CONTEXT.md`, `PRD.md`,
   `docs/architecture.md`, `docs/data-model.md`, `docs/AI_PIPELINE.md`,
   `docs/screens/sNN.md`, `docs/api/openapi.yaml`, `docs/decisions/`.
@@ -119,7 +120,8 @@ correlation id ties the error to its `ai_request_logs` rows.
 
 Which files to pull for which task, and how to invoke the tools. Always-load files
 (`CLAUDE.md`/`AGENTS.md`, `START_HERE.md`, `PROJECT_CONTEXT.md`, `SECURITY.md`,
-`docs/decisions/INDEX.md`) load automatically — do not attach them. In Claude Code,
+`docs/decisions/INDEX.md`, `docs/solutions/README.md`) load automatically — do not
+attach them. In Claude Code,
 `@path` attaches a file's contents; Codex reads repo files by path and `AGENTS.md`
 automatically. Prompts are written naturally (Korean in practice); only the `@`-paths
 and the command are shown here.
@@ -145,8 +147,16 @@ always-load set.
 
 Exec-plan + retro (`docs/exec-plans/`), failing-then-passing tests, two-gate review
 trail (`docs/reviews/`), eval run with per-trial scores and process metadata
-(`eval/runs/`), one durable learning note (`docs/solutions/`). Eval runs store
+(`eval/runs/`), and — when the cycle hit a mistake worth keeping — an updated mistake
+ledger (`docs/solutions/README.md`) plus a pattern note beside it. Eval runs store
 metadata and summarized rationale only — never raw user text (see `SECURITY.md`).
+
+The learning note is not produced on every cycle. It is produced when a mistake
+recurs: 1st occurrence is logged in the dev-log only, 2nd earns a note in
+`docs/solutions/`, 3rd must be blocked automatically (hook, test, lint rule, or CI
+gate). The ledger holds the recurrence counts that drive that escalation. Earlier
+wording here required one note per cycle; that produced zero notes across 24 tickets,
+so the trigger is now recurrence, not cadence.
 
 Process metadata recorded per eval run (reason: regression and variance tracing, not
 presentation):

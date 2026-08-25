@@ -37,5 +37,7 @@ Filled after execution: pass/fail against acceptance criteria, gate result, link
 review in `docs/reviews/`.
 
 ## What changed after execution
-Where reality diverged from the plan, and the lesson — feeds `/ce-compound` and
-`docs/solutions/`.
+Where reality diverged from the plan, and the lesson. If a mistake recurred, bump its
+row in the `docs/solutions/README.md` ledger; if it is now at 2 or more, write the
+pattern note. Leaving this section empty is how the learning loop dies — 13 of the
+first 24 exec-plans had it blank.
