@@ -50,7 +50,8 @@ canonical) and ADR-009 (eval trial repetition).
 ## 3. Layered structure
 
 - **Layer 1 — always loaded.** `CLAUDE.md`, `START_HERE.md`, `SECURITY.md`, current
-  sprint goal, recent ADR summaries.
+  sprint goal, recent ADR summaries, `docs/solutions/README.md` (mistake ledger table
+  only — the per-pattern notes stay on demand).
 - **Layer 2 — canonical project artifacts.** `PROJECT_CONTEXT.md`, `PRD.md`,
   `docs/architecture.md`, `docs/data-model.md`, `docs/AI_PIPELINE.md`,
   `docs/screens/sNN.md`, `docs/api/openapi.yaml`, `docs/decisions/`.

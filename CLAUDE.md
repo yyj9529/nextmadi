@@ -189,7 +189,9 @@ When a new AI session opens (both Claude Code and Codex follow this same sequenc
 3. Read `PROJECT_CONTEXT.md` (product identity, target user pain — the shared goal).
 4. Read `SECURITY.md` (forbidden areas, approval matrix).
 5. Read `docs/decisions/INDEX.md` (one-line ADR summaries — not the full ADRs).
-6. For the specific task, fetch only the relevant doc(s) per the file responsibility
+6. Read `docs/solutions/README.md` (실수 대장 — 패턴별 재발 횟수 표. 개별 노트는 읽지
+   않는다). 이 저장소에서 이미 반복된 실수를 알고 시작하기 위한 것이다.
+7. For the specific task, fetch only the relevant doc(s) per the file responsibility
    map and the context loading policy below.
 
 Do not pre-load all project docs. Context is precious; load on demand.
@@ -200,10 +202,11 @@ Keep the always-loaded set small and high-signal; everything else is fetched onl
 a task needs it. The advertised context window is a ceiling, not a target — a large,
 mostly-irrelevant context degrades output (context rot).
 
-**Always load (steps 1–5 above):**
+**Always load (steps 1–6 above):**
 - `START_HERE.md`, `CLAUDE.md` (`AGENTS.md` for Codex), `PROJECT_CONTEXT.md`
 - `SECURITY.md`
 - `docs/decisions/INDEX.md` (summaries, never full ADRs)
+- `docs/solutions/README.md` (실수 대장 표만, 개별 노트는 제외)
 - The current sprint goal
 
 **Load on demand (only when the task touches it):**
@@ -211,7 +214,20 @@ mostly-irrelevant context degrades output (context rot).
 - Full screen specs `docs/screens/sNN.md`
 - Full `docs/architecture.md`, `docs/data-model.md`, `docs/AI_PIPELINE.md`
 - A specific full ADR `docs/decisions/NNN-*.md`
+- 티켓 유형에 해당하는 `docs/solutions/*.md` 노트 (아래 매핑)
 - Long logs and stack traces, external API references, test and eval results
+
+**실수 노트 매핑 (티켓 유형 → 읽을 노트):**
+
+| 티켓 유형 | 노트 |
+|---|---|
+| 백엔드 / DB / auth | `spotless-before-push`, `spring-conditional-bean-ordering`, `green-build-proves-nothing` |
+| 프론트엔드 / UI | `set-state-in-effect`, `stale-next-cache`, `generated-file-churn` |
+| AI 파이프라인 / eval | `green-build-proves-nothing`, `windows-encoding` |
+| 브랜치 정리 / 머지 / PR | `branch-hygiene`, `tool-syntax-mixing` |
+| 목 데이터 → 실 API 전환 | `mock-to-real-drift` |
+
+대장 표에서 해당 패턴의 재발 횟수가 0이 아니면 그 노트를 읽는다. 전부 읽지 않는다.
 
 For screen implementation, `docs/screens/sNN.md` is the source of truth; read it
 rather than the full `docs/PRD.md`.
