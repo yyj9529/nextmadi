@@ -63,27 +63,17 @@ canonical) and ADR-009 (eval trial repetition).
 
 ## 4. Context loading policy
 
-Paste into `CLAUDE.md` (and therefore `AGENTS.md` per ADR-008). Extends the existing
-"Session entry sequence".
-
-```
-## Context loading policy
-Always load (inject at session start):
-- CLAUDE.md, START_HERE.md
-- Current goal / active sprint
-- Recent accepted ADR summaries
-- SECURITY.md (forbidden areas, approval matrix)
-
-Load on demand (fetch only when the task needs it):
-- Full screen specs (docs/screens/sNN.md)
-- Full architecture / data-model / AI_PIPELINE
-- Long logs and stack traces
-- External API references
-- Test and eval results
-```
+The policy is canonical in `CLAUDE.md` "Context loading policy" (and therefore in
+`AGENTS.md` per ADR-008). It was drafted here and has since been adopted there; the
+lists are deliberately not restated in this file, because a second copy drifts from
+the first.
 
 Reason: context is a finite resource; high-signal-at-start plus fetch-on-demand keeps
 the working context in its effective range rather than filling the window.
+
+This file is itself load-on-demand. It is pulled by `/ticket-start` (which follows
+section 7 for the cycle order), and by `CLAUDE.md` section 9 / `AGENTS.md` when a
+risky change needs the section 5 handoff.
 
 ## 5. Cross-verification (selective)
 
@@ -112,8 +102,9 @@ correlation id ties the error to its `ai_request_logs` rows.
 
 ## 7. Development workflow
 
-- **Planning (now, W1–3):** `/ce-doc-review` on PRD/ADR/screen specs before they are
-  considered stable.
+- **Planning (whenever a spec, ADR, or exec-plan is drafted):** `/ce-doc-review` on the
+  draft before it is treated as stable. The trigger is the artifact, not the calendar —
+  a screen spec or ADR written during W4+ implementation still passes through it.
 - **Feature (W4–8):** `/ticket-start <issue>` (load git + issue + reference files) →
   `/ce-brainstorm` → write exec-plan (`docs/exec-plans/`) → `/ce-plan` → failing test
   (TDD) → `/ce-work` → `/ce-simplify-code` → two-gate review: `/spec-check sNN` (gate 1,
@@ -135,7 +126,7 @@ and the command are shown here.
 
 | Task | Load on demand | Produces / updates | How to invoke |
 |------|----------------|--------------------|---------------|
-| Plan a screen (W1–3) | relevant PRD scope | `sNN.md`, maybe an ADR | CC: `@PRD.md` → draft `@docs/screens/s07.md`, then `/ce-doc-review` |
+| Plan a screen (new spec / ADR) | relevant PRD scope | `sNN.md`, maybe an ADR | CC: `@PRD.md` → draft `@docs/screens/s07.md`, then `/ce-doc-review` |
 | Implement a screen (W4–8) | `sNN.md`, `openapi.yaml`, `data-model.md` | exec-plan, tests, review, browser evidence | CC: `/ticket-start <issue>`, plan with `@docs/exec-plans/exec-plan-template.md`, implement against `@docs/screens/s07.md @docs/api/openapi.yaml @data-model.md`, then `/spec-check s07` → `/ce-code-review` → `/ui-verify <url>` |
 | S07 / analysis change | `AI_PIPELINE.md`, `prompts/s07/`, `EVAL_PLAN.md` | `eval/runs/`, S07 gate | CC: edit `@AI_PIPELINE.md @prompts/s07/v2.md`, then `/ce-optimize` against `@EVAL_PLAN.md` |
 | S12 / roleplay | `s12`, `s12b`, `AI_PIPELINE.md`, `data-model.md` | exec-plan | CC: implement turn logic against `@docs/screens/s12.md @docs/screens/s12b.md` |
