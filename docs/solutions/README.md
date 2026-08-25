@@ -40,7 +40,7 @@
 | spotless 포맷 위반으로 CI 실패 | 프로세스 | 13 | 메모리만 (강제 없음) | [spotless-before-push](spotless-before-push.md) |
 | 생성 파일 churn을 커밋에 섞음 | 프로세스 | 6 | 없음 | [generated-file-churn](generated-file-churn.md) |
 | Windows 인코딩 (mojibake/BOM/cp949) | 환경 | 8 | 없음 | [windows-encoding](windows-encoding.md) |
-| git 브랜치 위생 사고 | 프로세스 | 7 | 메모리 2건 | [branch-hygiene](branch-hygiene.md) |
+| git 브랜치 위생 사고 | 프로세스 | 8 | 메모리 2건 | [branch-hygiene](branch-hygiene.md) |
 | Testcontainers 로컬 스킵 → 미검증 통과 | 검증 | 6 | testLogging 집계 (2026-08-02) | [green-build-proves-nothing](green-build-proves-nothing.md) |
 | 조용한 실패가 성공처럼 보임 | 설계 | 5 | 부분 | [green-build-proves-nothing](green-build-proves-nothing.md) |
 | 도구 문법 혼용 (Bash/PowerShell, npx) | 프로세스 | 5 | 메모리 1건 (재발함) | [tool-syntax-mixing](tool-syntax-mixing.md) |
@@ -61,7 +61,7 @@
 1. spotless (13회) — pre-push 또는 PreToolUse 훅
 2. 생성 파일 churn (6회) — 스테이징 차단 훅
 3. Windows 인코딩 (8회) — 커밋 전 mojibake/BOM 스캔
-4. git 브랜치 위생 (7회) — 티켓 브랜치 확인 훅
+4. git 브랜치 위생 (8회) — `main` 편집/커밋 차단 훅
 5. 도구 문법 혼용 (5회) — Bash 입력의 `@'` 패턴 차단
 6. `@ConditionalOnBean` (4회) — 금지 어노테이션 테스트
 

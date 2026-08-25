@@ -120,7 +120,8 @@ correlation id ties the error to its `ai_request_logs` rows.
 
 Which files to pull for which task, and how to invoke the tools. Always-load files
 (`CLAUDE.md`/`AGENTS.md`, `START_HERE.md`, `PROJECT_CONTEXT.md`, `SECURITY.md`,
-`docs/decisions/INDEX.md`) load automatically — do not attach them. In Claude Code,
+`docs/decisions/INDEX.md`, `docs/solutions/README.md`) load automatically — do not
+attach them. In Claude Code,
 `@path` attaches a file's contents; Codex reads repo files by path and `AGENTS.md`
 automatically. Prompts are written naturally (Korean in practice); only the `@`-paths
 and the command are shown here.
