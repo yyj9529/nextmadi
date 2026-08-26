@@ -31,6 +31,15 @@ function jsonError(status: number, errorCode: string, userMessage: string) {
   );
 }
 
+/** X-Forwarded-For의 첫 IP만 취한다 — Spring은 forwarding chain이 아닌 단일 IP를 기대한다. */
+function clientIpFrom(forwardedFor: string | null): string | null {
+  if (!forwardedFor) {
+    return null;
+  }
+  const first = forwardedFor.split(",")[0]?.trim();
+  return first && first.length > 0 ? first : null;
+}
+
 /** 상태 변경 요청의 CSRF 방어: Origin이 있으면 호스트와 일치해야 한다(SameSite=Lax 보완). */
 async function isSameOrigin(): Promise<boolean> {
   const headerStore = await headers();
@@ -81,11 +90,14 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
+  // 익명 호출만 IP/day 한도 집계 대상이다. 이 헤더가 없으면 백엔드가 한도를 걸 키를 잃는다.
+  const clientIp = clientIpFrom((await headers()).get("x-forwarded-for"));
+
   try {
     const result = await transcribeAudio(
       {
         audio,
-        ...(userId ? { userId } : { sessionToken }),
+        ...(userId ? { userId } : { sessionToken, clientIp }),
       },
       // 백엔드 STT 예산 30초(AI_PIPELINE.md)에 업로드/응답 여유를 더한다. 이 신호가 없으면
       // 백엔드가 매달릴 때 라우트도 함께 매달린다.
@@ -114,7 +126,15 @@ export async function POST(request: Request): Promise<Response> {
       if (error.isInvalidAudio) {
         return jsonError(400, "validation_failed", "녹음을 확인해주세요.");
       }
-      // 429/타임아웃/공급자 오류: 같은 녹음을 재전송할 가치가 있는 실패다.
+      if (error.isRateLimited) {
+        // 오늘 치를 다 썼다. 재시도를 권하면 안 된다 — 텍스트 입력으로 안내한다.
+        return jsonError(
+          429,
+          "rate_limit_exceeded",
+          "오늘 사용할 수 있는 음성 입력 횟수를 모두 썼어요. 텍스트로 입력해보세요.",
+        );
+      }
+      // 타임아웃·공급자 오류: 같은 녹음을 재전송할 가치가 있는 실패다.
       return jsonError(
         503,
         "transcription_failed",

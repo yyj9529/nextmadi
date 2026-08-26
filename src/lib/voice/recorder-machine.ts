@@ -18,12 +18,17 @@ export type VoiceStatus =
   | "unsupported"
   | "error_empty"
   | "error_transient"
-  | "error_invalid_audio";
+  | "error_invalid_audio"
+  | "error_rate_limited";
 
 /** 녹음이 왜 멈췄는지 — 안내 문구가 갈린다. */
 export type StopReason = "tap" | "silence" | "max_duration" | "no_speech";
 
-export type TranscribeFailureKind = "empty" | "transient" | "invalid_audio";
+export type TranscribeFailureKind =
+  | "empty"
+  | "transient"
+  | "invalid_audio"
+  | "rate_limited";
 
 /** 왜 녹음을 시작조차 못 하는지 — 안내 문구가 갈린다(capability.ts). */
 export type UnsupportedReason = "no_recorder" | "no_webm_opus";
@@ -64,6 +69,7 @@ const FAILURE_STATUSES: readonly VoiceStatus[] = [
   "error_empty",
   "error_transient",
   "error_invalid_audio",
+  "error_rate_limited",
 ];
 
 /**
@@ -150,6 +156,7 @@ export function reduceVoiceMachine(
         empty: "error_empty",
         transient: "error_transient",
         invalid_audio: "error_invalid_audio",
+        rate_limited: "error_rate_limited",
       };
       return { ...machine, status: next[event.kind], transcript: null };
     }

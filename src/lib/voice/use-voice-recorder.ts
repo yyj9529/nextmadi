@@ -272,6 +272,11 @@ export function useVoiceRecorder({
           dispatch({ type: "transcribe_failed", kind: "invalid_audio" });
           return;
         }
+        if (response.status === 429) {
+          // 오늘 치를 다 썼다. 재시도를 권하면 같은 429가 반복될 뿐이다.
+          dispatch({ type: "transcribe_failed", kind: "rate_limited" });
+          return;
+        }
         dispatch({ type: "transcribe_failed", kind: "transient" });
       })
       .catch(() => {

@@ -92,6 +92,13 @@ export function VoiceInput({
           retryLabel: "다시 녹음",
           onRetry: recorder.retry,
         };
+      case "error_rate_limited":
+        return {
+          // 재시도 CTA를 주지 않는다 — 오늘은 다시 눌러도 같은 결과다. 텍스트 입력만 남긴다.
+          message: "오늘 쓸 수 있는 음성 입력을 다 썼어요. 텍스트로 입력해보세요.",
+          retryLabel: null,
+          onRetry: null,
+        };
       default:
         return null;
     }

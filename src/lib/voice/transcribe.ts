@@ -24,6 +24,8 @@ export type TranscribeInput = {
   userId?: string;
   /** 가입 전 익명 세션. userId와 정확히 하나만 준다(XOR). */
   sessionToken?: string;
+  /** 익명 호출의 IP/day 한도 집계용. 인증 호출에는 싣지 않는다. */
+  clientIp?: string | null;
 };
 
 export type TranscribeOptions = {
@@ -71,9 +73,17 @@ export class TranscribeError extends Error {
     return this.errorCode === "empty_transcript";
   }
 
+  /**
+   * 익명 하루 STT 한도를 다 썼다. 상태코드로 보면 안 된다 — 공급자 혼잡(provider_429)도 429라
+   * 같은 상태코드로는 "잠시 후 재시도"와 "오늘은 안 됨"이 뒤섞인다.
+   */
+  get isRateLimited(): boolean {
+    return this.errorCode === "rate_limit_exceeded";
+  }
+
   /** 공급자 혼잡·타임아웃·네트워크 — 같은 녹음을 재전송할 가치가 있다. */
   get isRetryable(): boolean {
-    return !this.isInvalidAudio && !this.isEmptyTranscript;
+    return !this.isInvalidAudio && !this.isEmptyTranscript && !this.isRateLimited;
   }
 }
 
@@ -118,10 +128,18 @@ export async function transcribeAudio(
   form.append("audio", input.audio, AUDIO_FILENAME);
 
   // content-type은 지정하지 않는다 — FormData가 multipart boundary를 직접 붙여야 한다.
+  const headers: Record<string, string> = {
+    "x-internal-auth": internalAuthToken,
+  };
+  // 익명(session_token) 호출만 IP/day 집계 대상이다. analysis 경로와 같은 규칙이다.
+  if ("sessionToken" in subject && input.clientIp) {
+    headers["x-client-ip"] = input.clientIp;
+  }
+
   const response = await fetcher(
     new Request(`${backendBaseUrl.replace(/\/+$/, "")}/api/v1/transcriptions`, {
       method: "POST",
-      headers: { "x-internal-auth": internalAuthToken },
+      headers,
       body: form,
       signal: options.signal,
     }),

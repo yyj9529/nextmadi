@@ -170,6 +170,36 @@ describe("POST /api/transcriptions", () => {
     expect((await response.json()).error_code).toBe("validation_failed");
   });
 
+  test("익명 호출은 x-forwarded-for의 첫 IP를 백엔드로 넘긴다", async () => {
+    headerMap.set("x-forwarded-for", "203.0.113.7, 10.0.0.1");
+
+    await POST(audioRequest());
+
+    expect((transcribeCalls[0] as { clientIp?: string }).clientIp).toBe(
+      "203.0.113.7",
+    );
+  });
+
+  test("로그인 사용자는 IP를 넘기지 않는다 — 한도 대상이 아니다", async () => {
+    currentSession = { user: { id: "user-9" } };
+    headerMap.set("x-forwarded-for", "203.0.113.7");
+
+    await POST(audioRequest());
+
+    expect((transcribeCalls[0] as { clientIp?: string }).clientIp).toBeUndefined();
+  });
+
+  test("하루 한도 초과는 429로 내리고 재시도를 권하지 않는다", async () => {
+    transcribeImpl = async () => {
+      throw new TranscribeError(429, { error_code: "rate_limit_exceeded" });
+    };
+
+    const response = await POST(audioRequest());
+
+    expect(response.status).toBe(429);
+    expect((await response.json()).error_code).toBe("rate_limit_exceeded");
+  });
+
   test("공급자 오류·타임아웃은 재시도 가능한 503으로 정규화한다", async () => {
     for (const status of [408, 429, 503]) {
       transcribeImpl = async () => {
