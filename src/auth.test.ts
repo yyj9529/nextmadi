@@ -44,7 +44,8 @@ describe("authConfig", () => {
       typeof provider === "function" ? provider({}).id : provider.id,
     );
 
-    expect(providerIds).toEqual(["google", "kakao"]);
+    // S03 AC1 order: Google, Kakao, then email.
+    expect(providerIds).toEqual(["google", "kakao", "nodemailer"]);
     expect(authConfig.pages).toEqual({ signIn: "/login", error: "/login" });
     expect(authConfig.session).toMatchObject({
       strategy: "jwt",
@@ -58,6 +59,66 @@ describe("authConfig", () => {
         path: "/",
         secure: true,
       },
+    });
+  });
+
+  test("attaches an adapter, which the email provider requires", () => {
+    // ADR-010 keeps the database with Spring Boot; the adapter exists to satisfy Auth.js and
+    // forwards storage over X-Internal-Auth rather than opening a second writer.
+    const authConfig = buildAuthConfig();
+
+    expect(authConfig.adapter).toBeDefined();
+    expect(authConfig.adapter?.createVerificationToken).toBeInstanceOf(Function);
+    expect(authConfig.adapter?.useVerificationToken).toBeInstanceOf(Function);
+    expect(authConfig.adapter?.getUserByEmail).toBeInstanceOf(Function);
+  });
+
+  test("carries the adapter user onto the session for an email sign-in", async () => {
+    // The adapter has already settled the user against Spring Boot, so user.id is the PhraseLog
+    // user_id and there is nothing for signIn to provision.
+    const authConfig = buildAuthConfig({ provisionOAuthIdentity });
+    const user = {
+      id: "user-9",
+      email: "mia@example.com",
+      name: "Mia",
+      isOnboarded: true,
+    } as User;
+    const account = {
+      provider: "nodemailer",
+      providerAccountId: "mia@example.com",
+      type: "email",
+    } satisfies Partial<Account> as Account;
+
+    const signInResult = await authConfig.callbacks?.signIn?.({
+      user,
+      account,
+      profile: undefined,
+    } as never);
+    const token = await authConfig.callbacks?.jwt?.({
+      token: {} as JWT,
+      user,
+      account,
+      trigger: "signIn",
+    } as never);
+    const session = await authConfig.callbacks?.session?.({
+      session: { user: {}, expires: "2099-01-01T00:00:00.000Z" },
+      token: token as JWT,
+      newSession: null,
+    } as never);
+
+    expect(signInResult).toBe(true);
+    expect(provisionOAuthIdentity).not.toHaveBeenCalled();
+    expect(token).toMatchObject({
+      phraselogUserId: "user-9",
+      isOnboarded: true,
+      email: "mia@example.com",
+      name: "Mia",
+    });
+    // S03 AC3 routes on isOnboarded, so losing it here would send onboarded users to /welcome/coach.
+    expect(session?.user).toMatchObject({
+      id: "user-9",
+      email: "mia@example.com",
+      isOnboarded: true,
     });
   });
 

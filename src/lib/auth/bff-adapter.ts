@@ -100,6 +100,9 @@ function toAdapterUser(identity: EmailIdentity): AdapterUser {
     name: identity.displayName,
     // 링크를 소비해야만 여기 도달하므로 메일함 소유는 이 시점에 증명돼 있다.
     emailVerified: new Date(),
+    // S03 AC3의 라우팅(온보딩 미완료 → /welcome/coach)이 세션에서 이 값을 읽는다.
+    // AdapterUser에 없는 필드지만 Auth.js는 user 객체를 그대로 jwt 콜백에 넘긴다.
+    isOnboarded: identity.isOnboarded,
   } as AdapterUser;
 }
 

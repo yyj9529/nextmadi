@@ -2,9 +2,12 @@ import NextAuth, {
   type NextAuthConfig,
   type User,
 } from "next-auth";
+import type { Adapter } from "next-auth/adapters";
 import Google from "next-auth/providers/google";
 import Kakao from "next-auth/providers/kakao";
 
+import { createBffAdapter } from "./lib/auth/bff-adapter";
+import { buildEmailProvider } from "./lib/auth/email-provider";
 import {
   OAuthProvisioningError,
   type OAuthProvider,
@@ -16,15 +19,24 @@ export const AUTH_SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 const AUTH_SESSION_UPDATE_AGE_SECONDS = 24 * 60 * 60;
 const OAUTH_PROVIDERS = new Set<OAuthProvider>(["google", "kakao"]);
 
+/** Auth.js Nodemailer provider의 고정 id. account.provider 분기에 쓴다. */
+export const EMAIL_PROVIDER_ID = "nodemailer";
+
 type BuildAuthConfigOptions = {
   secureCookies?: boolean;
   provisionOAuthIdentity?: typeof provisionOAuthIdentityDefault;
+  /** 테스트에서 BFF 어댑터를 대체한다. 기본값은 Spring Boot를 호출하는 실제 어댑터. */
+  adapter?: Adapter;
+  /** 테스트에서 provider를 대체한다. 기본값은 env로 SES/개발 모드를 고르는 실제 provider. */
+  emailProvider?: NextAuthConfig["providers"][number];
 };
 
 type PhraseLogOAuthUser = User & {
   phraselogUserId?: string;
   isOnboarded?: boolean;
 };
+
+type PhraseLogAdapterUser = User & { isOnboarded?: boolean };
 
 export function buildAuthConfig(
   options: BuildAuthConfigOptions = {},
@@ -33,9 +45,14 @@ export function buildAuthConfig(
     options.secureCookies ?? process.env.NODE_ENV === "production";
   const provisionIdentity =
     options.provisionOAuthIdentity ?? provisionOAuthIdentityDefault;
+  const adapter = options.adapter ?? createBffAdapter();
+  const emailProvider = options.emailProvider ?? buildEmailProvider();
 
   return {
-    providers: [Google, Kakao],
+    // 어댑터는 이메일 provider가 요구해서 존재한다. 저장은 여전히 Spring Boot가 한다 (ADR-010) —
+    // 어댑터 메서드가 X-Internal-Auth로 백엔드를 호출할 뿐, Next.js는 DB에 접근하지 않는다.
+    adapter,
+    providers: [Google, Kakao, emailProvider],
     pages: {
       signIn: "/login",
       error: "/login",
@@ -88,6 +105,17 @@ export function buildAuthConfig(
         }
       },
       async jwt({ token, user, account }) {
+        if (account?.provider === EMAIL_PROVIDER_ID && user) {
+          // 이메일 경로에서는 어댑터가 이미 Spring Boot에서 사용자를 확정했으므로 user.id가
+          // PhraseLog user_id다. OAuth처럼 signIn 콜백에서 프로비저닝할 것이 없다.
+          const adapterUser = user as PhraseLogAdapterUser;
+          token.phraselogUserId = adapterUser.id;
+          token.isOnboarded = adapterUser.isOnboarded ?? false;
+          token.email = adapterUser.email ?? token.email;
+          token.name = adapterUser.name ?? token.name;
+          return token;
+        }
+
         if (account && isOAuthProvider(account.provider) && user) {
           const phraseLogUser = user as PhraseLogOAuthUser;
           token.phraselogUserId = phraseLogUser.phraselogUserId;
