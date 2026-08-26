@@ -62,6 +62,19 @@ public class JdbcOAuthIdentityRepository implements OAuthIdentityRepository {
   }
 
   @Override
+  public void linkIdentityToUser(
+      UUID userId, String provider, String providerUserId, String providerEmail) {
+    jdbcTemplate.update(
+        "INSERT INTO user_auth_identities"
+            + " (user_id, provider, provider_user_id, provider_email)"
+            + " VALUES (?, ?, ?, ?)",
+        userId,
+        provider,
+        providerUserId,
+        providerEmail);
+  }
+
+  @Override
   public void clearScheduledDeletion(UUID userId) {
     jdbcTemplate.update("UPDATE users SET scheduled_deletion_at = NULL WHERE id = ?", userId);
   }

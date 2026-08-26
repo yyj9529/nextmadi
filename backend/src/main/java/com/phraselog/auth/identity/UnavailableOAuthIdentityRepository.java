@@ -27,6 +27,12 @@ final class UnavailableOAuthIdentityRepository implements OAuthIdentityRepositor
   }
 
   @Override
+  public void linkIdentityToUser(
+      UUID userId, String provider, String providerUserId, String providerEmail) {
+    throw unavailable();
+  }
+
+  @Override
   public void clearScheduledDeletion(UUID userId) {
     throw unavailable();
   }

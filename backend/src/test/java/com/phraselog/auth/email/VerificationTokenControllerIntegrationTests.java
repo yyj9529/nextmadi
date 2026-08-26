@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.within;
 import com.phraselog.auth.service.InternalAuthTestTokens;
 import com.phraselog.auth.web.InternalAuthFilter;
 import com.phraselog.common.web.ApiPaths;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -55,7 +56,11 @@ class VerificationTokenControllerIntegrationTests {
       new PostgreSQLContainer<>("postgres:16-alpine")
           .withDatabaseName("phraselog_test")
           .withUsername("phraselog")
-          .withPassword("phraselog");
+          .withPassword("phraselog")
+          // The suite creates and tears down a container per test class; on a slow Docker host the
+          // default 60s readiness wait is not always enough and the class fails to initialise.
+          // A longer ceiling costs nothing when startup is fast.
+          .withStartupTimeout(Duration.ofMinutes(3));
 
   @DynamicPropertySource
   static void datasourceProperties(DynamicPropertyRegistry registry) {

@@ -169,7 +169,17 @@ conflicting.
 `OAuthIdentityRepository` / `JdbcOAuthIdentityRepository` (add the link-to-existing-user
 method), tests.
 
-**Approach.** `POST /api/v1/auth/email/identity`, body `{ email }`. Behavior:
+**Approach.** Two endpoints, not one — this was a plan error caught during implementation.
+Auth.js calls `getUserByEmail` inside `sendToken`, i.e. while the link is merely being *sent*,
+before anyone has clicked anything. A single create-or-find endpoint would therefore mint an
+account for every address typed into the S03 form, verified or not. So:
+
+- `POST /api/v1/auth/email/identity/lookup` — read-only, 404 when unknown. Backs `getUserByEmail`.
+- `POST /api/v1/auth/email/identity` — may create or link. Called only after the link came back.
+
+The address travels in the body, not a query string: an email in a URL lands in access logs.
+
+Resolve behavior, body `{ email }`:
 
 1. `(provider='email', provider_user_id=<normalized email>)` exists → return that user.
 2. No email identity, but an active `users` row has that email → **attach** an `email`
@@ -194,8 +204,9 @@ Clearing `scheduled_deletion_at` on sign-in follows the existing OAuth behavior.
   create a second user, does **not** throw `account_link_required`.
 - Mixed-case and surrounding-whitespace email normalizes to the same identity.
 - A user with `scheduled_deletion_at` set has it cleared and the flag reported.
-- Soft-deleted user's email (`deleted_at` set) is treated as new, matching the
-  `idx_users_email_active` partial index.
+- Lookup on an unknown address creates nothing — `users` and `user_auth_identities` both
+  stay empty. This is the test that stops the S03 form from being an account-minting oracle.
+- Lookup finds a user registered through another provider without linking anything.
 
 **Verification.** Backend gate as U2.
 
@@ -453,6 +464,12 @@ skipped proves nothing about U2 or U3.
 - Explicit provider linking from an authenticated settings screen — S03 says out of scope
   for v1.
 - Automating the six unautomated mistake-ledger items (`docs/solutions/README.md`).
+- One shared Postgres container for the whole backend suite. Today each of the ~16 Testcontainers
+  classes starts and tears down its own, and on a slow Docker host that churn intermittently
+  exceeds the 60s readiness wait (seen twice while building U2/U3; the new classes carry a longer
+  `withStartupTimeout` as a local fix). Sharing one container would cut suite time and remove the
+  flake, but it touches every integration test and risks the `disabledWithoutDocker` skip that
+  `build.gradle` deliberately relies on.
 
 ## Final outcome
 
