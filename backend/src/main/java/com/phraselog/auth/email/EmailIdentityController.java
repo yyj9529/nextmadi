@@ -3,6 +3,7 @@ package com.phraselog.auth.email;
 import com.phraselog.common.web.ApiErrorException;
 import com.phraselog.common.web.ApiPaths;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -46,10 +47,31 @@ public class EmailIdentityController {
                     false));
   }
 
+  /** Backs the adapter's {@code updateUser}, which carries a user id and no address. */
+  @PostMapping("/link")
+  public EmailIdentityResult link(
+      HttpServletRequest servletRequest, @RequestBody EmailIdentityLinkRequest body) {
+    EmailProvisioning.requirePrincipal(servletRequest);
+    return service.linkByUserId(userId(body));
+  }
+
   @PostMapping
   public EmailIdentityResult resolve(
       HttpServletRequest servletRequest, @RequestBody EmailIdentityRequest body) {
     EmailProvisioning.requirePrincipal(servletRequest);
     return service.resolve(body);
+  }
+
+  private static UUID userId(EmailIdentityLinkRequest body) {
+    try {
+      return UUID.fromString(body == null ? null : body.userId());
+    } catch (IllegalArgumentException | NullPointerException e) {
+      throw new ApiErrorException(
+          HttpStatus.BAD_REQUEST,
+          "validation_failed",
+          "입력값을 다시 확인해 주세요.",
+          "user_id must be a UUID.",
+          false);
+    }
   }
 }

@@ -176,6 +176,10 @@ account for every address typed into the S03 form, verified or not. So:
 
 - `POST /api/v1/auth/email/identity/lookup` — read-only, 404 when unknown. Backs `getUserByEmail`.
 - `POST /api/v1/auth/email/identity` — may create or link. Called only after the link came back.
+- `POST /api/v1/auth/email/identity/link` — same linking, keyed by user id. Added once U4 showed
+  that Auth.js's `updateUser` hands the adapter `{id, emailVerified}` and no address, so the
+  address-keyed endpoint above is unreachable from the one path that needs it. Without it the
+  linking case is code that never runs in production while its own tests pass.
 
 The address travels in the body, not a query string: an email in a URL lands in access logs.
 

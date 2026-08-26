@@ -21,6 +21,11 @@ final class UnavailableOAuthIdentityRepository implements OAuthIdentityRepositor
   }
 
   @Override
+  public Optional<OAuthUserRow> findActiveUserById(UUID id) {
+    throw unavailable();
+  }
+
+  @Override
   public OAuthUserRow createUserWithIdentity(
       String provider, String providerUserId, String providerEmail, String displayName) {
     throw unavailable();

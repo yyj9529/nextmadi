@@ -42,6 +42,7 @@ class EmailIdentityControllerIntegrationTests {
   static final String INTERNAL_SECRET = "email-identity-internal-auth-secret-0123456789";
   private static final String RESOLVE_PATH = ApiPaths.V1 + "/auth/email/identity";
   private static final String LOOKUP_PATH = RESOLVE_PATH + "/lookup";
+  private static final String LINK_PATH = RESOLVE_PATH + "/link";
   private static final String EMAIL = "mia@example.com";
 
   @Container
@@ -191,6 +192,54 @@ class EmailIdentityControllerIntegrationTests {
 
     assertThat(result.canceledScheduledDeletion()).isTrue();
     assertThat(scheduledDeletion(existing)).isNull();
+  }
+
+  @Test
+  void linkByUserIdAttachesAnEmailIdentityToAnAddressRegisteredElsewhere() {
+    // Auth.js updateUser carries {id, emailVerified} and no address, so the linking case can only
+    // be reached by id. Without this the identity row would never be written for that path.
+    UUID existing = insertUserWithIdentity(EMAIL, "google", "google-abc");
+
+    EmailIdentityResult result =
+        postForResult(LINK_PATH, provisioningToken(), Map.of("user_id", existing.toString()))
+            .getBody();
+
+    assertThat(result).isNotNull();
+    assertThat(result.userId()).isEqualTo(existing);
+    assertThat(result.email()).isEqualTo(EMAIL);
+    assertThat(result.linkedToExistingUser()).isTrue();
+    assertThat(providersFor(existing)).containsExactly("email", "google");
+  }
+
+  @Test
+  void linkByUserIdIsIdempotent() {
+    UUID existing = insertUserWithIdentity(EMAIL, "google", "google-abc");
+    postForResult(LINK_PATH, provisioningToken(), Map.of("user_id", existing.toString()));
+
+    EmailIdentityResult again =
+        postForResult(LINK_PATH, provisioningToken(), Map.of("user_id", existing.toString()))
+            .getBody();
+
+    assertThat(again.linkedToExistingUser()).isFalse();
+    assertThat(count("user_auth_identities")).isEqualTo(2);
+  }
+
+  @Test
+  void linkByUserIdRejectsAnUnknownUser() {
+    ResponseEntity<String> response =
+        post(LINK_PATH, provisioningToken(), Map.of("user_id", UUID.randomUUID().toString()));
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    assertThat(count("user_auth_identities")).isZero();
+  }
+
+  @Test
+  void linkByUserIdRejectsAMalformedId() {
+    ResponseEntity<String> response =
+        post(LINK_PATH, provisioningToken(), Map.of("user_id", "not-a-uuid"));
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getBody()).contains("validation_failed");
   }
 
   @Test

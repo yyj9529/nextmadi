@@ -17,6 +17,8 @@ public interface OAuthIdentityRepository {
 
   Optional<OAuthUserRow> findActiveUserByEmail(String email);
 
+  Optional<OAuthUserRow> findActiveUserById(UUID id);
+
   OAuthUserRow createUserWithIdentity(
       String provider, String providerUserId, String providerEmail, String displayName);
 

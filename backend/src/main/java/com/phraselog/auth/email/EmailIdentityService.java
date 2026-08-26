@@ -5,6 +5,7 @@ import com.phraselog.auth.identity.OAuthUserRow;
 import com.phraselog.common.web.ApiErrorException;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,6 +66,37 @@ public class EmailIdentityService {
     // provider_user_id is the address itself: it is the stable identifier the mailbox proves.
     return settled(
         repository.createUserWithIdentity(PROVIDER_EMAIL, email, email, null), true, false);
+  }
+
+  /**
+   * Ensures the {@code email} identity exists for a user Auth.js has already matched by address,
+   * and returns that user.
+   *
+   * <p>Keyed by user id rather than address because that is all Auth.js hands the adapter here: its
+   * {@code updateUser} call carries {@code {id, emailVerified}} and no email. Without this, the
+   * linking case in {@link #resolve} would never be reached through the adapter and a
+   * Google-registered address signing in by link would leave no email identity behind.
+   */
+  @Transactional
+  public EmailIdentityResult linkByUserId(UUID userId) {
+    OAuthUserRow user =
+        repository
+            .findActiveUserById(userId)
+            .orElseThrow(
+                () ->
+                    new ApiErrorException(
+                        HttpStatus.NOT_FOUND,
+                        "email_identity_not_found",
+                        "가입되지 않은 계정이에요.",
+                        "No active user for this id.",
+                        false));
+
+    String email = user.email().toLowerCase(Locale.ROOT);
+    boolean alreadyLinked = repository.findByProviderIdentity(PROVIDER_EMAIL, email).isPresent();
+    if (!alreadyLinked) {
+      repository.linkIdentityToUser(user.id(), PROVIDER_EMAIL, email, email);
+    }
+    return settled(user, false, !alreadyLinked);
   }
 
   private EmailIdentityResult settled(

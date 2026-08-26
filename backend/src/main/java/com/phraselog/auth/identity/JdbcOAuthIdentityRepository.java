@@ -41,6 +41,12 @@ public class JdbcOAuthIdentityRepository implements OAuthIdentityRepository {
   }
 
   @Override
+  public Optional<OAuthUserRow> findActiveUserById(UUID id) {
+    return queryOne(
+        "SELECT " + USER_COLUMNS + " FROM users u WHERE u.id = ? AND u.deleted_at IS NULL", id);
+  }
+
+  @Override
   public OAuthUserRow createUserWithIdentity(
       String provider, String providerUserId, String providerEmail, String displayName) {
     UUID userId = UUID.randomUUID();
