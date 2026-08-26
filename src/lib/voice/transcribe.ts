@@ -66,7 +66,9 @@ export class TranscribeError extends Error {
 
   /** 전사 결과가 비었다 — 다시 말해달라고 안내한다. */
   get isEmptyTranscript(): boolean {
-    return this.status === 422;
+    // 상태코드가 아니라 계약 토큰으로 판별한다. 백엔드는 규격 오류(400 validation_failed)와
+    // 무발화(422 empty_transcript)를 다른 코드로 내리고, 아래 200+공백 방어도 같은 코드를 쓴다.
+    return this.errorCode === "empty_transcript";
   }
 
   /** 공급자 혼잡·타임아웃·네트워크 — 같은 녹음을 재전송할 가치가 있다. */

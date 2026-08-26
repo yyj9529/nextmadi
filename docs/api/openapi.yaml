@@ -129,7 +129,24 @@ paths:
                     nullable: true
                     description: Model-dependent; null when unavailable (AI_PIPELINE.md).
         "400":
-          $ref: "#/components/responses/ValidationError"
+          description: |
+            The audio itself is outside spec (`validation_failed`) — not
+            WebM/Opus, longer than 60 seconds, or missing. Re-sending the same
+            file returns the same result; the client must re-record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: |
+            The audio was well-formed but no speech was recognised
+            (`empty_transcript`). Distinct from 400 so the client can prompt
+            "say it again" instead of "record again" (s02.md UI states). The
+            Whisper call was billed and is recorded in `ai_request_logs`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "429":
           $ref: "#/components/responses/RateLimitExceeded"
 

@@ -139,4 +139,38 @@ describe("transcribeAudio", () => {
     expect(error).toBeInstanceOf(TranscribeError);
     expect((error as InstanceType<typeof TranscribeError>).isEmptyTranscript).toBe(true);
   });
+
+  // 실제 백엔드 응답 형태를 고정한다. 이 갈래가 없어서, 백엔드가 무발화를 규격 오류와 같은
+  // 400 validation_failed 로 내리는 동안 프론트의 빈-전사 분기가 죽어 있는 채로 통과했다.
+  test("무발화는 백엔드 422 empty_transcript 로 오고 빈 전사로 분류한다", async () => {
+    const fetcher: FetchLike = async () =>
+      transcribed({ error_code: "empty_transcript" }, 422);
+
+    const error = await transcribeAudio(
+      { audio: audio(), userId: "user-1" },
+      { ...OPTIONS_BASE, fetcher },
+    ).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(TranscribeError);
+    const api = error as InstanceType<typeof TranscribeError>;
+    expect(api.isEmptyTranscript).toBe(true);
+    // 규격 오류로 새면 "다시 녹음" 문구가 떠서 스펙과 어긋난다.
+    expect(api.isInvalidAudio).toBe(false);
+    // 같은 오디오를 재전송해도 결과가 같다.
+    expect(api.isRetryable).toBe(false);
+  });
+
+  test("규격 오류(400)는 빈 전사로 분류되지 않는다 — 두 안내 문구가 갈라져야 한다", async () => {
+    const fetcher: FetchLike = async () =>
+      transcribed({ error_code: "validation_failed" }, 400);
+
+    const error = await transcribeAudio(
+      { audio: audio(), userId: "user-1" },
+      { ...OPTIONS_BASE, fetcher },
+    ).catch((e: unknown) => e);
+
+    const api = error as InstanceType<typeof TranscribeError>;
+    expect(api.isInvalidAudio).toBe(true);
+    expect(api.isEmptyTranscript).toBe(false);
+  });
 });
