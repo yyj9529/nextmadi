@@ -31,6 +31,11 @@ jobs:
       - name: Typecheck frontend
         run: bun run typecheck
 
+      # bun test exits 1 when no test files match, so a suite that silently
+      # disappears fails the job instead of passing with nothing run.
+      - name: Test frontend
+        run: bun run test
+
       - name: Build frontend
         run: bun run build
 
