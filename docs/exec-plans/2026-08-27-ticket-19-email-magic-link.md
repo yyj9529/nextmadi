@@ -93,11 +93,13 @@ Docs / CI:
 on `expires` for purging. Add `created_at` for debugging. `identifier` is stored
 lowercase to match `OAuthIdentityService`'s normalization.
 
-The token column stores whatever Auth.js hands the adapter — Auth.js hashes the token with
-`AUTH_SECRET` before calling `createVerificationToken` and sends the raw value in the URL.
-**Verify that hashing behavior against the installed `next-auth@beta` at implementation
-time**; if it turns out the raw token reaches the adapter, hash it in the backend before
-insert. Do not assume.
+**Resolved 2026-08-27 (was an open question).** Read against the installed
+`next-auth@5.0.0-beta.31`: `@auth/core/lib/actions/signin/send-token.js` stores
+`createHash(rawToken + secret)` and emails the raw token, and
+`lib/actions/callback/index.js` hashes the URL token the same way before lookup.
+`createHash` is SHA-256 hex, so the column always receives 64 characters. The adapter
+never sees the raw token and the backend must not hash again. Column is `VARCHAR(255)`
+rather than `CHAR(64)` so an upstream hash change is not a migration.
 
 **Patterns to follow.** V001–V008 naming and the existing `data-model.md` table-section
 format (SQL block, then prose on the non-obvious constraints).
@@ -213,12 +215,28 @@ the contract.
 
 **Approach.** The HTTP clients mirror `src/lib/auth/oauth-provisioning.ts` exactly — same
 `mintInternalAuthToken` call, same error class shape, same `fetcher` injection point for
-tests. The adapter object implements only what the Email provider actually calls under
-`strategy: "jwt"`: `createVerificationToken`, `useVerificationToken`, `getUserByEmail`,
-`createUser`, and whatever else turns out to be required.
+tests.
 
-**Deferred to implementation.** The exact required method set is not knowable from docs
-alone at `next-auth@5.0.0-beta.31`. Determine it by running the flow, not by guessing.
+**Resolved 2026-08-27 (was an open question).** The required method set is now read off
+the installed library rather than guessed:
+
+- `@auth/core/lib/utils/assert.js` asserts exactly three at config build for an email
+  provider: `createVerificationToken`, `useVerificationToken`, `getUserByEmail`. The ten
+  `sessionMethods` are asserted only for `strategy: "database"`, which we do not use.
+- At runtime `lib/actions/callback/handle-login.js` adds two in the email branch:
+  `updateUser` when `getUserByEmail` found someone, `createUser` when it did not.
+- `getUser` is reached only when a session cookie already exists (signing in while
+  signed in). Implement it; it is cheap.
+- `linkAccount` is **not** called on the email path — it belongs to the oauth and webauthn
+  branches. Do not implement it.
+
+Six methods total: the three asserted, plus `createUser`, `updateUser`, `getUser`.
+
+**Consequence for U3.** Auth.js has no "link this identity" call here. Our
+`user_auth_identities` row for `provider='email'` has to be written by the backend during
+`createUser` (new user) and `updateUser` (existing user found by email — the linking case).
+Both adapter methods therefore call the same idempotent `POST /auth/email/identity`, and
+`updateUser`'s `emailVerified` argument is discarded because `users` has no such column.
 
 **Every unimplemented method throws an explicit error.** No `return null`, no silent
 no-op. A stubbed method that returns a plausible value turns a missing capability into a
@@ -232,7 +250,9 @@ successful-looking login — the exact failure mode in
 - Backend 500 propagates as a thrown error — never `null`, which Auth.js would read as
   an invalid link rather than an outage.
 - `getUserByEmail` returns null for unknown, the mapped user for known.
-- `createUser` round-trips through `/auth/email/identity`.
+- `createUser` and `updateUser` both round-trip through `/auth/email/identity` and return
+  the same user for the same address (idempotent).
+- `updateUser` ignores `emailVerified` without failing — `users` has no such column.
 - A method not implemented throws with a message naming the method.
 - Missing `PHRASELOG_BACKEND_BASE_URL` / `INTERNAL_AUTH_SECRET` throws at call time,
   matching `oauth-provisioning.ts`.
