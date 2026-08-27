@@ -216,6 +216,43 @@ s02.md / s04.md G-W-T 기준:
   상태코드로 뭉뚱그리면 "잠시 후 재시도"와 "오늘은 안 됨"이 섞인다. UI에 `error_rate_limited`
   상태를 더해 재시도 CTA 없이 텍스트 입력으로만 안내한다.
 
+- **리뷰 should-fix 5건 처리 (2026-08-27)**:
+  - **`stopping` 교착**: MediaRecorder는 우리가 `stop()`하지 않아도 스스로 멈춘다(녹음 중
+    장치 분리, 권한 회수). 그때 `onstop`이 `blob_ready`를 내보내는데 리듀서가 `stopping`에서만
+    받아 버려서, status는 `recording`인데 recorder는 `inactive`로 어긋났다. 이어지는 탭이
+    `stopping`으로 가면 멈출 recorder가 없어 "마무리 중..."에 갇히고 **마이크를 쥔 채**
+    새로고침 외 출구가 없었다. 리듀서가 `recording`에서도 `blob_ready`를 받게 하고, 훅의
+    `stopping` 효과가 비활성 recorder도 처리하게 했다.
+  - **`MediaRecorder.onerror` 부재**: 핸들러가 없어 같은 교착에 다른 경로로도 도달했다.
+    `recording_failed` 이벤트를 새로 두고 연결했다.
+  - **`error_recording` 상태 분리**: 녹음이 끊긴 것을 `error_transient`로 보내면 "변환에
+    실패했어요 / 다시 시도"가 뜨는데 재전송할 blob이 없다. 문구와 동작이 둘 다 어긋나서
+    전용 상태로 갈랐다 — "녹음이 중단됐어요" + 다시 녹음.
+  - **60초 하드컷 여유**: 프론트가 `>= 60_000`에서 끊는데 타이머가 100ms 간격이고 마지막
+    chunk 병합에도 시간이 걸려, 실제 녹음이 60.0초를 넘겨 백엔드 `WebmOpusInspector`의
+    `> 60.0` 거부에 걸릴 수 있었다. 58초로 당겨 2초 여유를 뒀다(스펙 상한 60초는 그대로).
+  - **S02 텍스트 입력 CTA**: `TryExperience`가 `onUseText`를 넘기지 않아 수용 기준 4가
+    요구하는 CTA가 렌더되지 않았고, `unsupported`에서는 버튼이 하나도 없었다. 입력창이 이미
+    화면에 있으므로 새로 열지 않고 포커스만 옮긴다.
+  - **S04 500자 초과**: S02는 자르는데 S04는 그대로 넘겨 카운터가 "540 / 500"이 되고 제출 시
+    "연결이 불안정해요"로 끝났다. 같은 상한으로 자른다.
+- **훅에서 오케스트레이터를 분리 (owner 결정 2026-08-27)**: 리뷰 마지막 should-fix는
+  "자원을 소유한 321줄 훅에 테스트가 0건"이었다. 저장소에 React 테스트 인프라가 아예 없어
+  (테스트 라이브러리·DOM 환경·bunfig 모두 없고 기존 테스트는 순수 모듈과 라우트뿐) 훅을
+  그대로 두고 테스트하려면 새 의존성이 필요했다.
+  선택지 셋 중 **오케스트레이터 분리**를 골랐다: 부수효과를 `recorder-controller.ts`의
+  평범한 클래스로 빼고 브라우저 API(`getUserMedia`·`MediaRecorder`·`AudioContext`·타이머·
+  `fetch`·`now`)를 전부 주입받게 했다. 훅은 `useSyncExternalStore`로 컨트롤러를 React
+  수명주기에 붙이는 89줄로 줄었다. 새 의존성 0개.
+  기각: @testing-library/react + happy-dom 도입 — 의존성 2개와 테스트 아키텍처 변경이
+  이 시점의 리스크 대비 이득이 작다. 세 번째 선택지(미룸)는 미검증 상태를 그대로 남긴다.
+  신규 테스트 31개가 자원 해제를 정면으로 겨냥한다: 취소·언마운트·전사 실패·장치 분리 각
+  경로에서 트랙과 AudioContext가 풀리는지, 언마운트 뒤 도착한 권한 응답이 스트림을 놓는지,
+  전사 중 취소가 abort하되 에러 문구를 띄우지 않는지, 타임아웃 타이머가 남지 않는지.
+  **이 테스트가 새 버그를 하나 잡았다**: `createRecorder`가 던질 때 `unsupported`를 보냈는데
+  그 이벤트는 `requesting_permission`에서만 받는다. 이미 `recording`이라 무시되고 recorder
+  없이 갇혔다 — 위 `stopping` 교착과 같은 부류였다. `recording_failed`로 바꿨다.
+
 ## Final outcome
 
 구현 완료 2026-08-04, 리뷰 대기.

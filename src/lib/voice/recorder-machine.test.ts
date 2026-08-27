@@ -153,10 +153,13 @@ describe("녹음 상태머신 — 실패 경로", () => {
   test("어긋난 이벤트는 상태를 바꾸지 않는다", () => {
     const recording = at("recording");
 
-    expect(reduce(recording, { type: "blob_ready" })).toBe(recording);
+    // blob_ready 는 여기 있었지만 빠졌다 — recording 에서도 받아야 한다.
+    // MediaRecorder 가 스스로 멈추는 경로가 실재하고, 버리면 마이크를 쥔 채 갇힌다.
+    // 위 "녹음이 스스로 끊기는 경로" 블록 참고.
     expect(reduce(recording, { type: "permission_granted" })).toBe(recording);
     const idle = at("idle");
     expect(reduce(idle, { type: "stop", reason: "tap" })).toBe(idle);
+    expect(reduce(idle, { type: "blob_ready" })).toBe(idle);
   });
 });
 
@@ -175,6 +178,8 @@ describe("마이크 점유", () => {
       "error_empty",
       "error_transient",
       "error_invalid_audio",
+      "error_rate_limited",
+      "error_recording",
     ] as const) {
       expect(holdsMicrophone(status)).toBe(false);
     }
@@ -196,5 +201,63 @@ describe("마이크 점유", () => {
       // stopping은 아직 마지막 chunk를 기다리므로 마이크를 유지한다.
       expect(after.status).toBe("stopping");
     }
+  });
+});
+
+describe("녹음 상태머신 — 녹음이 스스로 끊기는 경로", () => {
+  // 실제 교착 재현: 녹음 중 마이크가 분리되거나 권한이 회수되면 MediaRecorder 가 스스로
+  // 멈추고 onstop 이 뜬다. 이 blob_ready 를 recording 에서 버리면 status 는 recording 인데
+  // recorder 는 inactive 로 어긋나고, 이어지는 탭이 stopping 으로 가서는 멈출 recorder 가
+  // 없어 "마무리 중..."에 갇힌다 — 그동안 마이크는 계속 잡혀 있다.
+  test("recording 중 blob_ready 를 받으면 전사로 넘어간다 — stopping 을 건너뛴다", () => {
+    const machine = reduce(at("recording"), { type: "blob_ready" });
+    expect(machine.status).toBe("transcribing");
+    expect(holdsMicrophone(machine.status)).toBe(false);
+  });
+
+  test("recording 중 blob_ready 를 버리면 갇힌다 — 회귀 방지용 시나리오", () => {
+    // 위 전이가 없던 시절의 경로를 그대로 따라가 본다.
+    let machine = at("recording");
+    machine = reduce(machine, { type: "blob_ready" });
+    // 여기서 recording 에 머물렀다면, 다음 탭은 stopping 으로 가고 그 뒤로는 탭이 무시된다.
+    expect(machine.status).not.toBe("recording");
+
+    const stuck = reduce(reduce(at("recording"), { type: "tap" }), {
+      type: "tap",
+    });
+    expect(stuck.status).toBe("stopping");
+    // stopping 에서는 탭이 무시된다 — 그래서 훅이 blob_ready 나 recording_failed 를
+    // 반드시 내보내야 한다.
+    expect(reduce(stuck, { type: "tap" }).status).toBe("stopping");
+  });
+
+  test("recording_failed 는 녹음 구간 어디서든 마이크를 놓는 상태로 보낸다", () => {
+    for (const status of ["requesting_permission", "recording", "stopping"] as const) {
+      const machine = reduce(at(status), { type: "recording_failed" });
+      expect(machine.status).toBe("error_recording");
+      expect(holdsMicrophone(machine.status)).toBe(false);
+    }
+  });
+
+  test("recording_failed 는 이미 끝난 상태를 건드리지 않는다", () => {
+    for (const status of ["idle", "transcribing", "confirm", "error_empty"] as const) {
+      expect(reduce(at(status), { type: "recording_failed" }).status).toBe(status);
+    }
+  });
+
+  // 녹음이 끊긴 것과 전사가 실패한 것은 안내가 달라야 한다 — 전자는 재전송할 녹음이 없다.
+  test("error_recording 은 재전송(retry_transcribe) 대상이 아니다", () => {
+    expect(
+      reduce(at("error_recording"), { type: "retry_transcribe" }).status,
+    ).toBe("error_recording");
+    expect(reduce(at("error_recording"), { type: "retry" }).status).toBe(
+      "requesting_permission",
+    );
+  });
+
+  test("한도 초과도 재전송 대상이 아니다 — 오늘은 같은 429가 반복된다", () => {
+    expect(
+      reduce(at("error_rate_limited"), { type: "retry_transcribe" }).status,
+    ).toBe("error_rate_limited");
   });
 });

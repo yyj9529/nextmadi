@@ -92,6 +92,14 @@ export function VoiceInput({
           retryLabel: "다시 녹음",
           onRetry: recorder.retry,
         };
+      case "error_recording":
+        // 전사가 아니라 녹음이 끊긴 경우다(장치 분리, 권한 회수, MediaRecorder 오류).
+        // 재전송할 녹음이 없으므로 "다시 시도"가 아니라 처음부터 다시 녹음시킨다.
+        return {
+          message: "녹음이 중단됐어요. 마이크를 확인하고 다시 녹음해주세요.",
+          retryLabel: "다시 녹음",
+          onRetry: recorder.retry,
+        };
       case "error_rate_limited":
         return {
           // 재시도 CTA를 주지 않는다 — 오늘은 다시 눌러도 같은 결과다. 텍스트 입력만 남긴다.
@@ -142,7 +150,11 @@ export function VoiceInput({
               <button
                 className="voice-input-use-text"
                 type="button"
-                onClick={onUseText}
+                // 텍스트로 넘어간 뒤에도 실패 문구가 남아 있으면 어색하다 — 안내를 접는다.
+                onClick={() => {
+                  recorder.dismiss();
+                  onUseText();
+                }}
               >
                 텍스트로 입력하기
               </button>
