@@ -42,13 +42,13 @@
 | Windows 인코딩 (mojibake/BOM/cp949) | 환경 | 9 | 없음 | [windows-encoding](windows-encoding.md) |
 | git 브랜치 위생 사고 | 프로세스 | 8 | 메모리 2건 | [branch-hygiene](branch-hygiene.md) |
 | Testcontainers 로컬 스킵 → 미검증 통과 | 검증 | 6 | testLogging 집계 (2026-08-02) | [green-build-proves-nothing](green-build-proves-nothing.md) |
-| 조용한 실패가 성공처럼 보임 | 설계 | 5 | 부분 | [green-build-proves-nothing](green-build-proves-nothing.md) |
+| 조용한 실패가 성공처럼 보임 | 설계 | 6 | 부분 | [green-build-proves-nothing](green-build-proves-nothing.md) |
 | 도구 문법 혼용 (Bash/PowerShell, npx) | 프로세스 | 6 | 메모리 1건 (재발함) | [tool-syntax-mixing](tool-syntax-mixing.md) |
 | Spring `@ConditionalOnBean` 순서 함정 | 코드 | 4 | 없음 | [spring-conditional-bean-ordering](spring-conditional-bean-ordering.md) |
 | stale `.next` 캐시 → 404/타입 오류 | 환경 | 4 | 메모리 1건 | [stale-next-cache](stale-next-cache.md) |
 | effect 내 동기 setState (lint) | 코드 | 3 | 관행만 (문서 없음) | [set-state-in-effect](set-state-in-effect.md) |
 | 목 데이터 ↔ 실데이터 계약 드리프트 | 코드 | 2 | 없음 | [mock-to-real-drift](mock-to-real-drift.md) |
-| 라이브러리 실제 호출 지점을 안 읽고 설계 확정 | 설계 | 1 | 없음 | — (1회, 노트 없음) |
+| 라이브러리 실제 호출 지점을 안 읽고 설계 확정 | 설계 | 2 | 없음 | [library-call-sites-unread](library-call-sites-unread.md) |
 | 샌드박스 권한 에스컬레이션 | 환경 마찰 | 17 | — | 자동화 대상 아님 (아래 참고) |
 
 샌드박스 에스컬레이션은 실수가 아니라 설계된 마찰이다. `SECURITY.md`의 승인 경계가
