@@ -468,6 +468,12 @@ skipped proves nothing about U2 or U3.
 - Explicit provider linking from an authenticated settings screen — S03 says out of scope
   for v1.
 - Automating the six unautomated mistake-ledger items (`docs/solutions/README.md`).
+- **Unifying the auth-provisioning response casing.** `/auth/oauth/identity` (#18, merged)
+  and `/auth/email/*` both return camelCase bodies while the rest of the contract is
+  snake_case. Owner decision 2026-08-28: keep #19 consistent with its merged sibling
+  rather than making the two auth endpoints disagree, and move both at once when
+  `/auth/oauth/identity` is back-filled into `openapi.yaml`. Request bodies are already
+  snake_case on both.
 - One shared Postgres container for the whole backend suite. Today each of the ~16 Testcontainers
   classes starts and tears down its own, and on a slow Docker host that churn intermittently
   exceeds the 60s readiness wait (seen twice while building U2/U3; the new classes carry a longer
