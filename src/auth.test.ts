@@ -24,7 +24,88 @@ mock.module("next-auth", () => ({
   }),
 }));
 const { OAuthProvisioningError } = await import("./lib/auth/oauth-provisioning");
-const { buildAuthConfig } = await import("./auth");
+const { buildAuthConfig, isOAuthCallbackRequest, selectAuthConfig } =
+  await import("./auth");
+const { createBffAdapter } = await import("./lib/auth/bff-adapter");
+
+const providerIdsOf = (config: { providers: unknown[] }) =>
+  config.providers.map((provider) =>
+    typeof provider === "function"
+      ? (provider as (o: object) => { id: string })({}).id
+      : (provider as { id: string }).id,
+  );
+
+// #19 회귀 방어. 어댑터를 설정 최상단에 붙였더니 Google/Kakao 콜백이 전부 죽었다 —
+// Auth.js는 어댑터를 provider별로 범위 잡지 않아서, 어댑터가 존재하기만 하면 OAuth 콜백도
+// getUserByAccount/linkAccount를 어댑터에 묻는다. 우리 어댑터는 이메일 면만 구현했으므로 던진다.
+//
+// 이 회귀를 놓친 원래 테스트는 "Google/Kakao 설정이 그대로인지"를 설정 객체 모양으로 봤다.
+// 모양은 그대로였고 런타임만 깨져 있었다. 그래서 여기서는 Auth.js가 실제로 받아갈 설정을
+// 요청 단위로 골라 검사한다.
+describe("per-request config selection (#19 OAuth regression guard)", () => {
+  const callbackRequest = (path: string) =>
+    new Request(`https://phraselog.app${path}`);
+
+  test("recognizes the OAuth callback routes and nothing else", () => {
+    expect(
+      isOAuthCallbackRequest(callbackRequest("/api/auth/callback/google")),
+    ).toBe(true);
+    expect(
+      isOAuthCallbackRequest(callbackRequest("/api/auth/callback/kakao")),
+    ).toBe(true);
+
+    // 이메일 콜백은 어댑터가 반드시 있어야 하고, signin/providers는 어댑터를 부르지 않는다.
+    expect(
+      isOAuthCallbackRequest(callbackRequest("/api/auth/callback/nodemailer")),
+    ).toBe(false);
+    expect(
+      isOAuthCallbackRequest(callbackRequest("/api/auth/signin/google")),
+    ).toBe(false);
+    expect(isOAuthCallbackRequest(callbackRequest("/api/auth/providers"))).toBe(
+      false,
+    );
+    expect(isOAuthCallbackRequest(undefined)).toBe(false);
+  });
+
+  test("hands the OAuth callback a config with no adapter at all", () => {
+    // 어댑터가 있으면 @auth/core/lib/actions/callback/index.js:56이 getUserByAccount를 부르고,
+    // handle-login.js:24의 `if (!adapter)` 조기 반환이 사라져 OAuth 프로비저닝 경로가 무너진다.
+    const config = selectAuthConfig(
+      callbackRequest("/api/auth/callback/google"),
+    );
+
+    expect(config.adapter).toBeUndefined();
+    // 이메일 provider도 같이 빠져야 한다 — 남으면 Auth.js가 MissingAdapter로 설정을 거부한다.
+    expect(providerIdsOf(config)).toEqual(["google", "kakao"]);
+  });
+
+  test("hands every other route the adapter the email provider needs", () => {
+    for (const path of [
+      "/api/auth/callback/nodemailer",
+      "/api/auth/signin/nodemailer",
+      "/api/auth/providers",
+    ]) {
+      const config = selectAuthConfig(callbackRequest(path));
+      expect(config.adapter).toBeDefined();
+      expect(providerIdsOf(config)).toEqual(["google", "kakao", "nodemailer"]);
+    }
+
+    // auth()/signIn()/signOut()은 요청 없이 호출된다.
+    expect(selectAuthConfig(undefined).adapter).toBeDefined();
+  });
+
+  test("proves why the split is needed: the adapter throws on the OAuth methods", () => {
+    // 이 세 개가 OAuth 콜백에서 호출되는 것들이다. 어댑터가 붙어 있으면 로그인이 실패한다.
+    const adapter = createBffAdapter() as unknown as Record<
+      string,
+      (...args: unknown[]) => unknown
+    >;
+
+    for (const method of ["getUserByAccount", "linkAccount", "createSession"]) {
+      expect(() => adapter[method]!({})).toThrow(method);
+    }
+  });
+});
 
 describe("authConfig", () => {
   beforeEach(() => {

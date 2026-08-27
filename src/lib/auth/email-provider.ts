@@ -40,7 +40,21 @@ type SmtpSettings = {
   host: string;
   port: number;
   auth: { user: string; pass: string };
+  connectionTimeout: number;
+  greetingTimeout: number;
+  socketTimeout: number;
 };
+
+/**
+ * 발송은 사용자가 로그인 버튼을 누르고 기다리는 동안 일어난다. Nodemailer 기본값(연결·소켓
+ * 각 2분)은 그 상황에 너무 길다 — SES가 느릴 때 요청 하나가 2분을 잡고 있게 된다.
+ * 실패하더라도 빨리 실패해서 "보내지 못했어요"를 보여주는 편이 낫다.
+ */
+const SMTP_TIMEOUTS = {
+  connectionTimeout: 10_000,
+  greetingTimeout: 10_000,
+  socketTimeout: 15_000,
+} as const;
 
 const PLACEHOLDER_SMTP: SmtpSettings = {
   // Nodemailer()는 server 없이 즉시 throw 한다. 설정이 없을 때 이 값이 쓰이는 일은 없다 —
@@ -48,6 +62,7 @@ const PLACEHOLDER_SMTP: SmtpSettings = {
   host: "localhost",
   port: 25,
   auth: { user: "", pass: "" },
+  ...SMTP_TIMEOUTS,
 };
 
 export function buildEmailProvider(options: BuildEmailProviderOptions = {}) {
@@ -165,5 +180,5 @@ function readSmtpSettings(env: EmailProviderEnv): SmtpSettings | null {
     return null;
   }
 
-  return { host, port, auth: { user, pass } };
+  return { host, port, auth: { user, pass }, ...SMTP_TIMEOUTS };
 }

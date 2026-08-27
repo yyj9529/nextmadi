@@ -27,8 +27,41 @@ const OAUTH_PROVIDERS = new Set<OAuthProvider>(["google", "kakao"]);
  */
 export { EMAIL_PROVIDER_ID };
 
+/**
+ * OAuth 콜백 경로. 이 요청에서만 어댑터와 이메일 provider를 뺀다 — 이유는 아래 참조.
+ * signin/* 은 provider로 리다이렉트만 하므로 어댑터를 건드리지 않는다.
+ */
+const OAUTH_CALLBACK_PATH = /\/callback\/(google|kakao)(?:\/|$)/;
+
+export function isOAuthCallbackRequest(request?: Request): boolean {
+  if (!request) {
+    return false;
+  }
+
+  try {
+    return OAUTH_CALLBACK_PATH.test(new URL(request.url).pathname);
+  } catch {
+    // URL이 파싱되지 않으면 어댑터를 붙인 쪽(기본값)으로 둔다. 이메일 로그인이 깨지는 편이
+    // 조용히 OAuth 프로비저닝을 건너뛰는 것보다 낫다.
+    return false;
+  }
+}
+
 type BuildAuthConfigOptions = {
   secureCookies?: boolean;
+  /**
+   * 이메일 provider와 어댑터를 포함할지. false면 #19 이전과 정확히 같은 설정이 된다.
+   *
+   * Auth.js의 adapter는 provider별로 범위가 잡히지 않는다. 어댑터가 존재하기만 하면
+   * OAuth 콜백도 `getUserByAccount` → `linkAccount` → `getUserByEmail`을 어댑터에 묻는다
+   * (@auth/core/lib/actions/callback/index.js:56, handle-login.js:175/230/264). 우리 어댑터는
+   * 이메일 경로만 구현했으므로 그 호출들이 던지고, Google/Kakao 로그인이 전부 실패한다.
+   * #19 이전에 OAuth를 지켜준 건 handle-login.js:24의 `if (!adapter)` 조기 반환이었다.
+   *
+   * 어댑터에 OAuth 면을 구현해 넣는 대신 콜백 요청에서만 떼기로 했다. #18의 signIn 콜백
+   * 프로비저닝을 한 줄도 건드리지 않고, 두 경로가 서로를 깨뜨릴 수 없게 된다.
+   */
+  includeEmailProvider?: boolean;
   provisionOAuthIdentity?: typeof provisionOAuthIdentityDefault;
   /** 테스트에서 BFF 어댑터를 대체한다. 기본값은 Spring Boot를 호출하는 실제 어댑터. */
   adapter?: Adapter;
@@ -50,14 +83,18 @@ export function buildAuthConfig(
     options.secureCookies ?? process.env.NODE_ENV === "production";
   const provisionIdentity =
     options.provisionOAuthIdentity ?? provisionOAuthIdentityDefault;
+  const includeEmail = options.includeEmailProvider ?? true;
   const adapter = options.adapter ?? createBffAdapter();
   const emailProvider = options.emailProvider ?? buildEmailProvider();
 
   return {
     // 어댑터는 이메일 provider가 요구해서 존재한다. 저장은 여전히 Spring Boot가 한다 (ADR-010) —
     // 어댑터 메서드가 X-Internal-Auth로 백엔드를 호출할 뿐, Next.js는 DB에 접근하지 않는다.
-    adapter,
-    providers: [Google, Kakao, emailProvider],
+    //
+    // 둘은 항상 같이 있거나 같이 없어야 한다. 이메일 provider만 남기면 Auth.js가 설정 검증에서
+    // MissingAdapter("Email login requires an adapter")로 실패한다 (@auth/core/lib/utils/assert.js:135).
+    ...(includeEmail ? { adapter } : {}),
+    providers: includeEmail ? [Google, Kakao, emailProvider] : [Google, Kakao],
     pages: {
       signIn: "/login",
       error: "/login",
@@ -156,7 +193,23 @@ export function buildAuthConfig(
 }
 
 export const authConfig = buildAuthConfig();
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+
+/** OAuth 콜백 전용 설정 — 어댑터도 이메일 provider도 없는, #19 이전과 동일한 모양. */
+const oauthCallbackConfig = buildAuthConfig({ includeEmailProvider: false });
+
+/**
+ * 요청별 설정 선택. next-auth v5는 `NextAuth(async (req) => config)`를 지원하고
+ * (next-auth/index.js:102) 라우트 핸들러에만 req를 넘긴다. auth()/signIn()/signOut()은
+ * req 없이 호출되므로 전체 설정을 받는다 — 이들은 어댑터를 쓰지 않으니 문제되지 않는다.
+ *
+ * 별도 함수로 내보내는 이유는 테스트가 이 선택 자체를 검증할 수 있어야 하기 때문이다.
+ * 설정 객체의 모양만 보는 테스트로는 어댑터가 OAuth 콜백을 깨뜨리는 것을 잡을 수 없었다.
+ */
+export function selectAuthConfig(request?: Request): NextAuthConfig {
+  return isOAuthCallbackRequest(request) ? oauthCallbackConfig : authConfig;
+}
+
+export const { handlers, auth, signIn, signOut } = NextAuth(selectAuthConfig);
 
 function isOAuthProvider(provider: string): provider is OAuthProvider {
   return OAUTH_PROVIDERS.has(provider as OAuthProvider);

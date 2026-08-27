@@ -79,6 +79,7 @@ export async function consumeVerificationToken(
 ): Promise<VerificationTokenRecord | null> {
   return nullOn404<VerificationTokenRecord>(
     await post("/auth/email/verification-tokens/consume", input, options),
+    "verification_token_not_found",
   );
 }
 
@@ -89,6 +90,7 @@ export async function lookupEmailIdentity(
 ): Promise<EmailIdentity | null> {
   return nullOn404<EmailIdentity>(
     await post("/auth/email/identity/lookup", { email }, options),
+    "email_identity_not_found",
   );
 }
 
@@ -158,9 +160,23 @@ async function requireOk<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-async function nullOn404<T>(response: Response): Promise<T | null> {
+/**
+ * "없음"만 null로 옮긴다.
+ *
+ * 상태 코드만 보면 부족하다 — 배포되지 않은 컨트롤러, 잘못된 base path, 프록시도 404를 준다.
+ * 그것까지 null이 되면 Auth.js가 "만료된 링크"를 띄워, 우리 장애가 사용자 잘못처럼 보인다.
+ * 그래서 우리 에러 계약이 실어 보내는 error_code까지 확인한다. V009 롤백 절차가 앱을 먼저
+ * 내리라고 말하는 그 구간이 정확히 이 상황이다.
+ */
+async function nullOn404<T>(
+  response: Response,
+  notFoundCode: string,
+): Promise<T | null> {
   if (response.status === 404) {
-    return null;
+    const body = await readError(response.clone());
+    if (body.error_code === notFoundCode) {
+      return null;
+    }
   }
   return requireOk<T>(response);
 }

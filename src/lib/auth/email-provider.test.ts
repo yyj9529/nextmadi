@@ -1,6 +1,36 @@
-import { describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 
 mock.module("server-only", () => ({}));
+
+type SendMailResult = { rejected?: unknown[]; pending?: unknown[] };
+
+// 실제 발송 경로는 호출 시점에 `await import("nodemailer")` 한다. 모듈을 여기서 갈아끼워
+// 전송 결과를 테스트가 정한다 — SES에 붙지 않고도 실패 처리가 실제로 도는지 볼 수 있다.
+type SentMail = {
+  to: string;
+  from: string;
+  subject: string;
+  text: string;
+  html: string;
+};
+
+let sendMail = mock(async (): Promise<SendMailResult> => ({}));
+let lastTransportConfig: unknown = null;
+let lastMail: SentMail | null = null;
+let sendCount = 0;
+
+mock.module("nodemailer", () => ({
+  createTransport: (config: unknown) => {
+    lastTransportConfig = config;
+    return {
+      sendMail: async (options: SentMail) => {
+        lastMail = options;
+        sendCount += 1;
+        return sendMail();
+      },
+    };
+  },
+}));
 
 const { EMAIL_LINK_MAX_AGE_SECONDS, buildEmailProvider } = await import(
   "./email-provider"
@@ -19,6 +49,7 @@ type ConfiguredProvider = {
     sendVerificationRequest?: (params: {
       identifier: string;
       url: string;
+      provider?: unknown;
     }) => Promise<void>;
   };
 };
@@ -50,11 +81,27 @@ describe("with SMTP configured", () => {
     expect(configured(provider).options.from).toBe(
       "PhraseLog <noreply@phraselog.test>",
     );
-    expect(configured(provider).options.server).toEqual({
+    expect(configured(provider).options.server).toMatchObject({
       host: "email-smtp.us-east-1.amazonaws.com",
       port: 587,
       auth: { user: "ses-user", pass: "ses-password" },
     });
+  });
+
+  test("bounds every SMTP wait well under a user's patience", () => {
+    // Nodemailer 기본값은 연결·소켓 각 2분이다. 로그인 요청이 그만큼 매달려 있으면
+    // 사용자는 실패했는지 진행 중인지 알 수 없다.
+    const server = configured(buildEmailProvider({ env: SMTP_ENV })).options
+      .server as Record<string, number>;
+
+    for (const key of [
+      "connectionTimeout",
+      "greetingTimeout",
+      "socketTimeout",
+    ]) {
+      expect(server[key]).toBeGreaterThan(0);
+      expect(server[key]).toBeLessThanOrEqual(15_000);
+    }
   });
 
   test("treats a non-numeric port as no configuration at all", () => {
@@ -65,6 +112,71 @@ describe("with SMTP configured", () => {
     });
 
     expect(configured(provider).options.from).toBe("PhraseLog <dev@localhost>");
+  });
+});
+
+// 이 티켓이 스스로 지목한 최대 위험 지점이다 — 발송이 실패했는데 성공 화면이 뜨는 것.
+// 그 판정은 전부 sendKoreanVerificationRequest 안에 있으므로 여기서 직접 돌린다.
+describe("the SES send path", () => {
+  const provider = () => buildEmailProvider({ env: SMTP_ENV });
+
+  const send = (p: unknown) => {
+    const options = configured(p).options;
+    return options.sendVerificationRequest!({
+      identifier: "woojoo@phraselog.test",
+      url: "https://phraselog.app/api/auth/callback/nodemailer?token=raw",
+      provider: { server: options.server, from: options.from },
+    });
+  };
+
+  beforeEach(() => {
+    sendMail = mock(async (): Promise<SendMailResult> => ({}));
+    lastTransportConfig = null;
+    lastMail = null;
+    sendCount = 0;
+  });
+
+  test("sends Korean mail through the configured SES endpoint", async () => {
+    const p = provider();
+    await send(p);
+
+    expect(lastTransportConfig).toEqual(configured(p).options.server);
+    expect(sendCount).toBe(1);
+
+    const mail = lastMail!;
+    expect(mail.to).toBe("woojoo@phraselog.test");
+    expect(mail.from).toBe("PhraseLog <noreply@phraselog.test>");
+    expect(mail.subject).toBe("PhraseLog 로그인 링크");
+    // 본문이 영어 기본값으로 돌아가면 여기서 걸린다.
+    expect(mail.text).toContain("아래 링크를 열면 로그인됩니다.");
+    expect(mail.text).toContain(
+      "https://phraselog.app/api/auth/callback/nodemailer?token=raw",
+    );
+    expect(mail.html).toContain(
+      "https://phraselog.app/api/auth/callback/nodemailer?token=raw",
+    );
+  });
+
+  test("rejects when SMTP refuses the recipient", async () => {
+    // SES가 주소를 거절해도 sendMail 자체는 성공으로 resolve 한다. rejected를 보지 않으면
+    // 배달되지 않은 메일이 "이메일을 확인해주세요"가 된다.
+    sendMail = mock(async () => ({ rejected: ["woojoo@phraselog.test"] }));
+
+    await expect(send(provider())).rejects.toThrow(/could not be delivered/);
+  });
+
+  test("rejects when SMTP leaves the recipient pending", async () => {
+    sendMail = mock(async () => ({ pending: ["woojoo@phraselog.test"] }));
+
+    await expect(send(provider())).rejects.toThrow(/could not be delivered/);
+  });
+
+  test("propagates a transport failure instead of swallowing it", async () => {
+    sendMail = mock(async () => {
+      throw new Error("SES connection reset");
+    });
+
+    await expect(send(provider())).rejects.toThrow("SES connection reset");
   });
 });
 

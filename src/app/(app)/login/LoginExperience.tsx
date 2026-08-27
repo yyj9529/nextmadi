@@ -63,6 +63,9 @@ export function LoginExperience({
     setSendState("idle");
     setSentTo(null);
     setEmailError(null);
+    // 버튼이 "다른 주소로"라고 약속했으므로 비운다. 방금 쓴 주소가 남아 있으면 눈치채지 못하고
+    // 같은 메일함으로 다시 보내게 되고, 미소비 토큰 상한(5개)에도 그만큼 빨리 닿는다.
+    setEmail("");
   }
 
   const sending = sendState === "sending";
