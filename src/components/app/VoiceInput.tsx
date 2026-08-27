@@ -150,7 +150,11 @@ export function VoiceInput({
               <button
                 className="voice-input-use-text"
                 type="button"
-                onClick={onUseText}
+                // 텍스트로 넘어간 뒤에도 실패 문구가 남아 있으면 어색하다 — 안내를 접는다.
+                onClick={() => {
+                  recorder.dismiss();
+                  onUseText();
+                }}
               >
                 텍스트로 입력하기
               </button>

@@ -39,6 +39,8 @@ export type VoiceRecorder = {
   retryTranscribe: () => void;
   /** 진행 중인 녹음/전사를 버리고 idle로. */
   cancel: () => void;
+  /** 안내 상태를 접고 idle로. 사용자가 텍스트 입력으로 넘어갈 때 쓴다. */
+  dismiss: () => void;
 };
 
 export type UseVoiceRecorderOptions = {
@@ -89,5 +91,6 @@ export function useVoiceRecorder({
       [dispatch],
     ),
     cancel: useCallback(() => dispatch({ type: "cancel" }), [dispatch]),
+    dismiss: useCallback(() => dispatch({ type: "reset" }), [dispatch]),
   };
 }
