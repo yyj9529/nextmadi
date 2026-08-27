@@ -88,6 +88,7 @@ export function TryExperience({
   const [rateLimited, setRateLimited] = useState(false);
   const [networkError, setNetworkError] = useState(false);
   const activeSubmitRef = useRef(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const counterClass =
     text.length >= MAX_INPUT_LENGTH
@@ -169,6 +170,7 @@ export function TryExperience({
           <>
             <div className="sheet-textarea-wrap">
               <textarea
+                ref={textareaRef}
                 className="sheet-textarea try-textarea"
                 value={text}
                 placeholder="예: 친구한테 서운한 마음을 정중하게 표현하고 싶어요"
@@ -189,7 +191,13 @@ export function TryExperience({
             ) : null}
 
             <div className="try-mic-area">
-              <VoiceInput recorder={recorder} disabled={analyzing} />
+              <VoiceInput
+                recorder={recorder}
+                disabled={analyzing}
+                // 마이크를 쓸 수 없는 상태(권한 거부·미지원·한도 초과)에서 빠져나갈 길.
+                // 입력창은 이미 화면에 있으므로 새로 열지 않고 포커스만 옮긴다.
+                onUseText={() => textareaRef.current?.focus()}
+              />
             </div>
 
             <button

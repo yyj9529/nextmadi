@@ -19,7 +19,8 @@ export type VoiceStatus =
   | "error_empty"
   | "error_transient"
   | "error_invalid_audio"
-  | "error_rate_limited";
+  | "error_rate_limited"
+  | "error_recording";
 
 /** 녹음이 왜 멈췄는지 — 안내 문구가 갈린다. */
 export type StopReason = "tap" | "silence" | "max_duration" | "no_speech";
@@ -49,6 +50,8 @@ export type VoiceEvent =
   | { type: "blob_ready" }
   | { type: "transcribed"; transcript: string }
   | { type: "transcribe_failed"; kind: TranscribeFailureKind }
+  /** 녹음 자체가 실패했다(장치 분리, 권한 회수, MediaRecorder 오류). */
+  | { type: "recording_failed" }
   | { type: "cancel" }
   /** 같은 녹음을 다시 전송한다(일시적 실패 전용). */
   | { type: "retry_transcribe" }
@@ -70,6 +73,7 @@ const FAILURE_STATUSES: readonly VoiceStatus[] = [
   "error_transient",
   "error_invalid_audio",
   "error_rate_limited",
+  "error_recording",
 ];
 
 /**
@@ -131,8 +135,21 @@ export function reduceVoiceMachine(
         ? { ...machine, status: "stopping", stopReason: event.reason }
         : machine;
 
+    case "recording_failed":
+      // 녹음 구간에서만 의미가 있다. 여기서 놓치면 마이크를 쥔 채 recording 에 갇힌다.
+      return machine.status === "recording" ||
+        machine.status === "requesting_permission" ||
+        machine.status === "stopping"
+        ? { ...machine, status: "error_recording", transcript: null }
+        : machine;
+
     case "blob_ready":
-      return machine.status === "stopping"
+      // recording 에서도 받는다. MediaRecorder 는 우리가 stop() 하지 않아도 스스로 멈출 수
+      // 있다 — 녹음 중 마이크가 분리되거나 권한이 회수되면 트랙이 ended 가 되고 onstop 이
+      // 뜬다. 이때 이 이벤트를 버리면 status 는 recording 인데 recorder 는 inactive 인 상태로
+      // 어긋나고, 다음 탭이 stopping 으로 넘어가서는 멈출 recorder 가 없어 영영 빠져나오지
+      // 못한다(마이크를 쥔 채로).
+      return machine.status === "stopping" || machine.status === "recording"
         ? { ...machine, status: "transcribing" }
         : machine;
 

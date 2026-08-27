@@ -13,13 +13,19 @@ import { useVoiceRecorder } from "@/lib/voice/use-voice-recorder";
 // US1-3의 "transcript confirm/edit" 단계를 S05a 모달로 구현한 것 — 500자 카운터와 제출
 // 로직이 이미 실경로라 중복을 만들지 않는다.
 // '텍스트로 입력하기'는 같은 모달을 빈 상태로 연다.
+// S05a TextInputSheet 과 같은 상한이다(AnalysisModals.tsx).
+const MAX_INPUT_LENGTH = 500;
+
 export function HomeAnalysisCard() {
   const [textSheetOpen, setTextSheetOpen] = useState(false);
   const [transcript, setTranscript] = useState<string | null>(null);
 
   const recorder = useVoiceRecorder({
     onTranscript: (value) => {
-      setTranscript(value);
+      // S02와 같은 상한으로 자른다. 자르지 않으면 모달 카운터가 "540 / 500"이 되고 제출 시
+      // 백엔드가 400을 던져 "연결이 불안정해요"로 끝난다 — 길이 문제라는 걸 알 수 없다.
+      // 60초 발화는 500자에 충분히 근접한다.
+      setTranscript(value.slice(0, MAX_INPUT_LENGTH));
       setTextSheetOpen(true);
     },
   });

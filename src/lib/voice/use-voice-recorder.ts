@@ -21,7 +21,11 @@ import { SilenceMonitor, rmsFromTimeDomain } from "./silence-monitor";
 // Segment 크기와 Duration이 패치되지 않아 백엔드 WebmOpusInspector가 400으로 거부한다
 // (2026-08-04 실측, WebmOpusInspectorRealRecordingTests 참고).
 
-const MAX_DURATION_MS = 60_000;
+// 스펙 상한은 60초지만 58초에 끊는다. 이 타이머는 100ms 간격이고 stop() 이후 마지막 chunk가
+// 합쳐지기까지도 시간이 걸려서, 60_000에 끊으면 실제 녹음이 60.0초를 넘길 수 있다. 백엔드
+// WebmOpusInspector는 durationSeconds > 60.0을 400으로 거부하므로, 하드컷으로 끝난 녹음이
+// "녹음이 올바르지 않아요"로 실패한다. 2초 여유를 둔다.
+const MAX_DURATION_MS = 58_000;
 const VAD_INTERVAL_MS = 100;
 /** 백엔드 STT 타임아웃 30초(AI_PIPELINE.md) + 업로드/응답 여유. */
 const TRANSCRIBE_TIMEOUT_MS = 45_000;
@@ -136,10 +140,21 @@ export function useVoiceRecorder({
       return;
     }
 
-    const recorder = new MediaRecorder(
-      stream,
-      MediaRecorder.isTypeSupported(MIME_TYPE) ? { mimeType: MIME_TYPE } : undefined,
-    );
+    setElapsedMs(0);
+
+    // MediaRecorder 생성과 start()는 던질 수 있다. 권한 승인과 이 효과 사이에 트랙이 끝나면
+    // start()가 InvalidStateError를 던지는데, 효과에서 던진 예외는 React가 트리를 통째로
+    // 언마운트시켜 빈 화면이 된다 — 이 플로우의 설계 원칙이 "막다른 길 없음"인데 여기만 죽는다.
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(
+        stream,
+        MediaRecorder.isTypeSupported(MIME_TYPE) ? { mimeType: MIME_TYPE } : undefined,
+      );
+    } catch {
+      dispatch({ type: "unsupported", reason: "no_recorder" });
+      return;
+    }
     recorderRef.current = recorder;
     chunksRef.current = [];
     blobRef.current = null;
@@ -156,10 +171,20 @@ export function useVoiceRecorder({
       chunksRef.current = [];
       dispatch({ type: "blob_ready" });
     };
-    recorder.start(); // timeslice 금지 — 위 주석 참고
+    // 녹음 중 장치가 빠지거나 권한이 회수되면 여기로 온다. 핸들러가 없으면 상태머신은
+    // recording 에 머문 채 경과 시간만 돌다가 60초 컷으로 stopping 에 들어가 갇힌다.
+    recorder.onerror = () => {
+      dispatch({ type: "recording_failed" });
+    };
+
+    try {
+      recorder.start(); // timeslice 금지 — 위 주석 참고
+    } catch {
+      dispatch({ type: "recording_failed" });
+      return;
+    }
 
     const startedAt = Date.now();
-    setElapsedMs(0);
 
     const monitor = new SilenceMonitor();
     let analyser: AnalyserNode | null = null;
@@ -218,9 +243,16 @@ export function useVoiceRecorder({
     const recorder = recorderRef.current;
     if (recorder && recorder.state !== "inactive") {
       recorder.stop();
-    } else if (!recorder) {
-      // 녹음기가 이미 사라진 비정상 경로 — 매달리지 않고 진행시킨다.
+      return;
+    }
+    // recorder 가 없거나(참조 소실) 이미 inactive 인(스스로 멈춘) 비정상 경로.
+    // 여기서 아무것도 하지 않으면 "마무리 중..."에 갇힌 채 마이크를 계속 쥔다 —
+    // stopping 에서는 탭도 무시되므로 새로고침 말고는 빠져나올 길이 없다.
+    // onstop 이 이미 blob 을 채웠다면 그대로 전사로 넘기고, 아니면 녹음 실패로 처리한다.
+    if (blobRef.current && blobRef.current.size > 0) {
       dispatch({ type: "blob_ready" });
+    } else {
+      dispatch({ type: "recording_failed" });
     }
   }, [machine.status]);
 
