@@ -1,9 +1,9 @@
 # Exec plan: Email magic link — SES SMTP (#19)
 
-Status: **Draft 2026-08-27. Not approved.** Two items need owner action before this can
-finish: the Flyway migration (U1) and the `nodemailer` dependency install (U5) are
-`SECURITY.md` approval gates, and SES production access is an AWS console task only the
-owner can do.
+Status: **Executed 2026-08-27 / 2026-08-28.** All eight units are implemented and reviewed;
+see "Final outcome" at the end. The migration (U1) and the `nodemailer` install (U5) were
+approved by the owner. SES production access and Vercel env remain outstanding owner tasks,
+so acceptance criterion 1 (a real external round-trip) is not yet closable.
 
 Branch: `feat/e03-2-email-magic-link` (based on `origin/main` @ 90eec32).
 
@@ -483,9 +483,54 @@ skipped proves nothing about U2 or U3.
 
 ## Final outcome
 
-(Filled after execution.)
+All eight units are implemented on `feat/e03-2-email-magic-link`. Two sessions:
+U8/U1–U5 on 2026-08-27, U6/U7 plus the review gates on 2026-08-28.
+
+Acceptance criteria:
+
+1. **Round-trip** — still blocked on SES production access and Vercel env, both owner
+   tasks. Verifiable in development, where the link prints to the server console.
+2. **Expired token UX** — met. `?error=Verification` renders "링크가 만료됐어요" with the
+   email form pre-opened, which is the re-request control.
+3. **Single use** — met. `DELETE … RETURNING` in one statement; a second click finds
+   nothing.
+4. **Same-email linking** — met, with tests covering the create, link and
+   case-normalization paths.
+5. **No silent failures** — met, and now proven rather than asserted: the SES send path's
+   `rejected`/`pending` guard has tests, and disabling it turns them red.
+
+Gates: `/ui-verify` covered eight S03 states with no console errors. The two-gate review
+is recorded in `docs/reviews/2026-08-28-ticket-19-email-magic-link-review.md`, from four
+independent passes that did not write the code.
 
 ## What changed after execution
 
-(Filled after execution. If a ledger pattern recurred, bump its row in
-`docs/solutions/README.md`.)
+**The plan's own regression guard was the wrong shape, and it cost a P0.** U5 listed
+"Google/Kakao config is unchanged by the addition" — a config-object assertion. Attaching
+the adapter broke every Google and Kakao sign-in at runtime while that assertion stayed
+green, because Auth.js does not scope an adapter to the provider that required it. Two
+independent reviewers found it; the implementer did not. Fixed by selecting the config per
+request, with a test that drives the actual selection rather than the object's shape.
+
+Ledger consequences (`docs/solutions/README.md`):
+
+- **"라이브러리 실제 호출 지점을 안 읽고 설계 확정" 1 → 2.** Note written
+  (`library-call-sites-unread.md`). Three instances across this ticket share one shape:
+  what the *email* path calls was read; what the change does to *other* paths was not.
+- **"조용한 실패가 성공처럼 보임" 5 → 6.**
+- **"Testcontainers 로컬 스킵 → 미검증 통과" 6 → 7**, and the 2026-08-02 measure
+  (testLogging aggregation) marked insufficient. It reports skips but still needs a human
+  to read them, and it says nothing at all when Gradle reuses a previous run as
+  `UP-TO-DATE`. Redesigning it into an automatic block is spun off as its own task.
+
+**Two plan assumptions were corrected during U7.** The response-body casing was thought to
+be an email-only inconsistency; `/auth/oauth/identity` (#18, merged) has the same shape, so
+the owner chose to keep them consistent and unify both later. And the outstanding-token cap
+was specified at store time, which the review showed to be worse than no cap — Auth.js
+starts the send first, so the mail goes out and the recipient gets a dead link. Enforcement
+moved ahead of the send, with the store-time cap kept as a backstop against count inflation.
+
+**One risk in the plan turned out understated.** "Account linking — a bug here merges two
+people's accounts" assumed the addresses in `users.email` were trustworthy. Nothing read
+the providers' `email_verified` claim, so an unverified address could reach that column.
+OAuth provisioning now refuses an explicitly unverified address on both sides of the BFF.

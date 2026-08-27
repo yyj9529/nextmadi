@@ -221,7 +221,7 @@ lifetime lives outside our code.
 
 | Item | Verdict |
 |---|---|
-| Service unit and integration tests pass | PASS — 417 tests, 416 passed, 0 failed, 1 skipped. The skip is the pre-existing `@Disabled` OpenAI live test. Testcontainers actually started; this is not a Docker-off `BUILD SUCCESSFUL` |
+| Service unit and integration tests pass | PASS — **422 tests, 421 passed, 0 failed, 1 skipped** on `fdd40f7`. The skip is the pre-existing `@Disabled` OpenAI live test. The count matters as much as the result: three earlier runs on this branch reported success without proving anything — one with Docker unresponsive (113 skipped), one that Gradle served from cache as `UP-TO-DATE` with no tests run at all, and one where a container failed to launch and silently dropped five tests (417 instead of 422) |
 | DB migration reviewed; rollback path documented | PASS — `V009` header |
 | Idempotency preserved where claimed | PASS sequentially; see the concurrency gap |
 | Error response follows the contract | PASS |
@@ -235,16 +235,20 @@ lifetime lives outside our code.
 | Browser-visible path verified | PASS — `/ui-verify` at 390x844 covered default, form open, validation error, sending, send failure, `?error=Verification`, `?callback_error=account_link_required`, and an unknown error code. No console errors. Dummy addresses only |
 | Loading, error, empty states handled | PASS |
 
-Frontend: 188 tests, 0 failed; lint, typecheck, build clean.
+Frontend: lint, typecheck and build clean. 195 tests, 194 passed. The one failure is
+pre-existing and unrelated — `get-landing-examples.test.ts` reads
+`PHRASELOG_BACKEND_BASE_URL` from the local `.env`, so it only passes while that backend is
+unreachable. Split into its own ticket.
 
 ## Verdict
 
-**Ready to merge, with follow-up work recorded.**
+**Ready to merge.**
 
 B1 was the one defect that made the branch unshippable, and it is fixed with a regression
 guard that was confirmed to fail against the broken behaviour. F1–F4 are fixed.
 
-O1, O3 and O4 were then settled by owner decision and fixed in `9e0a5ff`. What remains open
+O1, O3 and O4 were then settled by owner decision and fixed in `fdd40f7`, and both gates
+pass on that commit. What remains open
 is O2 (the cap is per-address, so sub-addressing and address-spraying still bypass it, and
 there is no per-IP limiter), O5 (the dev fallback logs a live link when `NODE_ENV` is not
 production) and O6 (expiry is enforced only inside a caret-ranged prerelease). None of the

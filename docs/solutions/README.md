@@ -41,7 +41,7 @@
 | 생성 파일 churn을 커밋에 섞음 | 프로세스 | 6 | 없음 | [generated-file-churn](generated-file-churn.md) |
 | Windows 인코딩 (mojibake/BOM/cp949) | 환경 | 9 | 없음 | [windows-encoding](windows-encoding.md) |
 | git 브랜치 위생 사고 | 프로세스 | 8 | 메모리 2건 | [branch-hygiene](branch-hygiene.md) |
-| Testcontainers 로컬 스킵 → 미검증 통과 | 검증 | 6 | testLogging 집계 (2026-08-02) | [green-build-proves-nothing](green-build-proves-nothing.md) |
+| Testcontainers 로컬 스킵 → 미검증 통과 | 검증 | 7 | testLogging 집계 (2026-08-02) — **불충분, 재설계 필요** | [green-build-proves-nothing](green-build-proves-nothing.md) |
 | 조용한 실패가 성공처럼 보임 | 설계 | 6 | 부분 | [green-build-proves-nothing](green-build-proves-nothing.md) |
 | 도구 문법 혼용 (Bash/PowerShell, npx) | 프로세스 | 6 | 메모리 1건 (재발함) | [tool-syntax-mixing](tool-syntax-mixing.md) |
 | Spring `@ConditionalOnBean` 순서 함정 | 코드 | 4 | 없음 | [spring-conditional-bean-ordering](spring-conditional-bean-ordering.md) |
