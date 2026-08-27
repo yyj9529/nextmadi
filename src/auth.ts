@@ -8,6 +8,7 @@ import Kakao from "next-auth/providers/kakao";
 
 import { createBffAdapter } from "./lib/auth/bff-adapter";
 import { buildEmailProvider } from "./lib/auth/email-provider";
+import { EMAIL_PROVIDER_ID } from "./lib/auth/email-signin";
 import {
   OAuthProvisioningError,
   type OAuthProvider,
@@ -19,8 +20,12 @@ export const AUTH_SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 const AUTH_SESSION_UPDATE_AGE_SECONDS = 24 * 60 * 60;
 const OAUTH_PROVIDERS = new Set<OAuthProvider>(["google", "kakao"]);
 
-/** Auth.js Nodemailer provider의 고정 id. account.provider 분기에 쓴다. */
-export const EMAIL_PROVIDER_ID = "nodemailer";
+/**
+ * Auth.js Nodemailer provider의 고정 id. account.provider 분기에 쓴다.
+ * 정의는 `lib/auth/email-signin`에 있다 — 로그인 화면(클라이언트)이 같은 값으로
+ * `signIn(...)`을 호출하므로 서버 전용 모듈에 둘 수 없다.
+ */
+export { EMAIL_PROVIDER_ID };
 
 type BuildAuthConfigOptions = {
   secureCookies?: boolean;

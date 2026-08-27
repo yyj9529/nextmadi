@@ -1293,6 +1293,66 @@
   color: var(--app-faint);
 }
 
+.email-field:disabled {
+  background: #f4f5f7;
+  color: var(--app-muted);
+}
+
+.email-error {
+  margin: -2px 0 0;
+  color: #c0392b;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.email-hint {
+  margin: 0;
+  color: var(--app-faint);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* 발송 완료 상태. 이 화면이 보이면 provider 버튼은 렌더되지 않는다 — 같은 순간에
+   "보냈어요"와 "로그인하세요"를 동시에 두면 무엇을 기다려야 하는지 흐려진다. */
+.email-sent {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  margin-top: 24px;
+  border: 1px solid var(--app-yellow-border);
+  border-radius: 12px;
+  background: var(--app-yellow-bg);
+  padding: 22px 18px;
+  text-align: center;
+}
+
+.email-sent-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+
+.email-sent-body {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+/* 스크린리더 전용. 입력 필드 위 시각적 라벨은 placeholder가 대신하지만,
+   placeholder는 접근성 이름이 아니다. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .login-legal {
   margin: auto 0 0;
   padding-top: 24px;
