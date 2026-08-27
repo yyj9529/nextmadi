@@ -8,10 +8,19 @@ export const EMAIL_PROVISIONING_SESSION_TOKEN = "__email_provisioning__";
 
 export type FetchLike = (request: Request) => Promise<Response>;
 
+/**
+ * 백엔드 왕복 제한 시간. 로그인 요청 하나가 매달려 있을 수 있는 시간이고, Vercel 함수의
+ * 예산도 같이 갉아먹는다. Spring Boot가 반쯤 열린 채(TCP는 붙었는데 응답이 없는) 있을 때
+ * 기본 소켓 타임아웃까지 기다리면 사용자는 실패도 성공도 아닌 화면을 본다.
+ */
+const BACKEND_TIMEOUT_MS = 5_000;
+
 export type EmailProvisioningOptions = {
   backendBaseUrl?: string;
   internalAuthSecret?: string;
   fetcher?: FetchLike;
+  /** 테스트에서만 줄인다. 기본값은 BACKEND_TIMEOUT_MS. */
+  timeoutMs?: number;
 };
 
 export type EmailIdentity = {
@@ -54,6 +63,28 @@ export class EmailProvisioningError extends Error {
     this.developerHint = body.developer_hint;
     this.retryable = body.retryable;
   }
+}
+
+export type SendQuota = {
+  identifier: string;
+  remaining: number;
+};
+
+/**
+ * 이 주소로 링크를 하나 더 보내도 되는지 묻는다. 상한에 닿았으면 429로 던진다.
+ *
+ * **발송 전에** 불러야 한다. Auth.js는 발송과 토큰 저장을 동시에 시작하므로
+ * (`@auth/core/lib/actions/signin/send-token.js`), 저장 시점에 거절하면 메일은 이미 나간 뒤다 —
+ * 할당량은 그대로 쓰고 수신자는 저장된 행이 없는 죽은 링크를 받는다. 그 배치의 상한은 상한이
+ * 없느니만 못하다.
+ */
+export async function checkSendQuota(
+  identifier: string,
+  options: EmailProvisioningOptions = {},
+): Promise<SendQuota> {
+  return requireOk<SendQuota>(
+    await post("/auth/email/verification-tokens/quota", { identifier }, options),
+  );
 }
 
 export async function createVerificationToken(
@@ -148,6 +179,7 @@ async function post(
           "x-internal-auth": internalAuthToken,
         },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(options.timeoutMs ?? BACKEND_TIMEOUT_MS),
       },
     ),
   );

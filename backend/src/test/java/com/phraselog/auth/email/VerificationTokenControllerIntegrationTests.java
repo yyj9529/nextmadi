@@ -45,6 +45,7 @@ class VerificationTokenControllerIntegrationTests {
   static final String INTERNAL_SECRET = "verification-token-internal-auth-secret-0123456789";
   private static final String CREATE_PATH = ApiPaths.V1 + "/auth/email/verification-tokens";
   private static final String CONSUME_PATH = CREATE_PATH + "/consume";
+  private static final String QUOTA_PATH = CREATE_PATH + "/quota";
   private static final String IDENTIFIER = "mia@example.com";
 
   // Stands in for Auth.js's sha256(rawToken + AUTH_SECRET); the raw token never reaches us.
@@ -194,7 +195,37 @@ class VerificationTokenControllerIntegrationTests {
   }
 
   @Test
-  void oneIdentifierCannotHoldMoreThanTheOutstandingCap() {
+  void theQuotaCheckRefusesOnceTheOutstandingCapIsReached() {
+    for (int i = 0; i < VerificationTokenService.MAX_OUTSTANDING_TOKENS; i++) {
+      insertDirectly(IDENTIFIER, "outstanding-token-" + i, inOneDay());
+    }
+
+    ResponseEntity<String> response =
+        post(QUOTA_PATH, provisioningToken(), Map.of("identifier", IDENTIFIER));
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    assertThat(response.getBody()).contains("rate_limit_exceeded");
+  }
+
+  @Test
+  void theQuotaCheckReportsHowManyLinksAreLeftAndStoresNothing() {
+    insertDirectly(IDENTIFIER, "outstanding-token-0", inOneDay());
+
+    ResponseEntity<String> response =
+        post(QUOTA_PATH, provisioningToken(), Map.of("identifier", IDENTIFIER));
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody())
+        .contains("\"remaining\":" + (VerificationTokenService.MAX_OUTSTANDING_TOKENS - 1));
+    // 조회일 뿐 예약이 아니다. 확인만으로 행이 생기면 확인 자체가 상한을 먹는다.
+    assertThat(tokenCount()).isEqualTo(1);
+  }
+
+  @Test
+  void storingAlsoRefusesOverTheCapSoRefusedSendsCannotInflateTheCount() {
+    // Auth.js는 발송과 저장을 동시에 시작하고(@auth/core signin/send-token.js) 발송이 거절돼도
+    // 저장 호출을 취소하지 않는다. 여기서 막지 않으면 거절될 때마다 행이 하나씩 늘어 그 주소는
+    // 만료까지 영구히 잠긴다. 발송은 이미 quota가 막았으므로 여기서 거절해도 죽은 링크는 없다.
     for (int i = 0; i < VerificationTokenService.MAX_OUTSTANDING_TOKENS; i++) {
       insertDirectly(IDENTIFIER, "outstanding-token-" + i, inOneDay());
     }
@@ -203,8 +234,15 @@ class VerificationTokenControllerIntegrationTests {
         post(CREATE_PATH, provisioningToken(), createBody(inOneDay()));
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
-    assertThat(response.getBody()).contains("rate_limit_exceeded");
     assertThat(tokenCount()).isEqualTo(VerificationTokenService.MAX_OUTSTANDING_TOKENS);
+  }
+
+  @Test
+  void theQuotaCheckRejectsTheOauthProvisioningToken() {
+    ResponseEntity<String> response =
+        post(QUOTA_PATH, internalToken("__oauth_provisioning__"), Map.of("identifier", IDENTIFIER));
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
   }
 
   @Test

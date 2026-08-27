@@ -125,9 +125,27 @@ login.
 If the adapter ever needs session storage, that is the signal this approach has outlived
 its fit; revisit ADR-010 rather than widening the adapter.
 
+**The adapter is attached per request, not globally.** Auth.js does not scope an adapter to
+the provider that required it: once one exists, the OAuth callback asks it for
+`getUserByAccount` (`@auth/core/lib/actions/callback/index.js:56`) before the `signIn`
+callback runs, and `handle-login.js:24`'s `if (!adapter)` short-circuit — the thing that had
+kept #18's OAuth path adapter-free — stops firing. An adapter that implements only the email
+surface therefore kills Google and Kakao sign-in outright.
+
+So `NextAuth` is built from a function of the request (`next-auth/index.js:102`).
+`/api/auth/callback/{google,kakao}` gets a config with neither the adapter nor the email
+provider — the exact shape that shipped before #19 — and every other route gets both. The two
+must leave together: an email provider without an adapter fails config validation with
+`MissingAdapter` (`@auth/core/lib/utils/assert.js:135`).
+
+The alternative was implementing the OAuth surface in the adapter. It is cleaner in the long
+run and is the direction to take if the adapter ever needs to own both paths, but it rewrites
+an already-deployed login path and needs a backend lookup endpoint that does not exist —
+an ADR-sized change, not a fix.
+
 ### Endpoint authority
 
-The five `/auth/email/*` operations are the only endpoints whose caller has no user yet.
+The six `/auth/email/*` operations are the only endpoints whose caller has no user yet.
 They are authorized by a dedicated `session_token` value, `__email_provisioning__`,
 rather than a `user_id`. The OAuth provisioning token does not open them and this token
 does not open OAuth provisioning, so a leak on one side does not carry the other's
@@ -137,6 +155,42 @@ Lookup is split from resolve for the same reason. Auth.js calls `getUserByEmail`
 the link is merely being *sent* — before anyone has clicked anything — so a combined
 create-or-find endpoint would mint an account for every address typed into the S03 form.
 See `docs/api/openapi.yaml` for the per-operation contract.
+
+### The outstanding-token cap sits ahead of the send, not the store
+
+An address may hold at most five unexpired links. That cap is checked by
+`POST /auth/email/verification-tokens/quota`, which the BFF calls from inside
+`sendVerificationRequest` — before anything reaches SES — and **not** while storing the
+token.
+
+Auth.js starts the send and the store concurrently and awaits them together
+(`@auth/core/lib/actions/signin/send-token.js`). A cap applied at store time therefore fires
+after the mail is already in flight: the SES quota the cap exists to protect is spent anyway,
+and the recipient receives a link with no row behind it, which they see as "링크가 만료됐어요".
+In that position the cap is strictly worse than no cap, which is why enforcement moved.
+
+The store operation keeps the same cap as a backstop. Auth.js does not cancel it when the send
+is refused, so without one every refused attempt would still write a row — inflating the count
+and locking the address out until expiry. Refusing there is harmless now, because the quota
+check already stopped the mail.
+
+The check decides rather than reserves, so a race between the check and the store can exceed
+the cap by one. That is accepted — a reservation protocol is more machinery than a
+deliberately crude guard warrants. The cap protects one address; it does not stop an
+attacker who varies the address, and there is no per-IP limiter on this path yet.
+
+### OAuth email verification
+
+`users.email` is the key the magic link uses to find an existing account, so that column must
+only ever hold addresses somebody proved they control. OAuth provisioning therefore refuses an
+address the provider explicitly marked unverified — Google's `email_verified`, Kakao's
+`kakao_account.is_email_verified`. Without that, an account registered while claiming a
+stranger's address would swallow that stranger the first time they signed in by magic link.
+
+Only an explicit `false` is refused. A provider that says nothing is allowed through; treating
+silence as unverified would block every provider that omits the claim. Both the BFF and Spring
+Boot apply the rule, so neither side alone is load-bearing and a mismatched deploy cannot open
+the gap.
 
 ### Same-email divergence from OAuth
 

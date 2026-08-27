@@ -59,7 +59,7 @@ class OAuthIdentityServiceTests {
 
     OAuthIdentityResult result =
         service.resolve(
-            new OAuthIdentityRequest("google", "google-123", "owner@example.com", "Owner G"));
+            new OAuthIdentityRequest("google", "google-123", "owner@example.com", "Owner G", true));
 
     assertThat(result.userId()).isEqualTo(userId);
     assertThat(result.email()).isEqualTo("owner@example.com");
@@ -72,7 +72,8 @@ class OAuthIdentityServiceTests {
   @Test
   void newProviderIdentityCreatesUserAndIdentityRows() {
     OAuthIdentityResult result =
-        service.resolve(new OAuthIdentityRequest("kakao", "kakao-123", "new@example.com", "New"));
+        service.resolve(
+            new OAuthIdentityRequest("kakao", "kakao-123", "new@example.com", "New", true));
 
     assertThat(result.userId()).isNotNull();
     assertThat(result.email()).isEqualTo("new@example.com");
@@ -92,7 +93,8 @@ class OAuthIdentityServiceTests {
     assertThatThrownBy(
             () ->
                 service.resolve(
-                    new OAuthIdentityRequest("google", "google-999", "same@example.com", "Same")))
+                    new OAuthIdentityRequest(
+                        "google", "google-999", "same@example.com", "Same", true)))
         .isInstanceOfSatisfying(
             ApiErrorException.class,
             error -> {
@@ -104,9 +106,43 @@ class OAuthIdentityServiceTests {
   }
 
   @Test
+  void unverifiedProviderEmailIsRefusedBeforeAnyRowIsWritten() {
+    // users.email is the key the S03 magic link uses to find an existing account, so an address
+    // the provider did not verify must never reach it. Otherwise an account registered while
+    // claiming a stranger's address swallows that stranger when they sign in by magic link.
+    assertThatThrownBy(
+            () ->
+                service.resolve(
+                    new OAuthIdentityRequest(
+                        "kakao", "kakao-evil", "victim@example.com", "Not Me", false)))
+        .isInstanceOfSatisfying(
+            ApiErrorException.class,
+            error -> {
+              assertThat(error.status()).isEqualTo(HttpStatus.CONFLICT);
+              assertThat(error.errorCode()).isEqualTo("email_unverified");
+            });
+
+    assertThat(userCountByEmail("victim@example.com")).isZero();
+  }
+
+  @Test
+  void aProviderThatSaysNothingAboutVerificationIsStillAllowed() {
+    // Refusing silence would block every provider that omits the claim, and would break sign-in
+    // during a deploy where the BFF is older than this service.
+    OAuthIdentityResult result =
+        service.resolve(
+            new OAuthIdentityRequest("google", "google-quiet", "quiet@example.com", "Quiet", null));
+
+    assertThat(result.createdUser()).isTrue();
+    assertThat(result.email()).isEqualTo("quiet@example.com");
+  }
+
+  @Test
   void missingProviderEmailIsRejectedBeforeCreatingRows() {
     assertThatThrownBy(
-            () -> service.resolve(new OAuthIdentityRequest("google", "google-123", " ", "No Mail")))
+            () ->
+                service.resolve(
+                    new OAuthIdentityRequest("google", "google-123", " ", "No Mail", true)))
         .isInstanceOfSatisfying(
             ApiErrorException.class,
             error -> {
@@ -165,6 +201,11 @@ class OAuthIdentityServiceTests {
   private Integer userCount(UUID userId, String email) {
     return jdbcTemplate.queryForObject(
         "SELECT count(*) FROM users WHERE id = ? AND email = ?", Integer.class, userId, email);
+  }
+
+  private Integer userCountByEmail(String email) {
+    return jdbcTemplate.queryForObject(
+        "SELECT count(*) FROM users WHERE email = ?", Integer.class, email);
   }
 
   private Integer identityCount(UUID userId, String provider, String providerUserId) {

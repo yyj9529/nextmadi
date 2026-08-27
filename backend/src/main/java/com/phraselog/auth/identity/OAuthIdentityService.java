@@ -23,6 +23,7 @@ public class OAuthIdentityService {
     String providerEmail =
         required(request.providerEmail(), "provider_email is required.").toLowerCase(Locale.ROOT);
     String displayName = optional(request.displayName());
+    requireVerifiedEmail(request.providerEmailVerified());
 
     return repository
         .findByProviderIdentity(provider, providerUserId)
@@ -37,6 +38,29 @@ public class OAuthIdentityService {
                       provider, providerUserId, providerEmail, displayName);
               return toResult(created, true, false);
             });
+  }
+
+  /**
+   * Refuses an address the provider explicitly marked unverified.
+   *
+   * <p>{@code users.email} is the key the S03 magic link uses to find an existing account, so that
+   * column must only ever hold addresses somebody proved they control. Without this check, an
+   * account registered while claiming a stranger's address would swallow that stranger the first
+   * time they signed in with a genuine magic link.
+   *
+   * <p>Only an explicit {@code false} is refused. A null means the provider said nothing, which is
+   * the normal case for providers that omit the claim; treating it as unverified would block them
+   * all. The BFF applies the same rule before calling, so neither side alone is load-bearing.
+   */
+  private static void requireVerifiedEmail(Boolean providerEmailVerified) {
+    if (Boolean.FALSE.equals(providerEmailVerified)) {
+      throw new ApiErrorException(
+          HttpStatus.CONFLICT,
+          "email_unverified",
+          "이메일 주소가 확인되지 않았어요. 해당 서비스에서 이메일을 인증한 뒤 다시 시도해주세요.",
+          "The OAuth provider reported provider_email as unverified.",
+          false);
+    }
   }
 
   private OAuthIdentityResult existingResult(OAuthUserRow user, boolean createdUser) {

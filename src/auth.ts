@@ -1,5 +1,6 @@
 import NextAuth, {
   type NextAuthConfig,
+  type Profile,
   type User,
 } from "next-auth";
 import type { Adapter } from "next-auth/adapters";
@@ -124,6 +125,14 @@ export function buildAuthConfig(
           return true;
         }
 
+        // provider가 "이 주소는 검증 안 됐다"고 말하면 여기서 멈춘다. users.email은 매직링크가
+        // 기존 계정을 찾는 열쇠라서(S03 same-email 케이스), 검증되지 않은 주소가 그 열에
+        // 들어가면 남의 주소를 주장해 만든 계정이 진짜 주인을 받아버린다. 백엔드도 같은 값을
+        // 거절하므로 한쪽만 배포돼도 뚫리지 않는다.
+        if (providerEmailVerified(profile) === false) {
+          return "/login?callback_error=email_unverified";
+        }
+
         try {
           attachPhraseLogIdentity(
             user,
@@ -132,6 +141,7 @@ export function buildAuthConfig(
               providerUserId: account.providerAccountId,
               providerEmail: user.email ?? stringValue(profile?.email) ?? "",
               displayName: user.name ?? stringValue(profile?.name) ?? null,
+              providerEmailVerified: providerEmailVerified(profile) !== false,
             }),
           );
           return true;
@@ -225,6 +235,39 @@ function attachPhraseLogIdentity(
   phraseLogUser.email = provisioned.email;
   phraseLogUser.name = provisioned.displayName ?? phraseLogUser.name;
   phraseLogUser.isOnboarded = provisioned.isOnboarded;
+}
+
+/**
+ * provider가 이메일 검증 여부를 말했는가, 말했다면 무엇이라 했는가.
+ *
+ * - Google: OIDC 표준 `email_verified`.
+ * - Kakao: `kakao_account.is_email_verified`. 카카오는 이메일이 미검증일 수 있어서 이 필드를
+ *   따로 노출한다 — 이 함수가 존재하는 실질적 이유다.
+ *
+ * 세 상태를 구분한다: true(검증됨), false(명시적 미검증), undefined(provider가 말하지 않음).
+ * 말하지 않은 것을 미검증으로 취급하면 필드를 안 주는 provider가 전부 막히므로, 거절은
+ * 명시적 false에만 한다.
+ */
+function providerEmailVerified(profile: Profile | undefined): boolean | undefined {
+  if (!profile) {
+    return undefined;
+  }
+
+  const googleClaim = profile.email_verified;
+  if (typeof googleClaim === "boolean") {
+    return googleClaim;
+  }
+
+  const kakaoAccount = (profile as { kakao_account?: unknown }).kakao_account;
+  if (kakaoAccount && typeof kakaoAccount === "object") {
+    const kakaoClaim = (kakaoAccount as { is_email_verified?: unknown })
+      .is_email_verified;
+    if (typeof kakaoClaim === "boolean") {
+      return kakaoClaim;
+    }
+  }
+
+  return undefined;
 }
 
 function stringValue(value: unknown): string | undefined {

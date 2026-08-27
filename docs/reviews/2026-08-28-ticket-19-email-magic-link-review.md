@@ -99,9 +99,34 @@ window. Now the error code is checked too.
 **F4 — "다른 주소로 다시 보내기" left the previous address in the field.** The user could
 re-send to the same mailbox without noticing, and walk toward the outstanding-token cap.
 
+### Fixed after the owner's decisions (2026-08-28)
+
+**O1 (was blocking) — the cap now sits ahead of the send.** Enforcement moved out of
+`createVerificationToken` and into a new read-only
+`POST /auth/email/verification-tokens/quota`, which the provider calls from inside
+`sendVerificationRequest` — the only point that runs before Auth.js hands the mail to SES.
+Storing is now a pure write. Both send paths (SES and the dev logger) are wrapped, so the
+cap actually executes during development rather than first running in production. The check
+decides rather than reserves, so a race can exceed the cap by one; that is accepted and
+recorded in `docs/auth.md`.
+
+**O3 — unverified provider emails are refused.** OAuth provisioning now reads Google's
+`email_verified` and Kakao's `kakao_account.is_email_verified` and refuses an address the
+provider explicitly marked unverified, so `users.email` — the key the magic link matches on
+— only ever holds addresses somebody proved they control. Only an explicit `false` is
+refused; silence is allowed, or every provider omitting the claim would be blocked. Enforced
+on both the BFF and Spring Boot, so a mismatched deploy cannot open the gap. `/login`
+explains the refusal and offers the magic link, which is a genuine route for that user:
+opening the mailbox proves what the provider would not.
+
+**O4 — both backend clients now carry a 5s deadline.** `AbortSignal.timeout` on
+`email-provisioning.ts` and `oauth-provisioning.ts` alike, since #18 had the same gap. The
+test removes the deadline to confirm it fails without it.
+
 ### Open — owner decisions
 
-**O1 — the outstanding-token cap fires after the mail is already gone.**
+**O1 (resolved above; original finding kept for the record) — the outstanding-token cap
+fired after the mail was already gone.**
 `@auth/core/lib/actions/signin/send-token.js:48-66` starts `sendVerificationRequest`
 first and awaits it together with `createVerificationToken` under `Promise.all`. When the
 backend cap rejects, the SMTP send is already in flight. So the cap spends the SES quota it
@@ -113,14 +138,15 @@ As placed, the cap provides no quota protection and only breaks links. Enforceme
 move ahead of the send, which means a check inside `sendVerificationRequest` against a
 backend endpoint that does not exist yet.
 
-**O2 — the cap is bypassable, and nothing limits distinct recipients.**
+**O2 (still open) — the cap is bypassable, and nothing limits distinct recipients.**
 `countUnexpired` keys on the literal lowercased address, so `victim+1@…`, `victim+2@…` are
 separate buckets that all deliver to one mailbox. Independently, there is no per-IP limiter
 anywhere in the Next.js layer, so an attacker can spray unlimited addresses at five each —
 burning SES quota and, more expensively, bounce/complaint reputation. O1 and O2 want to be
 solved together.
 
-**O3 — magic-link sign-in adopts accounts whose email was never verified.**
+**O3 (resolved above; original finding kept for the record) — magic-link sign-in adopted
+accounts whose email was never verified.**
 `resolve()` case 2 and `linkByUserId` attach a magic-link sign-in to any active `users` row
 holding the address. `users.email` is written from the OAuth provider's claim with no
 verification check — nothing in the repo reads Google's `email_verified` or Kakao's
@@ -131,7 +157,8 @@ magic link. #19 opens this direction: the OAuth path used to refuse with
 provider actually issuing an unverified address — but the fix (gate on the provider's
 verified flag) is small and belongs with #18's provisioning.
 
-**O4 — no timeout on any Next.js → Spring Boot call.** Reported as new, but
+**O4 (resolved above; original finding kept for the record) — no timeout on any
+Next.js → Spring Boot call.** Reported as new, but
 `oauth-provisioning.ts` (#18, on main) has the identical shape; #19 followed the existing
 pattern rather than introducing the gap. Fixing it properly means fixing both clients
 together, same as the response-casing decision.
@@ -212,14 +239,17 @@ Frontend: 188 tests, 0 failed; lint, typecheck, build clean.
 
 ## Verdict
 
-**Ready with fixes — B1 resolved, O1 blocking on an owner decision.**
+**Ready to merge, with follow-up work recorded.**
 
 B1 was the one defect that made the branch unshippable, and it is fixed with a regression
 guard that was confirmed to fail against the broken behaviour. F1–F4 are fixed.
 
-O1 should be settled before this merges: as it stands the outstanding-token cap makes
-things worse than having no cap, because the mail goes out either way and the recipient gets
-a dead link. O2 travels with it. O3–O6 are recordable as follow-up work.
+O1, O3 and O4 were then settled by owner decision and fixed in `9e0a5ff`. What remains open
+is O2 (the cap is per-address, so sub-addressing and address-spraying still bypass it, and
+there is no per-IP limiter), O5 (the dev fallback logs a live link when `NODE_ENV` is not
+production) and O6 (expiry is enforced only inside a caret-ranged prerelease). None of the
+three blocks a merge; all three are worth carrying into follow-up work, and O2 is the one to
+revisit before SES production access widens the blast radius.
 
 Two acceptance criteria remain unverifiable here: AC1 (a real external round-trip) needs
 SES production access and Vercel env, both owner tasks. The flow is verifiable in

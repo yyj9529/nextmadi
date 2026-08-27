@@ -203,6 +203,63 @@ describe("authConfig", () => {
     });
   });
 
+  // users.email은 매직링크가 기존 계정을 찾는 열쇠다(S03 same-email 케이스). 검증되지 않은
+  // 주소가 그 열에 들어가면, 남의 주소를 주장해 만든 계정이 진짜 주인이 매직링크로 로그인할 때
+  // 그 사람을 받아버린다. #19가 이 방향을 새로 열었다 — 전에는 OAuth가 거부했다.
+  describe("provider email verification", () => {
+    const signIn = (profile: Profile | undefined) =>
+      buildAuthConfig({ provisionOAuthIdentity }).callbacks?.signIn?.({
+        user: { email: "victim@example.com" } satisfies User,
+        account: {
+          provider: "kakao",
+          providerAccountId: "kakao-9",
+          type: "oauth",
+        } satisfies Partial<Account> as Account,
+        profile,
+      } as never);
+
+    test("refuses when Kakao says the address is not verified", async () => {
+      const result = await signIn({
+        email: "victim@example.com",
+        kakao_account: { is_email_verified: false },
+      } as Profile);
+
+      expect(result).toBe("/login?callback_error=email_unverified");
+      // 거절은 프로비저닝 이전이어야 한다 — 호출된 뒤에 막으면 users.email이 이미 쓰인다.
+      expect(provisionOAuthIdentity).not.toHaveBeenCalled();
+    });
+
+    test("refuses when Google says the address is not verified", async () => {
+      const result = await signIn({
+        email: "victim@example.com",
+        email_verified: false,
+      } as Profile);
+
+      expect(result).toBe("/login?callback_error=email_unverified");
+      expect(provisionOAuthIdentity).not.toHaveBeenCalled();
+    });
+
+    test("allows a verified address and forwards the flag", async () => {
+      await signIn({
+        email: "victim@example.com",
+        kakao_account: { is_email_verified: true },
+      } as Profile);
+
+      expect(provisionOAuthIdentity).toHaveBeenCalledWith(
+        expect.objectContaining({ providerEmailVerified: true }),
+      );
+    });
+
+    test("does not treat silence as a refusal", async () => {
+      // 검증 필드를 아예 주지 않는 provider까지 막으면 로그인이 통째로 죽는다.
+      await signIn({ email: "victim@example.com" } as Profile);
+
+      expect(provisionOAuthIdentity).toHaveBeenCalledWith(
+        expect.objectContaining({ providerEmailVerified: true }),
+      );
+    });
+  });
+
   test("provisions an OAuth identity before allowing sign-in", async () => {
     const authConfig = buildAuthConfig({ provisionOAuthIdentity });
     const user = {
@@ -240,6 +297,9 @@ describe("authConfig", () => {
       providerUserId: "google-1",
       providerEmail: "new@example.com",
       displayName: "New User",
+      // provider가 검증 여부를 말하지 않았다. 말하지 않은 것을 미검증으로 취급하면
+      // 그 필드를 안 주는 provider가 전부 막힌다.
+      providerEmailVerified: true,
     });
     expect(token).toMatchObject({
       phraselogUserId: "user-1",

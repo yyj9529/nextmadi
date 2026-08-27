@@ -202,7 +202,7 @@ paths:
   # Auth / Email magic link (S03, #19)
   # ───────────────────────────────────────────────────────────────────────────
   #
-  # These five operations exist because Auth.js's email provider requires an
+  # These six operations exist because Auth.js's email provider requires an
   # Adapter, and ADR-010 keeps the database behind Spring Boot. The adapter runs
   # in Next.js and reaches its storage through here rather than connecting to
   # RDS. See docs/auth.md.
@@ -230,9 +230,13 @@ paths:
         stores it verbatim and must not hash again. Token values are never
         logged.
 
-        Rejects creation when the identifier already holds 5 unexpired tokens.
-        This is a targeted guard against using our SES quota to mailbox-bomb a
-        stranger, not a general rate limiter.
+        The outstanding-token cap is checked here too, but this is the backstop,
+        not the enforcement point — see
+        `/auth/email/verification-tokens/quota`. Auth.js does not cancel this
+        call when the send is refused, so without a cap here every refused
+        attempt would still write a row, inflating the count and locking the
+        address out until expiry. Refusing here is harmless because the quota
+        check already stopped the mail.
       requestBody:
         required: true
         content:
@@ -259,6 +263,60 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/VerificationToken"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/email/verification-tokens/quota:
+    post:
+      tags: [auth]
+      summary: Ask whether another magic link may be mailed to this address
+      description: |
+        Called by the BFF from inside `sendVerificationRequest`, **before** the
+        mail reaches SES. Refuses with 429 once the address already holds 5
+        unexpired tokens.
+
+        The ordering is the whole point. Auth.js starts the send and the token
+        store concurrently and awaits them together
+        (`@auth/core/lib/actions/signin/send-token.js`), so a cap applied while
+        storing fires after the mail is already in flight: the SES quota the cap
+        exists to protect is spent anyway, and the recipient gets a link with no
+        row behind it, which reads to them as an expired link. A cap in that
+        position is strictly worse than no cap.
+
+        This decides, it does not reserve — it writes nothing beyond purging
+        expired rows. The store operation keeps the same cap as a backstop, for
+        the concurrency reason described there. The window between this check and the store is accepted:
+        closing it would need a reservation protocol for a guard that is
+        deliberately crude. It is a targeted guard against using our SES quota to
+        mailbox-bomb one stranger, not a general rate limiter, and it does not
+        stop an attacker who varies the address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier]
+              properties:
+                identifier:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: There is room to send
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [identifier, remaining]
+                properties:
+                  identifier:
+                    type: string
+                    format: email
+                  remaining:
+                    type: integer
+                    description: Links still allowed for this address before the cap refuses.
         "400":
           $ref: "#/components/responses/ValidationError"
         "401":

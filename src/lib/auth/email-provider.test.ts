@@ -56,6 +56,16 @@ type ConfiguredProvider = {
 
 const configured = (provider: unknown) => provider as ConfiguredProvider;
 
+/** 기본값은 실제 백엔드를 호출하므로, 테스트는 항상 상한 확인을 주입한다. */
+let quotaCalls: string[] = [];
+let quotaCheck = async (identifier: string) => {
+  quotaCalls.push(identifier);
+};
+const withQuota = <T extends object>(options: T) => ({
+  ...options,
+  checkSendQuota: (identifier: string) => quotaCheck(identifier),
+});
+
 const SMTP_ENV = {
   AUTH_EMAIL_SERVER_HOST: "email-smtp.us-east-1.amazonaws.com",
   AUTH_EMAIL_SERVER_PORT: "587",
@@ -66,9 +76,9 @@ const SMTP_ENV = {
 
 describe("with SMTP configured", () => {
   test("builds a nodemailer provider pinned to a 24h link", () => {
-    const provider = buildEmailProvider({
-      env: { ...SMTP_ENV, NODE_ENV: "production" },
-    });
+    const provider = buildEmailProvider(
+      withQuota({ env: { ...SMTP_ENV, NODE_ENV: "production" } }),
+    );
 
     expect(configured(provider).id).toBe("nodemailer");
     expect(configured(provider).options.maxAge).toBe(EMAIL_LINK_MAX_AGE_SECONDS);
@@ -76,7 +86,7 @@ describe("with SMTP configured", () => {
   });
 
   test("uses the configured sender and SMTP endpoint", () => {
-    const provider = buildEmailProvider({ env: SMTP_ENV });
+    const provider = buildEmailProvider(withQuota({ env: SMTP_ENV }));
 
     expect(configured(provider).options.from).toBe(
       "PhraseLog <noreply@phraselog.test>",
@@ -91,7 +101,7 @@ describe("with SMTP configured", () => {
   test("bounds every SMTP wait well under a user's patience", () => {
     // Nodemailer 기본값은 연결·소켓 각 2분이다. 로그인 요청이 그만큼 매달려 있으면
     // 사용자는 실패했는지 진행 중인지 알 수 없다.
-    const server = configured(buildEmailProvider({ env: SMTP_ENV })).options
+    const server = configured(buildEmailProvider(withQuota({ env: SMTP_ENV }))).options
       .server as Record<string, number>;
 
     for (const key of [
@@ -106,10 +116,12 @@ describe("with SMTP configured", () => {
 
   test("treats a non-numeric port as no configuration at all", () => {
     // A typo'd port must not silently become NaN and fail at send time.
-    const provider = buildEmailProvider({
-      env: { ...SMTP_ENV, AUTH_EMAIL_SERVER_PORT: "not-a-port" },
-      logMagicLink: () => {},
-    });
+    const provider = buildEmailProvider(
+      withQuota({
+        env: { ...SMTP_ENV, AUTH_EMAIL_SERVER_PORT: "not-a-port" },
+        logMagicLink: () => {},
+      }),
+    );
 
     expect(configured(provider).options.from).toBe("PhraseLog <dev@localhost>");
   });
@@ -118,7 +130,7 @@ describe("with SMTP configured", () => {
 // 이 티켓이 스스로 지목한 최대 위험 지점이다 — 발송이 실패했는데 성공 화면이 뜨는 것.
 // 그 판정은 전부 sendKoreanVerificationRequest 안에 있으므로 여기서 직접 돌린다.
 describe("the SES send path", () => {
-  const provider = () => buildEmailProvider({ env: SMTP_ENV });
+  const provider = () => buildEmailProvider(withQuota({ env: SMTP_ENV }));
 
   const send = (p: unknown) => {
     const options = configured(p).options;
@@ -130,6 +142,10 @@ describe("the SES send path", () => {
   };
 
   beforeEach(() => {
+    quotaCalls = [];
+    quotaCheck = async (identifier: string) => {
+      quotaCalls.push(identifier);
+    };
     sendMail = mock(async (): Promise<SendMailResult> => ({}));
     lastTransportConfig = null;
     lastMail = null;
@@ -155,6 +171,24 @@ describe("the SES send path", () => {
     expect(mail.html).toContain(
       "https://phraselog.app/api/auth/callback/nodemailer?token=raw",
     );
+  });
+
+  test("asks the backend for room before handing anything to SES", async () => {
+    // Auth.js는 발송과 토큰 저장을 동시에 시작한다. 저장 쪽에서 상한을 걸면 메일은 이미
+    // 나간 뒤라, 할당량은 그대로 쓰이고 수신자는 행이 없는 죽은 링크를 받는다.
+    await send(provider());
+
+    expect(quotaCalls).toEqual(["woojoo@phraselog.test"]);
+    expect(sendCount).toBe(1);
+  });
+
+  test("does not send at all when the address is over its cap", async () => {
+    quotaCheck = async () => {
+      throw new Error("rate_limit_exceeded");
+    };
+
+    await expect(send(provider())).rejects.toThrow("rate_limit_exceeded");
+    expect(sendCount).toBe(0);
   });
 
   test("rejects when SMTP refuses the recipient", async () => {
@@ -192,7 +226,7 @@ describe("in production without SMTP configuration", () => {
     const env = { ...SMTP_ENV, NODE_ENV: "production" } as Record<string, string>;
     delete env[missing];
 
-    const provider = buildEmailProvider({ env });
+    const provider = buildEmailProvider(withQuota({ env }));
 
     await expect(
       configured(provider).options.sendVerificationRequest!({
@@ -206,7 +240,7 @@ describe("in production without SMTP configuration", () => {
     // next build runs with NODE_ENV=production and evaluates route modules, which construct the
     // auth config. Throwing at construction made the app unbuildable in CI.
     expect(() =>
-      buildEmailProvider({ env: { NODE_ENV: "production" } }),
+      buildEmailProvider(withQuota({ env: { NODE_ENV: "production" } })),
     ).not.toThrow();
   });
 });
@@ -214,10 +248,13 @@ describe("in production without SMTP configuration", () => {
 describe("in development without SMTP configuration", () => {
   test("logs the magic link instead of sending, and does not throw", async () => {
     const logged: { identifier: string; url: string }[] = [];
-    const provider = buildEmailProvider({
-      env: { NODE_ENV: "development" },
-      logMagicLink: (params) => logged.push(params),
-    });
+    const provider = buildEmailProvider(
+      withQuota({
+        env: { NODE_ENV: "development" },
+        logMagicLink: (params: { identifier: string; url: string }) =>
+          logged.push(params),
+      }),
+    );
 
     await configured(provider).options.sendVerificationRequest!({
       identifier: "mia@example.com",
@@ -233,10 +270,9 @@ describe("in development without SMTP configuration", () => {
   });
 
   test("keeps the same 24h expiry as the real path", () => {
-    const provider = buildEmailProvider({
-      env: { NODE_ENV: "development" },
-      logMagicLink: () => {},
-    });
+    const provider = buildEmailProvider(
+      withQuota({ env: { NODE_ENV: "development" }, logMagicLink: () => {} }),
+    );
 
     expect(configured(provider).options.maxAge).toBe(EMAIL_LINK_MAX_AGE_SECONDS);
   });

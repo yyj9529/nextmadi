@@ -21,6 +21,10 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   // 메일함 소유가 증명되는 경로라서 같은 주소로 로그인하는 것이 허용된다.
   account_link_required:
     "이미 가입된 계정이에요. 기존 로그인 방법이나 이메일 링크로 로그인해주세요.",
+  // provider가 이메일 주소를 검증하지 않았다. 그 상태로 가입시키면 남의 주소로 계정을 만들 수
+  // 있게 되고, 그 주소의 진짜 주인이 매직링크로 로그인할 때 그 계정으로 들어가게 된다.
+  email_unverified:
+    "이메일 주소가 확인되지 않았어요. 해당 서비스에서 이메일을 인증한 뒤 다시 시도하거나, 아래에서 이메일 링크로 로그인해주세요.",
   Verification: "링크가 만료됐어요. 아래에서 새 링크를 받아주세요.",
   EmailSignin: "이메일을 보내지 못했어요. 주소를 확인하고 다시 시도해주세요.",
 };
@@ -30,6 +34,9 @@ const EMAIL_RETRY_ERROR_CODES = new Set([
   "Verification",
   "EmailSignin",
   "account_link_required",
+  // 미검증 주소로 막힌 사람에게 매직링크는 실제로 쓸 수 있는 대안이다 — 메일함을 열면
+  // 그 주소가 본인 것임이 증명되므로, provider가 못 해준 검증을 우리가 직접 하게 된다.
+  "email_unverified",
 ]);
 
 const DEFAULT_OAUTH_ERROR_MESSAGE =

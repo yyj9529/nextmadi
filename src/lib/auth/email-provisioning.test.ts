@@ -46,6 +46,31 @@ function options(fetcher: FetchLike) {
 }
 
 describe("createVerificationToken", () => {
+  test("gives up on a backend that never answers", async () => {
+    // 타임아웃이 없으면 Spring Boot가 반쯤 열린 채(TCP는 붙었는데 응답 없음)일 때 로그인
+    // 요청이 플랫폼 기본값까지 매달린다 — 사용자는 실패도 성공도 아닌 화면을 본다.
+    //
+    // Request는 signal을 넘기지 않아도 항상 하나 갖고 있으므로 "signal이 있다"는 검사는
+    // 아무것도 증명하지 않는다. 마감 시각이 실제로 걸렸는지 — 즉 그 signal이 스스로
+    // 끊기는지 — 를 본다.
+    const { calls, fetcher } = recordingFetcher(() =>
+      Response.json({
+        identifier: "mia@example.com",
+        token: "hashed-token",
+        expires: EXPIRES,
+      }),
+    );
+
+    await createVerificationToken(
+      { identifier: "mia@example.com", token: "hashed-token", expires: EXPIRES },
+      { ...options(fetcher), timeoutMs: 10 },
+    );
+
+    expect(calls[0].signal.aborted).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(calls[0].signal.aborted).toBe(true);
+  });
+
   test("posts the record to the Spring Boot verification-token endpoint", async () => {
     const { calls, fetcher } = recordingFetcher(() =>
       Response.json({

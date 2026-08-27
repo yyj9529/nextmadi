@@ -3,6 +3,8 @@ import "server-only";
 import type { EmailConfig } from "next-auth/providers";
 import Nodemailer from "next-auth/providers/nodemailer";
 
+import { checkSendQuota } from "./email-provisioning";
+
 /**
  * S03 이메일 매직링크 provider. Amazon SES를 SMTP로 사용한다.
  *
@@ -34,6 +36,8 @@ export type BuildEmailProviderOptions = {
   env?: EmailProviderEnv;
   /** 개발용 대체 경로에서 링크를 어디에 출력할지. 테스트에서 주입한다. */
   logMagicLink?: (params: { identifier: string; url: string }) => void;
+  /** 발송 전 상한 확인. 테스트에서 주입한다. 기본값은 Spring Boot를 호출하는 실제 클라이언트. */
+  checkSendQuota?: (identifier: string) => Promise<unknown>;
 };
 
 type SmtpSettings = {
@@ -69,13 +73,19 @@ export function buildEmailProvider(options: BuildEmailProviderOptions = {}) {
   const env = options.env ?? (process.env as EmailProviderEnv);
   const smtp = readSmtpSettings(env);
   const from = env.EMAIL_FROM;
+  const quota =
+    options.checkSendQuota ??
+    ((identifier: string) => checkSendQuota(identifier));
 
   if (smtp && from) {
     return Nodemailer({
       server: smtp,
       from,
       maxAge: EMAIL_LINK_MAX_AGE_SECONDS,
-      sendVerificationRequest: sendKoreanVerificationRequest,
+      sendVerificationRequest: underSendQuota(
+        quota,
+        sendKoreanVerificationRequest,
+      ),
     });
   }
 
@@ -83,8 +93,30 @@ export function buildEmailProvider(options: BuildEmailProviderOptions = {}) {
     server: PLACEHOLDER_SMTP,
     from: "PhraseLog <dev@localhost>",
     maxAge: EMAIL_LINK_MAX_AGE_SECONDS,
-    sendVerificationRequest: unconfiguredSender(env, options.logMagicLink),
+    sendVerificationRequest: underSendQuota(
+      quota,
+      unconfiguredSender(env, options.logMagicLink),
+    ),
   });
+}
+
+/**
+ * 상한 확인을 발송 앞에 붙인다.
+ *
+ * Auth.js가 발송과 토큰 저장을 동시에 시작하기 때문에(`signin/send-token.js`), 저장 쪽에서
+ * 거절하면 이미 늦는다 — 메일은 나갔고 SES 할당량은 쓰였고, 수신자는 저장된 행이 없는 링크를
+ * 받아 "링크가 만료됐어요"를 보게 된다. 실제로 막을 수 있는 유일한 지점이 여기다.
+ *
+ * 개발용 경로에도 똑같이 건다. 상한이 개발 중에 한 번도 실행되지 않으면 운영에서 처음 돈다.
+ */
+function underSendQuota<T extends { identifier: string }>(
+  quota: (identifier: string) => Promise<unknown>,
+  send: (params: T) => Promise<void>,
+) {
+  return async (params: T) => {
+    await quota(params.identifier);
+    return send(params);
+  };
 }
 
 /**

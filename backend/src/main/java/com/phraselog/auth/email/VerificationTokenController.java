@@ -28,6 +28,17 @@ public class VerificationTokenController {
     return service.create(body);
   }
 
+  /**
+   * Asked before the mail is handed to SES, not while storing the token. See {@link
+   * VerificationTokenService#MAX_OUTSTANDING_TOKENS} for why the order matters.
+   */
+  @PostMapping("/quota")
+  public SendQuotaResult quota(
+      HttpServletRequest servletRequest, @RequestBody SendQuotaRequest body) {
+    EmailProvisioning.requirePrincipal(servletRequest);
+    return service.checkSendQuota(body);
+  }
+
   @PostMapping("/consume")
   public VerificationTokenResult consume(
       HttpServletRequest servletRequest, @RequestBody ConsumeVerificationTokenRequest body) {
