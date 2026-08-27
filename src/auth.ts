@@ -84,6 +84,18 @@ export function buildAuthConfig(
             return "/login?callback_error=account_link_required";
           }
 
+          // 이 catch는 백엔드 미기동, 네트워크 장애, 5xx를 전부 같은 한 줄로 뭉갠다. 로그가
+          // 없으면 화면에는 "다시 시도해주세요"만 남아서 원인을 알아낼 방법이 사라진다.
+          // 실제로 이 침묵 때문에 로컬 로그인 장애를 쿠키 문제로 오진한 적이 있다
+          // (#36 exec-plan의 "NextAuth 세션 쿠키 위조 실패" 기록).
+          // 이메일과 provider 계정 id는 찍지 않는다 — SECURITY.md 로깅 원칙.
+          console.error(
+            `[auth] OAuth provisioning failed for ${account.provider}:`,
+            error instanceof OAuthProvisioningError
+              ? `status=${error.status} error_code=${error.errorCode}`
+              : error,
+          );
+
           return "/login?callback_error=oauth";
         }
       },
