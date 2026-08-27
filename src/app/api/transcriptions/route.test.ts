@@ -18,23 +18,10 @@ let transcribeImpl: (input: unknown) => Promise<{
 }>;
 const transcribeCalls: unknown[] = [];
 
-class FakeTranscribeError extends Error {
-  readonly status: number;
-  constructor(status: number) {
-    super(`transcribe failed: ${status}`);
-    this.name = "TranscribeError";
-    this.status = status;
-  }
-  get isInvalidAudio(): boolean {
-    return this.status === 400;
-  }
-  get isEmptyTranscript(): boolean {
-    return this.status === 422;
-  }
-  get isRetryable(): boolean {
-    return !this.isInvalidAudio && !this.isEmptyTranscript;
-  }
-}
+// 실제 TranscribeError 를 쓴다. 가짜로 status→분류 매핑을 재구현하면 실제 분류가 바뀌어도
+// 이 테스트가 계속 통과한다 — 빈 전사 계약이 어긋난 채 머지된 원인이 정확히 그것이었다.
+// server-only 모킹 뒤에 동적 import 해야 한다(정적 import 는 호이스팅돼 모킹보다 먼저 평가된다).
+const { TranscribeError } = await import("@/lib/voice/transcribe");
 
 mock.module("next/headers", () => ({
   cookies: async () => ({
@@ -59,7 +46,7 @@ mock.module("@/lib/voice/transcribe", () => ({
     transcribeCalls.push(input);
     return transcribeImpl(input);
   },
-  TranscribeError: FakeTranscribeError,
+  TranscribeError,
 }));
 
 const { POST } = await import("./route");
@@ -163,7 +150,7 @@ describe("POST /api/transcriptions", () => {
 
   test("빈 전사는 422로 내려 재시도 안내를 띄운다", async () => {
     transcribeImpl = async () => {
-      throw new FakeTranscribeError(422);
+      throw new TranscribeError(422, { error_code: "empty_transcript" });
     };
 
     const response = await POST(audioRequest());
@@ -174,7 +161,7 @@ describe("POST /api/transcriptions", () => {
 
   test("오디오 규격 오류는 400으로 내린다", async () => {
     transcribeImpl = async () => {
-      throw new FakeTranscribeError(400);
+      throw new TranscribeError(400, { error_code: "validation_failed" });
     };
 
     const response = await POST(audioRequest());
@@ -183,10 +170,40 @@ describe("POST /api/transcriptions", () => {
     expect((await response.json()).error_code).toBe("validation_failed");
   });
 
+  test("익명 호출은 x-forwarded-for의 첫 IP를 백엔드로 넘긴다", async () => {
+    headerMap.set("x-forwarded-for", "203.0.113.7, 10.0.0.1");
+
+    await POST(audioRequest());
+
+    expect((transcribeCalls[0] as { clientIp?: string }).clientIp).toBe(
+      "203.0.113.7",
+    );
+  });
+
+  test("로그인 사용자는 IP를 넘기지 않는다 — 한도 대상이 아니다", async () => {
+    currentSession = { user: { id: "user-9" } };
+    headerMap.set("x-forwarded-for", "203.0.113.7");
+
+    await POST(audioRequest());
+
+    expect((transcribeCalls[0] as { clientIp?: string }).clientIp).toBeUndefined();
+  });
+
+  test("하루 한도 초과는 429로 내리고 재시도를 권하지 않는다", async () => {
+    transcribeImpl = async () => {
+      throw new TranscribeError(429, { error_code: "rate_limit_exceeded" });
+    };
+
+    const response = await POST(audioRequest());
+
+    expect(response.status).toBe(429);
+    expect((await response.json()).error_code).toBe("rate_limit_exceeded");
+  });
+
   test("공급자 오류·타임아웃은 재시도 가능한 503으로 정규화한다", async () => {
     for (const status of [408, 429, 503]) {
       transcribeImpl = async () => {
-        throw new FakeTranscribeError(status);
+        throw new TranscribeError(status, { error_code: "provider_error" });
       };
 
       const response = await POST(audioRequest());
