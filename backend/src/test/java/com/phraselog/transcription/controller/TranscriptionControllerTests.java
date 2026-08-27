@@ -16,10 +16,13 @@ import com.phraselog.common.web.GlobalExceptionHandler;
 import com.phraselog.transcription.WebmTestFixtures;
 import com.phraselog.transcription.dto.TranscriptionResponse;
 import com.phraselog.transcription.service.TranscriptionService;
+import com.phraselog.usage.service.AnonymousTranscriptionUsageService;
 import java.math.BigDecimal;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
@@ -32,10 +35,25 @@ class TranscriptionControllerTests {
   private TranscriptionService service;
   private MockMvc mockMvc;
 
+  /**
+   * 한도는 이 테스트의 관심사가 아니다(그건 {@code AnonymousTranscriptionUsageServiceTests}). 여기서는 작업을 그대로 통과시키는
+   * provider 를 끼워 컨트롤러 배선만 본다.
+   */
+  private static ObjectProvider<AnonymousTranscriptionUsageService> passThroughUsage() {
+    AnonymousTranscriptionUsageService usage = mock(AnonymousTranscriptionUsageService.class);
+    when(usage.withAnonymousTranscriptionLimit(any(), any(), any()))
+        .thenAnswer(invocation -> invocation.getArgument(2, Supplier.class).get());
+
+    @SuppressWarnings("unchecked")
+    ObjectProvider<AnonymousTranscriptionUsageService> provider = mock(ObjectProvider.class);
+    when(provider.getObject()).thenReturn(usage);
+    return provider;
+  }
+
   @BeforeEach
   void setUp() {
     service = mock(TranscriptionService.class);
-    TranscriptionController controller = new TranscriptionController(service);
+    TranscriptionController controller = new TranscriptionController(service, passThroughUsage());
     mockMvc =
         MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new GlobalExceptionHandler())
@@ -100,5 +118,46 @@ class TranscriptionControllerTests {
                 "$.developer_hint", equalTo("audio must be WebM/Opus and at most 60 seconds.")))
         .andExpect(jsonPath("$.retryable", equalTo(false)))
         .andExpect(jsonPath("$.request_correlation_id").exists());
+  }
+
+  // 익명 하루 한도를 다 쓰면 전사 서비스를 아예 호출하지 않아야 한다 — 호출하면 Whisper 과금이
+  // 발생해 한도의 목적이 무너진다. X-Client-IP 는 한도를 거는 키이므로 함께 확인한다.
+  @Test
+  void exhaustedAnonymousBudgetReturns429AndNeverCallsTheProvider() throws Exception {
+    AnonymousTranscriptionUsageService usage = mock(AnonymousTranscriptionUsageService.class);
+    when(usage.withAnonymousTranscriptionLimit(any(), eq("203.0.113.7"), any()))
+        .thenThrow(
+            new com.phraselog.common.web.ApiErrorException(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "rate_limit_exceeded",
+                "오늘 사용할 수 있는 음성 입력 횟수를 모두 썼어요. 텍스트로 입력해보세요.",
+                "Check anonymous_transcription_usage for this client IP and date.",
+                true));
+
+    @SuppressWarnings("unchecked")
+    ObjectProvider<AnonymousTranscriptionUsageService> provider = mock(ObjectProvider.class);
+    when(provider.getObject()).thenReturn(usage);
+
+    MockMvc limited =
+        MockMvcBuilders.standaloneSetup(new TranscriptionController(service, provider))
+            .setControllerAdvice(new GlobalExceptionHandler())
+            .setMessageConverters(new MappingJackson2HttpMessageConverter(new ObjectMapper()))
+            .build();
+
+    MockMultipartFile audio =
+        new MockMultipartFile(
+            "audio", "voice.webm", "audio/webm;codecs=opus", WebmTestFixtures.webmOpus(2.0));
+
+    limited
+        .perform(
+            multipart("/api/v1/transcriptions")
+                .file(audio)
+                .header("X-Client-IP", "203.0.113.7")
+                .requestAttr(
+                    "phraselog.internalAuthPrincipal", InternalAuthPrincipal.ofSession("anon")))
+        .andExpect(status().is(HttpStatus.TOO_MANY_REQUESTS.value()))
+        .andExpect(jsonPath("$.error_code", equalTo("rate_limit_exceeded")));
+
+    verify(service, org.mockito.Mockito.never()).transcribe(any(), any());
   }
 }
