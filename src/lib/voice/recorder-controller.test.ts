@@ -620,3 +620,55 @@ describe("VoiceRecorderController — 구독", () => {
     expect(calls).toBe(afterFirst);
   });
 });
+
+// #143: 훅이 컨트롤러를 useState로 들고 있어서, 상태가 보존된 채 다시 마운트되면(StrictMode
+// 이중 호출, Fast Refresh) 정리만 돌고 같은 인스턴스가 계속 렌더된다. 되돌릴 수 없는 정리는
+// 그 시점부터 마이크 버튼을 영구히 먹통으로 만든다.
+describe("VoiceRecorderController — 정리 후 재구독", () => {
+  test("정리 뒤 다시 구독하면 탭이 다시 동작한다", async () => {
+    const { controller, h } = harness();
+
+    controller.dispose();
+    let notified = 0;
+    controller.subscribe(() => {
+      notified += 1;
+    });
+
+    controller.dispatch({ type: "tap" });
+    expect(controller.getSnapshot().machine.status).toBe(
+      "requesting_permission",
+    );
+
+    await h.resolvePermission();
+
+    expect(controller.getSnapshot().machine.status).toBe("recording");
+    expect(h.recorder.startCalls).toBe(1);
+    expect(notified).toBeGreaterThan(0);
+  });
+
+  test("녹음 중 정리되면 상태도 idle로 돌아간다 — 살아난 뒤 유령 녹음 화면을 남기지 않는다", async () => {
+    const { controller, h } = await startRecording();
+    h.advance(1_000);
+    h.tick();
+    expect(controller.getSnapshot().elapsedMs).toBeGreaterThan(0);
+
+    controller.dispose();
+
+    expect(controller.getSnapshot().machine.status).toBe("idle");
+    expect(controller.getSnapshot().elapsedMs).toBe(0);
+  });
+
+  test("정리하고 다시 구독해도 마이크는 새로 잡는다 — 놓은 스트림을 재사용하지 않는다", async () => {
+    const { controller, h } = await startRecording();
+    controller.dispose();
+    expect(h.stream.released).toBe(true);
+
+    controller.subscribe(() => {});
+    controller.dispatch({ type: "tap" });
+
+    // 이전 스트림 참조가 남아 있었다면 권한 요청 없이 곧장 recording으로 갔을 것이다.
+    expect(controller.getSnapshot().machine.status).toBe(
+      "requesting_permission",
+    );
+  });
+});

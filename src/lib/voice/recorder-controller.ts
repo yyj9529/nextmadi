@@ -104,6 +104,12 @@ export class VoiceRecorderController {
   }
 
   subscribe = (listener: () => void): (() => void) => {
+    // 구독은 되살리기도 한다. dispose()는 "이 컨트롤러는 끝났다"가 아니라 "지금 쥔 자원을
+    // 놓는다"는 뜻이다. 훅이 인스턴스를 useState로 들고 있어서(use-voice-recorder.ts) 상태가
+    // 보존된 채 다시 마운트되면 — StrictMode 이중 호출, Fast Refresh — 정리만 돌고 같은
+    // 인스턴스가 계속 렌더된다. 그때 disposed를 풀지 않으면 dispatch가 전부 버려져 마이크
+    // 버튼이 영구히 먹통이 된다(#143).
+    this.disposed = false;
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
@@ -126,7 +132,10 @@ export class VoiceRecorderController {
     this.onStatusChanged(previous, next);
   };
 
-  /** 언마운트. 어떤 경로로 끝나든 마이크와 진행 중 요청을 남기지 않는다. */
+  /**
+   * 구독이 끊길 때의 정리. 어떤 경로로 끝나든 마이크와 진행 중 요청을 남기지 않는다.
+   * 되돌릴 수 있다 — 다시 subscribe되면 살아난다(위 주석 참고).
+   */
   dispose = (): void => {
     this.disposed = true;
     this.permissionGeneration += 1;
@@ -134,6 +143,13 @@ export class VoiceRecorderController {
     this.abort?.abort("cancel");
     this.abort = null;
     this.listeners.clear();
+    // 자원을 다 놓고도 상태만 "녹음 중"으로 남으면, 되살아났을 때 recorder 없는 녹음 화면이
+    // 뜨고 탭도 먹지 않는다. 놓은 것과 보이는 것을 맞춰 idle로 되돌린다.
+    this.machine = INITIAL_VOICE_MACHINE;
+    this.elapsedMs = 0;
+    this.snapshot = { machine: INITIAL_VOICE_MACHINE, elapsedMs: 0 };
+    this.chunks = [];
+    this.blob = null;
   };
 
   private publish(): void {
