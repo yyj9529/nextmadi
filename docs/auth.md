@@ -201,13 +201,13 @@ same-email edge case). `OAuthIdentityService` is untouched by the email path.
 
 ### Token storage and rollback
 
-`verification_tokens` (V009) stores `sha256(rawToken + AUTH_SECRET)`, not the value in
+`verification_tokens` (V010) stores `sha256(rawToken + AUTH_SECRET)`, not the value in
 the emailed link — a database leak yields no usable links. Consume is delete-and-return
 in one transaction, so a replayed link authenticates once. Expiry is judged only by
 Auth.js, which owns the `Verification` error; the backend returns an expired row once and
 purges it.
 
-Rollback path for V009 is documented in the migration header: `DROP TABLE
+Rollback path for V010 is documented in the migration header: `DROP TABLE
 verification_tokens;` as a compensating migration, run after deploying an app build
 without the email provider. The table is standalone with no foreign keys in either
 direction and holds only single-use rows that expire within 24 hours, so the only loss is

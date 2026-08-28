@@ -22,14 +22,14 @@ This is the risky-ticket review required by `CLAUDE.md` section 9 (auth change).
 | S03 "send failed → never the sent state" | PASS | proven by test after B1's fix batch, not only by reading |
 | S03 "expired link → form pre-opened" | PASS | `shouldPromptEmailRetry` + `login/page.tsx` |
 | Google/Kakao continue to work | **FAIL → FIXED** | See B1 |
-| `verification_tokens` matches `data-model.md` | PASS | `V009__verification_tokens.sql` |
+| `verification_tokens` matches `data-model.md` | PASS | `V010__verification_tokens.sql` |
 | Consume is atomic single-use | PASS | `JdbcVerificationTokenRepository` uses a single `DELETE … RETURNING`; no read-then-delete window |
 | Lookup never creates a user | PASS | `@Transactional(readOnly = true)`; covered by `lookupNeverCreatesAUser` |
 | Same-email linking resolves to one `user_id` | PASS | `EmailIdentityService` case 2, with tests |
 | Email/OAuth internal-pass separation | PASS (code), PARTIAL (tests) | Each controller demands its own sentinel. Only OAuth-token→email-endpoint is tested; see F2 |
 | Raw token never leaks from our side | PASS | Nothing in the email package logs; only `sha256(raw + AUTH_SECRET)` is stored. See R1 for what Auth.js itself puts in the URL |
 | Error responses follow the contract | PASS | All new errors go through `ApiErrorException` |
-| Migration rollback documented | PASS | `V009` header, including the deploy-order caveat |
+| Migration rollback documented | PASS | `V010` header, including the deploy-order caveat |
 | No silent adapter stubs | PASS | Unimplemented methods throw and name themselves |
 
 ## Blocker (fixed in this branch)
@@ -92,7 +92,7 @@ too long for an interactive sign-in. Now pinned to 10s/10s/15s.
 
 **F3 — a 404 was read as "not found" from the status code alone.** An undeployed
 controller, a wrong base path, or a proxy also answer 404, so an outage rendered as "링크가
-만료됐어요" — precisely the behaviour the function's own comment said it avoided. V009's
+만료됐어요" — precisely the behaviour the function's own comment said it avoided. V010's
 rollback procedure (deploy the app without the email provider first) creates exactly that
 window. Now the error code is checked too.
 
@@ -222,7 +222,7 @@ lifetime lives outside our code.
 | Item | Verdict |
 |---|---|
 | Service unit and integration tests pass | PASS — **422 tests, 421 passed, 0 failed, 1 skipped** on `fdd40f7`. The skip is the pre-existing `@Disabled` OpenAI live test. The count matters as much as the result: three earlier runs on this branch reported success without proving anything — one with Docker unresponsive (113 skipped), one that Gradle served from cache as `UP-TO-DATE` with no tests run at all, and one where a container failed to launch and silently dropped five tests (417 instead of 422) |
-| DB migration reviewed; rollback path documented | PASS — `V009` header |
+| DB migration reviewed; rollback path documented | PASS — `V010` header |
 | Idempotency preserved where claimed | PASS sequentially; see the concurrency gap |
 | Error response follows the contract | PASS |
 | No secret exposure | PASS with O5 noted |

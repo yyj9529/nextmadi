@@ -57,7 +57,7 @@ superseding ADR-010's data-ownership boundary.
 ## Files expected to change
 
 Backend:
-- `backend/src/main/resources/db/migration/V009__verification_tokens.sql` (new)
+- `backend/src/main/resources/db/migration/V010__verification_tokens.sql` (new)
 - `backend/src/main/java/com/phraselog/auth/email/**` (new package)
 - `backend/src/main/java/com/phraselog/auth/identity/OAuthIdentityRepository.java` and
   `JdbcOAuthIdentityRepository.java` (extend for email identity linking)
@@ -79,13 +79,13 @@ Docs / CI:
 
 ## Implementation units
 
-### U1. `verification_tokens` table + Flyway V009
+### U1. `verification_tokens` table + Flyway V010
 
 **Goal.** A persistent, single-use store for magic-link tokens.
 
 **Dependencies.** None. **Approval gate: DB migration.**
 
-**Files.** `backend/src/main/resources/db/migration/V009__verification_tokens.sql`,
+**Files.** `backend/src/main/resources/db/migration/V010__verification_tokens.sql`,
 `docs/data-model.md`.
 
 **Approach.** Auth.js `VerificationToken` shape: `identifier` (the email), `token`,

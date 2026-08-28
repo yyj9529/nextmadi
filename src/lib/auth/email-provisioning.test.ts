@@ -190,7 +190,7 @@ describe("consumeVerificationToken", () => {
   test("throws on a 404 that is not our not-found contract", async () => {
     // 배포되지 않은 컨트롤러, 잘못된 base path, 프록시도 404를 준다. 상태 코드만 보면
     // 그 전부가 "링크가 만료됐어요"가 되어 우리 장애가 사용자 잘못처럼 보인다.
-    // V009 롤백 절차(앱 먼저 내리기)가 만드는 구간이 정확히 이것이다.
+    // V010 롤백 절차(앱 먼저 내리기)가 만드는 구간이 정확히 이것이다.
     const { fetcher } = recordingFetcher(
       () => new Response("Not Found", { status: 404 }),
     );
