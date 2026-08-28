@@ -71,6 +71,9 @@ export function useVoiceRecorder({
   }, [controller, onTranscript]);
 
   // 언마운트: 화면을 떠나도 마이크와 진행 중 요청을 반드시 정리한다.
+  // 이 정리는 진짜 언마운트가 아닐 때도 돈다(StrictMode 이중 호출, Fast Refresh). 컨트롤러는
+  // useState가 들고 있어 그 경우 같은 인스턴스가 그대로 살아 렌더되므로, dispose()는 되돌릴
+  // 수 있어야 한다 — 아래 useSyncExternalStore가 다시 구독하면서 되살린다(#143).
   useEffect(() => () => controller.dispose(), [controller]);
 
   const snapshot = useSyncExternalStore(
