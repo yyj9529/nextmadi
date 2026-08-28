@@ -35,7 +35,14 @@ authoritative for eval numbers and this file is corrected.
 ## UI change
 
 - Relevant screen GWT (`docs/screens/sNN.md`) satisfied.
-- Browser-visible path verified via `/ce-test-browser` or a recorded manual check.
+- Browser-visible path verified against a running `bun run dev` server, via
+  `/ce-test-browser`, `/ui-verify`, or a recorded manual check. A production build is
+  not required for this gate.
+  - Open the app on `http://localhost:3000` or `http://127.0.0.1:3000`. The printed
+    network URL (a LAN address) is not on the dev origin allowlist, so HMR is refused
+    there and the page never hydrates — inputs and clicks die (#131). If browser QA
+    from a phone becomes necessary, that address has to be added to
+    `allowedDevOrigins` first.
 - Loading, error, and empty states handled.
 
 ## Backend / auth / DB change
@@ -51,7 +58,8 @@ authoritative for eval numbers and this file is corrected.
 
 - S07 gate: `.github/workflows/eval.yml` (CI), blocking on regression criteria.
 - Tests and lint: CI on PR.
-- Browser and manual checks: evidence linked in the PR description.
+- Browser and manual checks: run against `bun run dev` (see "UI change"), evidence
+  linked in the PR description.
 - The owner is the final merge gate; gates inform that judgment, they do not auto-merge.
 
 ## Related
