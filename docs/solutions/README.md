@@ -49,6 +49,7 @@
 | effect 내 동기 setState (lint) | 코드 | 3 | 관행만 (문서 없음) | [set-state-in-effect](set-state-in-effect.md) |
 | 목 데이터 ↔ 실데이터 계약 드리프트 | 코드 | 2 | 없음 | [mock-to-real-drift](mock-to-real-drift.md) |
 | 도는 dev 서버의 브랜치를 확인 안 하고 디버깅 | 환경 | 1 | 없음 | — |
+| 실행 안 한 검증을 Pass로 기록 | 검증 | 1 | 없음 | — |
 | 샌드박스 권한 에스컬레이션 | 환경 마찰 | 17 | — | 자동화 대상 아님 (아래 참고) |
 
 샌드박스 에스컬레이션은 실수가 아니라 설계된 마찰이다. `SECURITY.md`의 승인 경계가
