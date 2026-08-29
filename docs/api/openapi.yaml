@@ -95,9 +95,17 @@ paths:
 
         The Next.js BFF supplies `X-Internal-Auth` for both signed-in and
         pre-signup callers. Signed-in calls carry `user_id`; pre-signup S02
-        calls carry `session_token`.
+        calls carry `session_token` plus `X-Client-IP`, and are capped at 10
+        transcriptions per IP per day (`anonymous_transcription_usage`).
+        That counter is deliberately separate from the 2-per-day analysis
+        allowance: a mis-transcription must not spend an analysis, which is the
+        whole reason transcription is a distinct step (s02.md US1-4).
+        A no-speech result still consumes the allowance because Whisper was
+        already billed; failures with no provider charge release it.
         Each call logs one `ai_request_logs` row with purpose
         `stt_transcription`.
+      parameters:
+        - $ref: "#/components/parameters/ClientIp"
       requestBody:
         required: true
         content:
@@ -129,7 +137,24 @@ paths:
                     nullable: true
                     description: Model-dependent; null when unavailable (AI_PIPELINE.md).
         "400":
-          $ref: "#/components/responses/ValidationError"
+          description: |
+            The audio itself is outside spec (`validation_failed`) — not
+            WebM/Opus, longer than 60 seconds, or missing. Re-sending the same
+            file returns the same result; the client must re-record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: |
+            The audio was well-formed but no speech was recognised
+            (`empty_transcript`). Distinct from 400 so the client can prompt
+            "say it again" instead of "record again" (s02.md UI states). The
+            Whisper call was billed and is recorded in `ai_request_logs`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "429":
           $ref: "#/components/responses/RateLimitExceeded"
 

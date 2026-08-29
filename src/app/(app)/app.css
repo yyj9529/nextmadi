@@ -1098,12 +1098,6 @@
   box-shadow: 0 0 0 10px #f6caca;
 }
 
-.try-mic-caption {
-  margin: 16px 0 0;
-  color: var(--app-faint);
-  font-size: 0.75rem;
-}
-
 .try-submit {
   margin-top: auto;
 }
@@ -3037,6 +3031,82 @@
 
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
+    animation: none;
+  }
+}
+
+/* 음성 입력 (#36) — S02/S04 공유. 마이크 버튼 자체는 화면별 기존 클래스
+   (.mic-button / .try-mic-button)를 그대로 쓰고, 여기서는 상태 표시만 얹는다. */
+.voice-input {
+  text-align: center;
+}
+
+.voice-input-caption {
+  margin: 16px 0 0;
+  color: var(--app-faint);
+  font-size: 0.75rem;
+}
+
+.voice-input-hero .voice-input-caption {
+  margin-top: 0;
+  font-size: 0.8125rem;
+}
+
+/* 녹음 중임을 분명히 보여준다 — 마이크가 열려 있는데 모르는 상태가 없어야 한다. */
+.mic-button.is-recording,
+.try-mic-button.is-recording {
+  animation: voice-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes voice-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 10px #f6caca;
+  }
+  50% {
+    box-shadow: 0 0 0 18px #f0a9a9;
+  }
+}
+
+.voice-input-notice {
+  margin: 12px auto 0;
+  max-width: 320px;
+  border-radius: 10px;
+  background: #f3f4f6;
+  padding: 12px 14px;
+}
+
+.voice-input-notice-message {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.voice-input-notice-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.voice-input-retry,
+.voice-input-use-text {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--app-mic-red);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.voice-input-use-text {
+  color: var(--app-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mic-button.is-recording,
+  .try-mic-button.is-recording {
     animation: none;
   }
 }
