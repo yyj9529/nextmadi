@@ -335,4 +335,43 @@ describe("authConfig", () => {
 
     expect(signInResult).toBe("/login?callback_error=account_link_required");
   });
+
+  // 백엔드가 안 떠 있을 때 실제로 도는 경로다. 리다이렉트만 확인하면 조용한 실패를 그대로
+  // 통과시키므로, 서버 로그에 원인이 남는지까지 본다. 로그가 없으면 화면의 "다시 시도해주세요"
+  // 하나로 원인을 추적해야 한다.
+  test("logs the cause when provisioning fails for a non-conflict reason", async () => {
+    provisionOAuthIdentity = mock(async () => {
+      throw new TypeError("fetch failed");
+    });
+    const errors: unknown[][] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => {
+      errors.push(args);
+    };
+
+    try {
+      const authConfig = buildAuthConfig({ provisionOAuthIdentity });
+
+      const signInResult = await authConfig.callbacks?.signIn?.({
+        user: { email: "down@example.com", name: "Backend Down" },
+        account: {
+          provider: "google",
+          providerAccountId: "google-1",
+          type: "oauth",
+        } satisfies Partial<Account> as Account,
+        profile: {},
+      });
+
+      expect(signInResult).toBe("/login?callback_error=oauth");
+      expect(errors).toHaveLength(1);
+      expect(String(errors[0][0])).toContain("google");
+      expect(String(errors[0][1])).toContain("fetch failed");
+      // 이메일이 로그로 새지 않는지 확인한다 (SECURITY.md).
+      expect(JSON.stringify(errors.map(String))).not.toContain(
+        "down@example.com",
+      );
+    } finally {
+      console.error = originalError;
+    }
+  });
 });
