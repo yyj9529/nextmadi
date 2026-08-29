@@ -8,6 +8,10 @@ const { createBffAdapter } = await import("./bff-adapter");
 
 const SECRET = "nextjs-email-provisioning-secret-0123456789";
 const EXPIRES_ISO = "2026-08-28T00:00:00.000Z";
+// 만료 판정을 보는 테스트는 지금 기준으로 잡는다. 고정 날짜를 쓰면 그 날이 지나는 순간
+// "유효한 토큰" 케이스가 조용히 만료 케이스로 바뀌어 검사하려던 것을 더 이상 검사하지 않는다.
+const FUTURE_ISO = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+const PAST_ISO = new Date(Date.now() - 60 * 1000).toISOString();
 
 const IDENTITY = {
   userId: "user-1",
@@ -58,21 +62,35 @@ describe("createVerificationToken", () => {
 });
 
 describe("useVerificationToken", () => {
-  test("returns the record with a Date expiry", async () => {
-    const { adapter } = adapterWith(() =>
-      json({
-        identifier: "mia@example.com",
-        token: "hashed",
-        expires: EXPIRES_ISO,
-      }),
-    );
-
-    const result = await adapter.useVerificationToken!({
+  const consuming = (expires: unknown) =>
+    adapterWith(() =>
+      json({ identifier: "mia@example.com", token: "hashed", expires }),
+    ).adapter.useVerificationToken!({
       identifier: "mia@example.com",
       token: "hashed",
     });
 
+  test("returns the record with a Date expiry", async () => {
+    const result = await consuming(FUTURE_ISO);
+
     expect(result!.expires).toBeInstanceOf(Date);
+    expect(result!.expires.toISOString()).toBe(FUTURE_ISO);
+  });
+
+  // 만료 판정이 원래는 @auth/core 안의 한 줄에만 있었다. 캐럿 범위의 프리릴리스가
+  // 보안상 의미 있는 수명의 유일한 집행자였다.
+  test("refuses a token the backend consumed after it expired", async () => {
+    expect(await consuming(PAST_ISO)).toBeNull();
+  });
+
+  test.each([
+    ["not-a-date", "wire format drift"],
+    [null, "a null the contract does not allow"],
+  ])("refuses an unusable expiry (%s)", async (expires) => {
+    // 계약을 벗어난 값이 Date로 어떻게 떨어지는지는 값마다 다르다 — "not-a-date"는 Invalid Date라
+    // NaN 비교가 false가 되어 상류에서 "만료되지 않음"으로 통과하고, null은 epoch가 된다.
+    // 어느 쪽이든 결론은 거절이어야 한다.
+    expect(await consuming(expires)).toBeNull();
   });
 
   test("returns null when the backend has no such token", async () => {

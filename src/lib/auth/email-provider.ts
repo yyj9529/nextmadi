@@ -21,7 +21,8 @@ import { checkSendQuota } from "./email-provisioning";
 export const EMAIL_LINK_MAX_AGE_SECONDS = 24 * 60 * 60;
 
 export const MISSING_SMTP_CONFIG_MESSAGE =
-  "Email sign-in requires AUTH_EMAIL_SERVER_HOST/PORT/USER/PASSWORD and EMAIL_FROM in production";
+  "Email sign-in requires AUTH_EMAIL_SERVER_HOST/PORT/USER/PASSWORD and EMAIL_FROM. " +
+  "Set AUTH_EMAIL_DEV_CONSOLE=true to print the link to the console during local development.";
 
 export type EmailProviderEnv = {
   AUTH_EMAIL_SERVER_HOST?: string;
@@ -30,6 +31,11 @@ export type EmailProviderEnv = {
   AUTH_EMAIL_SERVER_PASSWORD?: string;
   EMAIL_FROM?: string;
   NODE_ENV?: string;
+  /** 콘솔 출력 경로를 여는 유일한 스위치. 로컬 `.env`에만 둔다. */
+  AUTH_EMAIL_DEV_CONSOLE?: string;
+  /** Vercel이 모든 배포에 심는 값. 어느 쪽이든 있으면 배포된 것으로 본다. */
+  VERCEL?: string;
+  VERCEL_ENV?: string;
 };
 
 export type BuildEmailProviderOptions = {
@@ -122,11 +128,11 @@ function underSendQuota<T extends { identifier: string }>(
 /**
  * SMTP가 설정되지 않았을 때의 발송 경로.
  *
- * 운영에서는 던진다. 아무 일도 하지 않고 성공으로 넘어가면 사용자는 오지 않을 메일을 기다리고,
+ * 기본은 던지는 것이다. 아무 일도 하지 않고 성공으로 넘어가면 사용자는 오지 않을 메일을 기다리고,
  * 로그에도 아무 흔적이 남지 않는다.
  *
- * 개발에서는 링크를 콘솔에 출력한다. SES 프로덕션 액세스가 나오기 전에도 흐름 전체를 검증할 수
- * 있어야 하기 때문이다.
+ * 콘솔 출력은 SES 프로덕션 액세스가 나오기 전에도 흐름 전체를 검증하려고 존재한다. 출력되는 것은
+ * 그 링크를 가진 누구나 로그인시키는 자격증명이므로, 여는 조건을 명시적으로 고른 경우로 좁힌다.
  */
 function unconfiguredSender(
   env: EmailProviderEnv,
@@ -141,11 +147,31 @@ function unconfiguredSender(
     });
 
   return async ({ identifier, url }: { identifier: string; url: string }) => {
-    if (env.NODE_ENV === "production") {
+    if (!devConsoleAllowed(env)) {
       throw new Error(MISSING_SMTP_CONFIG_MESSAGE);
     }
     log({ identifier, url });
   };
+}
+
+/**
+ * 콘솔에 매직링크를 찍어도 되는가.
+ *
+ * 원래 조건은 `NODE_ENV !== "production"` 하나였다. `NODE_ENV`는 "빌드 최적화를 켤 것인가"를
+ * 뜻하지 "이 프로세스가 배포돼 있는가"를 뜻하지 않는다 — 스테이징 박스나 `NODE_ENV`를 넘기지 않고
+ * 띄운 컨테이너는 production이 아니면서 외부에 노출돼 있고, 그런 곳에서는 stdout을 읽을 수 있는
+ * 누구나 남의 계정으로 로그인할 수 있었다. 기본값이 여는 쪽이라는 게 문제였다.
+ *
+ * 그래서 세 조건을 모두 만족해야 열린다. 첫 번째가 실제 스위치이고 나머지 둘은, 그 스위치가
+ * 실수로 배포 환경 변수에 들어갔을 때를 위한 것이다.
+ */
+function devConsoleAllowed(env: EmailProviderEnv) {
+  return (
+    env.AUTH_EMAIL_DEV_CONSOLE === "true" &&
+    !env.VERCEL &&
+    !env.VERCEL_ENV &&
+    env.NODE_ENV !== "production"
+  );
 }
 
 async function sendKoreanVerificationRequest(

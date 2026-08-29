@@ -76,9 +76,10 @@ public class VerificationTokenService {
   }
 
   /**
-   * Consumes a token. Expiry is deliberately not judged here: Auth.js owns the Verification error
-   * and compares {@code expires} itself, so an expired row is returned once and then gone. Judging
-   * it in both places invites the two sides to disagree.
+   * Consumes a token. Expiry is deliberately not judged here — the row is deleted either way, and
+   * the caller decides. The BFF adapter refuses an expired or unparseable {@code expires} before
+   * Auth.js sees it, and Auth.js compares {@code expires} again; both reach the same Verification
+   * outcome, so this endpoint stays a store operation rather than a third judge with its own clock.
    */
   @Transactional
   public VerificationTokenResult consume(ConsumeVerificationTokenRequest request) {

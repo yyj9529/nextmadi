@@ -245,12 +245,48 @@ describe("in production without SMTP configuration", () => {
   });
 });
 
-describe("in development without SMTP configuration", () => {
+describe("without SMTP configuration, the console fallback", () => {
+  const DEV_CONSOLE_ENV = {
+    NODE_ENV: "development",
+    AUTH_EMAIL_DEV_CONSOLE: "true",
+  };
+
+  const send = (env: Record<string, string>) => {
+    const provider = buildEmailProvider(
+      withQuota({ env, logMagicLink: () => {} }),
+    );
+    return configured(provider).options.sendVerificationRequest!({
+      identifier: "mia@example.com",
+      url: "http://localhost:3000/api/auth/callback/nodemailer?token=abc",
+    });
+  };
+
+  // 출력되는 링크는 그 자체로 로그인 자격증명이다. 기본값이 "출력한다"이면 스테이징 박스나
+  // NODE_ENV 없이 뜬 컨테이너에서 stdout을 읽는 누구나 남의 계정에 들어갈 수 있다.
+  test("stays shut when the switch is absent, even outside production", async () => {
+    await expect(send({ NODE_ENV: "development" })).rejects.toThrow(
+      /Email sign-in requires/,
+    );
+  });
+
+  test.each([
+    ["VERCEL", "1"],
+    ["VERCEL_ENV", "preview"],
+    ["NODE_ENV", "production"],
+  ])(
+    "stays shut when the switch is on but %s says this is deployed",
+    async (key, value) => {
+      await expect(send({ ...DEV_CONSOLE_ENV, [key]: value })).rejects.toThrow(
+        /Email sign-in requires/,
+      );
+    },
+  );
+
   test("logs the magic link instead of sending, and does not throw", async () => {
     const logged: { identifier: string; url: string }[] = [];
     const provider = buildEmailProvider(
       withQuota({
-        env: { NODE_ENV: "development" },
+        env: DEV_CONSOLE_ENV,
         logMagicLink: (params: { identifier: string; url: string }) =>
           logged.push(params),
       }),
@@ -271,7 +307,7 @@ describe("in development without SMTP configuration", () => {
 
   test("keeps the same 24h expiry as the real path", () => {
     const provider = buildEmailProvider(
-      withQuota({ env: { NODE_ENV: "development" }, logMagicLink: () => {} }),
+      withQuota({ env: DEV_CONSOLE_ENV, logMagicLink: () => {} }),
     );
 
     expect(configured(provider).options.maxAge).toBe(EMAIL_LINK_MAX_AGE_SECONDS);
