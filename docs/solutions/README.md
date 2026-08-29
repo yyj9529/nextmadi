@@ -49,7 +49,7 @@
 | effect 내 동기 setState (lint) | 코드 | 3 | 관행만 (문서 없음) | [set-state-in-effect](set-state-in-effect.md) |
 | 목 데이터 ↔ 실데이터 계약 드리프트 | 코드 | 2 | 없음 | [mock-to-real-drift](mock-to-real-drift.md) |
 | 라이브러리 실제 호출 지점을 안 읽고 설계 확정 | 설계 | 2 | 없음 | [library-call-sites-unread](library-call-sites-unread.md) |
-| 도는 dev 서버의 브랜치를 확인 안 하고 디버깅 | 환경 | 1 | 없음 | — |
+| 도는 dev 서버의 브랜치를 확인 안 하고 디버깅 | 환경 | 2 | 없음 | [dev-server-branch-unverified](dev-server-branch-unverified.md) |
 | 실행 안 한 검증을 Pass로 기록 | 검증 | 1 | 없음 | — |
 | 이슈 본문의 미검증 관찰이 repro를 오도 | 프로세스 | 1 | 없음 | 노트 없음 (1회) |
 | 샌드박스 권한 에스컬레이션 | 환경 마찰 | 17 | — | 자동화 대상 아님 (아래 참고) |
