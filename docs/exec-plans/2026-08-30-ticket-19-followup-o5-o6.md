@@ -31,10 +31,12 @@ wire-format pinning)는 이 계획 밖이다 — 대부분 #18에서 물려받�
 **문제 1.** 판정이 `@auth/core/lib/actions/callback/index.js:147` 한 줄뿐인데
 `package.json`이 캐럿 범위 프리릴리스를 가리켰다.
 
-**문제 2 (조사 중 발견).** 그 비교는 `expires`가 유효한 Date일 때만 동작한다. 백엔드 wire
-format이 ISO 문자열에서 벗어나면 `new Date(...)`가 `Invalid Date`가 되고
-`NaN < Date.now()`는 **false** — 만료된 링크가 영구 유효해진다. 즉 의존성 문제와 무관하게
-우리 쪽 드리프트만으로도 열린다.
+**문제 2 (조사 중 발견).** 그 비교는 `expires`가 파싱되는 값일 때만 동작한다. 파싱되지 않는
+값이 오면 `new Date(...)`가 `Invalid Date`가 되고 `NaN < Date.now()`는 **false** —
+만료된 링크가 영구 유효해진다. 즉 의존성 문제와 무관하게 우리 쪽 드리프트만으로도 열린다.
+
+계약이 요구하는 ISO 문자열인지까지 보는 것은 아니다. epoch 밀리초 숫자나 RFC 날짜 문자열은
+파싱되고, 파싱된 순간이 옳으면 판정도 옳다. 계약 고정은 #19 리뷰의 별도 항목이다.
 
 **조치.** `bff-adapter.ts`의 `useVerificationToken`이 만료됐거나 유한하지 않은 `expires`를
 `null`로 거절한다. 유한성을 먼저 보는 이유가 문제 2다 — 이 방향의 실패는 닫히는 쪽이어야 한다.

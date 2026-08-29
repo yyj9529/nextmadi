@@ -231,11 +231,16 @@ The judging happens above it, in `bff-adapter.ts`'s `useVerificationToken`, whic
 same `Verification` error, so the user-visible outcome is unchanged.
 
 That duplication is deliberate, for the same reason the OAuth email-verification rule runs
-on both sides. The Auth.js comparison alone was load-bearing while `package.json` carries a
-caret range over a prerelease, and it is only correct when `expires` is a valid `Date`: an
-unparseable value becomes `Invalid Date`, `NaN < Date.now()` is `false`, and an expired link
-would read as permanently valid. Our check asks for a finite timestamp first, so a wire-format
-drift closes the link rather than opening it.
+on both sides. The Auth.js comparison was the only enforcement while `package.json` carried a
+caret range over a prerelease; the range is now pinned to an exact version, but keeping a
+single enforcer would raise the same question at every upgrade.
+
+It is also correct only when `expires` parses. An unparseable value becomes `Invalid Date`,
+`NaN < Date.now()` is `false`, and an expired link would read as permanently valid. Our check
+asks for a finite timestamp first, so that failure closes the link rather than opening it.
+The finiteness check is a parseability guard, not contract validation — an epoch-milliseconds
+number or an RFC date string parses, and where the parsed instant is right the verdict is right.
+Pinning the wire format itself is a separate open item from the #19 review.
 
 Rollback path for V010 is documented in the migration header: `DROP TABLE
 verification_tokens;` as a compensating migration, run after deploying an app build
