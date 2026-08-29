@@ -122,8 +122,10 @@ class TranscriptionServiceTests {
             });
   }
 
+  // 무발화는 규격 오류(400)와 다른 실패다. 클라이언트가 "다시 녹음" 대신 "다시 말해보기"로
+  // 안내해야 하므로 422 empty_transcript 로 구분해서 내린다(s02.md UI states).
   @Test
-  void blankProviderTranscriptReturnsValidationFailureAndLogsError() throws Exception {
+  void blankProviderTranscriptReturnsEmptyTranscriptAndLogsError() throws Exception {
     RecordingLogStore logStore = new RecordingLogStore();
     FakeOpenAiClient client = FakeOpenAiClient.returning(MAPPER.readTree("{\"text\":\"   \"}"));
     TranscriptionService service = service(client, logStore);
@@ -136,8 +138,10 @@ class TranscriptionServiceTests {
         .satisfies(
             error -> {
               ApiErrorException api = (ApiErrorException) error;
-              assertThat(api.status().value()).isEqualTo(400);
-              assertThat(api.errorCode()).isEqualTo("validation_failed");
+              assertThat(api.status().value()).isEqualTo(422);
+              assertThat(api.errorCode()).isEqualTo("empty_transcript");
+              // 같은 오디오를 다시 보내도 결과가 같다.
+              assertThat(api.retryable()).isFalse();
             });
 
     assertThat(logStore.entries())
@@ -146,6 +150,28 @@ class TranscriptionServiceTests {
             entry -> {
               assertThat(entry.status()).isEqualTo(AiRequestStatus.ERROR);
               assertThat(entry.errorCode()).isEqualTo(AiErrorCode.UNKNOWN);
+              // 무발화라도 Whisper 과금은 발생했다 — 비용이 null 이면 남용이 로그에서 보이지 않는다.
+              assertThat(entry.estimatedCostUsd()).isNotNull();
+              assertThat(entry.estimatedCostUsd()).isGreaterThan(java.math.BigDecimal.ZERO);
+            });
+  }
+
+  // 진짜 규격 오류는 계속 400 validation_failed 여야 한다 — 위 422와 갈라지는 것이 이 변경의 요점이다.
+  @Test
+  void malformedAudioStillReturnsValidationFailed() {
+    RecordingLogStore logStore = new RecordingLogStore();
+    TranscriptionService service = service(FakeOpenAiClient.returning(null), logStore);
+
+    assertThatThrownBy(
+            () ->
+                service.transcribe(
+                    InternalAuthPrincipal.ofSession("anon"), audio("not a webm".getBytes())))
+        .isInstanceOf(ApiErrorException.class)
+        .satisfies(
+            error -> {
+              ApiErrorException api = (ApiErrorException) error;
+              assertThat(api.status().value()).isEqualTo(400);
+              assertThat(api.errorCode()).isEqualTo("validation_failed");
             });
   }
 
