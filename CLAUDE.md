@@ -36,7 +36,7 @@ Strategic context: `PROJECT_CONTEXT.md`. Current scope: `docs/PRD.md`. Key decis
 - **Source citation with date.** Pricing, model names, library versions, regulations — cite source URL and verification date in the doc.
 - **Cross-validation for strong claims.** Before accepting external feedback as "valuable" (especially from ChatGPT/Gemini suggestions), apply 3-axis validation below.
 - **Decision-logged > implementation-pre-specified.** Document decisions made. Don't pre-spec implementation details that should be discovered during coding (e.g., exact JWT claim structure, specific error strings, library version pins).
-- **Session log on task completion.** At the end of any work session involving code changes, decisions, errors, or debugging — write a log file to `%USERPROFILE%\Desktop\dev-logs\` named `YYYYMMDD_HHMM_<short-title>.md`. Cover: decisions made and why, commands run, errors encountered and how they were fixed. Skip only for trivial one-liner answers with no side effects. 에러가 있었다면 dev-log에 더해 `docs/solutions/README.md` 대장의 재발 횟수도 갱신한다 (워크플로 4번).
+- **Session log on task completion.** At the end of any work session involving code changes, decisions, errors, or debugging — write a log file to `%USERPROFILE%\Desktop\dev-logs\` named `YYYYMMDD_HHMM_<short-title>.md`. Cover: decisions made and why, commands run, errors encountered and how they were fixed. Skip only for trivial one-liner answers with no side effects. 에러가 있었다면 dev-log에 더해 해당 `docs/solutions/<패턴>.md`의 재발 이력에도 한 줄 추가한다 (워크플로 4번).
 
 ### ADR style
 - 300–500 words. Drew DeVault sourcehut style: short, decision-focused.
@@ -93,10 +93,15 @@ Only feedback passing all three goes into docs. Authority-sounding details that 
 실수는 비용이 아니라 자산이다. 단, 기록 → 분석 → 시스템 반영까지 갔을 때만 그렇다.
 기록만 쌓이면 그냥 비용이다.
 
-- **저장소는 `docs/solutions/` 하나다.** 실수 대장(`docs/solutions/README.md`)에 패턴별
-  재발 횟수를 세고, 패턴마다 노트 파일 하나를 둔다. 별도 `lessons.md`는 만들지 않는다.
-- 세션에서 실수가 나왔으면 dev-log에 서술로 남긴 뒤, 대장에서 해당 패턴의 재발 횟수를
-  +1 한다. 대장에 없는 패턴이면 새 줄을 추가한다.
+- **저장소는 `docs/solutions/` 하나다.** 패턴마다 노트 파일 하나를 두고, 실수 대장
+  (`docs/solutions/README.md`)은 그 목록과 에스컬레이션 단계를 든다. 별도 `lessons.md`는
+  만들지 않는다.
+- **재발 횟수의 출처는 노트의 `## 재발 이력` 목록 하나뿐이다.** 대장 표에는 숫자가 없다.
+  숫자가 두 곳에 있으면 티켓마다 같은 셀을 고쳐 충돌하고, 충돌을 한쪽으로 해소하는
+  순간 재발 기록이 조용히 사라진다. 실제로 세 패턴이 그렇게 어긋난 적이 있다.
+- 세션에서 실수가 나왔으면 dev-log에 서술로 남긴 뒤, 해당 노트의 재발 이력에 dev-log
+  파일명을 **한 줄에 한 건**으로 추가한다. 대장에 없는 새 패턴일 때만 대장 표에
+  행을 추가한다.
 - **에스컬레이션은 심각도가 아니라 횟수로 판단한다.** 1회 기록만, 2회 노트 작성,
   3회 자동 차단(hook/테스트/lint/CI), 4회 이상이면 3회 조치가 틀렸다는 뜻이니 조치를
   재설계한다.
@@ -189,7 +194,7 @@ When a new AI session opens (both Claude Code and Codex follow this same sequenc
 3. Read `PROJECT_CONTEXT.md` (product identity, target user pain — the shared goal).
 4. Read `SECURITY.md` (forbidden areas, approval matrix).
 5. Read `docs/decisions/INDEX.md` (one-line ADR summaries — not the full ADRs).
-6. Read `docs/solutions/README.md` (실수 대장 — 패턴별 재발 횟수 표. 개별 노트는 읽지
+6. Read `docs/solutions/README.md` (실수 대장 — 패턴별 에스컬레이션 단계 표. 개별 노트는 읽지
    않는다). 이 저장소에서 이미 반복된 실수를 알고 시작하기 위한 것이다.
 7. For the specific task, fetch only the relevant doc(s) per the file responsibility
    map and the context loading policy below.
@@ -221,14 +226,16 @@ mostly-irrelevant context degrades output (context rot).
 
 | 티켓 유형 | 노트 |
 |---|---|
-| 백엔드 / DB / auth | `spotless-before-push`, `spring-conditional-bean-ordering`, `green-build-proves-nothing` |
+| 백엔드 / DB / auth | `spotless-before-push`, `spring-conditional-bean-ordering`, `testcontainers-skipped-locally`, `silent-failure-looks-like-success` |
 | 프론트엔드 / UI | `set-state-in-effect`, `stale-next-cache`, `generated-file-churn` |
-| AI 파이프라인 / eval | `green-build-proves-nothing`, `windows-encoding` |
+| AI 파이프라인 / eval | `silent-failure-looks-like-success`, `windows-encoding` |
 | 브랜치 정리 / 머지 / PR | `branch-hygiene`, `tool-syntax-mixing` |
 | 목 데이터 → 실 API 전환 | `mock-to-real-drift` |
 | env 폴백이 있는 BFF 함수 (`src/lib/**`) 테스트 | `ambient-env-in-tests` |
+| 버그 재현 / 로컬 디버깅 | `dev-server-branch-unverified`, `library-call-sites-unread` |
 
-대장 표에서 해당 패턴의 재발 횟수가 0이 아니면 그 노트를 읽는다. 전부 읽지 않는다.
+대장 표에 그 패턴 행이 있으면 노트를 읽는다. 전부 읽지 않는다. 단계가 "자동화" 이상인데
+"현재 반영"이 비어 있는 행은 우선해서 읽는다 — 아직 사람 기억에만 의존 중인 것들이다.
 
 For screen implementation, `docs/screens/sNN.md` is the source of truth; read it
 rather than the full `docs/PRD.md`.

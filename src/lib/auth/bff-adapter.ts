@@ -22,7 +22,7 @@ import {
 //   - linkAccount는 oauth/webauthn 분기 전용이라 이 경로에서 호출되지 않는다.
 //
 // 구현하지 않은 메서드는 조용히 null을 돌려주지 않고 던진다. 그럴듯한 값을 돌려주면 "없는 기능"이
-// "성공한 로그인"처럼 보인다 (docs/solutions/green-build-proves-nothing.md).
+// "성공한 로그인"처럼 보인다 (docs/solutions/silent-failure-looks-like-success.md).
 
 const UNSUPPORTED = [
   "getUserByAccount",
