@@ -224,6 +224,305 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   # ───────────────────────────────────────────────────────────────────────────
+  # Auth / Email magic link (S03, #19)
+  # ───────────────────────────────────────────────────────────────────────────
+  #
+  # These six operations exist because Auth.js's email provider requires an
+  # Adapter, and ADR-010 keeps the database behind Spring Boot. The adapter runs
+  # in Next.js and reaches its storage through here rather than connecting to
+  # RDS. See docs/auth.md.
+  #
+  # They are the only endpoints whose caller has no user yet, so they are
+  # authorized by a dedicated `session_token` value (`__email_provisioning__`)
+  # rather than a `user_id`. The OAuth provisioning token does not open them and
+  # this one does not open OAuth provisioning — a leak on one side does not carry
+  # the other side's authority.
+  #
+  # Response bodies here are camelCase, following `/auth/oauth/identity` (#18).
+  # The rest of this contract is snake_case; unifying the two auth-provisioning
+  # endpoints is tracked as follow-up work, not done piecemeal.
+
+  /auth/email/verification-tokens:
+    post:
+      tags: [auth]
+      summary: Store a magic-link verification token
+      description: |
+        Backs the Auth.js adapter's `createVerificationToken`. Called while the
+        link is being sent, before anyone has clicked anything.
+
+        `token` is the SHA-256 hash Auth.js computes over the raw token plus
+        `AUTH_SECRET` — the raw token only ever exists in the email. The backend
+        stores it verbatim and must not hash again. Token values are never
+        logged.
+
+        The outstanding-token cap is checked here too, but this is the backstop,
+        not the enforcement point — see
+        `/auth/email/verification-tokens/quota`. Auth.js does not cancel this
+        call when the send is refused, so without a cap here every refused
+        attempt would still write a row, inflating the count and locking the
+        address out until expiry. Refusing here is harmless because the quota
+        check already stopped the mail.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, token, expires]
+              properties:
+                identifier:
+                  type: string
+                  format: email
+                  description: Email address. Normalized to lowercase by the backend.
+                token:
+                  type: string
+                  maxLength: 255
+                  description: Hashed token from Auth.js. Never the raw value from the email.
+                expires:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationToken"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/email/verification-tokens/quota:
+    post:
+      tags: [auth]
+      summary: Ask whether another magic link may be mailed to this address
+      description: |
+        Called by the BFF from inside `sendVerificationRequest`, **before** the
+        mail reaches SES. Refuses with 429 once the address already holds 5
+        unexpired tokens.
+
+        The ordering is the whole point. Auth.js starts the send and the token
+        store concurrently and awaits them together
+        (`@auth/core/lib/actions/signin/send-token.js`), so a cap applied while
+        storing fires after the mail is already in flight: the SES quota the cap
+        exists to protect is spent anyway, and the recipient gets a link with no
+        row behind it, which reads to them as an expired link. A cap in that
+        position is strictly worse than no cap.
+
+        This decides, it does not reserve — it writes nothing beyond purging
+        expired rows. The store operation keeps the same cap as a backstop, for
+        the concurrency reason described there. The window between this check and the store is accepted:
+        closing it would need a reservation protocol for a guard that is
+        deliberately crude. It is a targeted guard against using our SES quota to
+        mailbox-bomb one stranger, not a general rate limiter, and it does not
+        stop an attacker who varies the address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier]
+              properties:
+                identifier:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: There is room to send
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [identifier, remaining]
+                properties:
+                  identifier:
+                    type: string
+                    format: email
+                  remaining:
+                    type: integer
+                    description: Links still allowed for this address before the cap refuses.
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
+
+  /auth/email/verification-tokens/consume:
+    post:
+      tags: [auth]
+      summary: Fetch and delete a verification token in one transaction
+      description: |
+        Backs the adapter's `useVerificationToken`. Delete-and-return is atomic
+        so a replayed link cannot authenticate twice — the second click finds
+        nothing and lands on S03's expired-link state.
+
+        Expiry is deliberately **not** judged here. Auth.js owns the
+        `Verification` error and compares `expires` itself, so an expired row is
+        returned once and then gone. Judging it on both sides invites the two to
+        disagree. Each call also purges rows past their expiry so the table does
+        not grow without bound.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, token]
+              properties:
+                identifier:
+                  type: string
+                  format: email
+                token:
+                  type: string
+      responses:
+        "200":
+          description: Token found and consumed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationToken"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: |
+            No such token — expired, already used, or never issued. The three are
+            indistinguishable by design; the row is gone either way. The BFF maps
+            this to `null`, which is Auth.js's contract for "not found". Any other
+            failure status must propagate as an error instead, or an outage would
+            read to the user as an invalid link.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/email/identity/lookup:
+    post:
+      tags: [auth]
+      summary: Find an existing user by verified email address (read-only)
+      description: |
+        Backs the adapter's `getUserByEmail`, which Auth.js calls **while the
+        link is being sent** — before the recipient has proven anything. This
+        operation therefore creates nothing. Folding it into the resolve
+        operation below would turn the S03 form into an account-minting oracle:
+        typing a stranger's address would create an account in their name.
+
+        The address travels in the body rather than a query parameter because an
+        email in a URL ends up in access logs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailIdentityRequest"
+      responses:
+        "200":
+          description: An active user holds this address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailIdentity"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No active user for this address. Nothing was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/email/identity:
+    post:
+      tags: [auth]
+      summary: Resolve a verified email address to a user, creating or linking
+      description: |
+        Backs the adapter's `createUser`. Called only after the magic link came
+        back, so mailbox ownership is proven. Idempotent by address.
+
+        Resolution order:
+        1. An `email` identity for this address exists → return that user.
+        2. No `email` identity, but an active `users` row holds the address →
+           **attach** an `email` identity to that user and return it.
+        3. Neither → create the user and the identity.
+
+        Case 2 is where this diverges from `/auth/oauth/identity`, which raises
+        `account_link_required` in the same situation. The difference is
+        deliberate: an OAuth provider's claimed email is a claim, while a clicked
+        magic link is proof of mailbox control (s03.md, same-email edge case).
+        `OAuthIdentityService` is untouched by this path.
+
+        A `scheduled_deletion_at` on the resolved user is cleared, matching the
+        OAuth sign-in behavior, and reported back as `canceledScheduledDeletion`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailIdentityRequest"
+      responses:
+        "200":
+          description: Resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailIdentity"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/email/identity/link:
+    post:
+      tags: [auth]
+      summary: Ensure an email identity exists for a known user id
+      description: |
+        Backs the adapter's `updateUser`, which Auth.js calls when
+        `getUserByEmail` already found someone. That call hands the adapter
+        `{ id, emailVerified }` and **no address**, so the address-keyed resolve
+        operation above is unreachable from the one path that needs it. Without
+        this endpoint the linking case would be code that never runs in
+        production while its own tests pass.
+
+        Idempotent: the address is read from the user's own `users` row, so
+        calling it repeatedly leaves exactly one `email` identity.
+
+        `emailVerified` is discarded by the adapter — `users` has no such column.
+        Reaching this endpoint already means Auth.js verified the link.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailIdentity"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No active user with this id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ───────────────────────────────────────────────────────────────────────────
   # Auth / Current user (S03 / S03b / S11)
   # ───────────────────────────────────────────────────────────────────────────
 
@@ -828,7 +1127,7 @@ paths:
               schema:
                 oneOf:
                   - $ref: "#/components/schemas/Expression"
-                  - $ref: "#/components/schemas/ErrorResponse"
+                  - $ref: "#/components/schemas/Error"
 
   # ───────────────────────────────────────────────────────────────────────────
   # Usage stats (S11)
@@ -1044,6 +1343,74 @@ components:
           type: string
           description: Matches X-Request-Correlation-Id and structured logs.
           example: 4d6f43ef-0f4a-46c7-934f-9eec4dd0e7d7
+
+    # ── Email magic link (S03, #19) ──
+    # camelCase here follows /auth/oauth/identity (#18); see the note above the
+    # /auth/email/* paths.
+
+    VerificationToken:
+      type: object
+      required: [identifier, token, expires]
+      properties:
+        identifier:
+          type: string
+          format: email
+          description: Lowercased email address.
+          example: woojoo@phraselog.app
+        token:
+          type: string
+          description: >-
+            The hashed token, echoed back. Never the raw value from the email,
+            and never written to logs.
+        expires:
+          type: string
+          format: date-time
+
+    EmailIdentityRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Normalized to trimmed lowercase before lookup.
+
+    EmailIdentity:
+      type: object
+      required:
+        [
+          userId,
+          email,
+          isOnboarded,
+          createdUser,
+          canceledScheduledDeletion,
+          linkedToExistingUser,
+        ]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+          nullable: true
+        isOnboarded:
+          type: boolean
+          description: Drives S03 AC3 routing — false sends the user to /welcome/coach.
+        createdUser:
+          type: boolean
+          description: True only when this call created the users row.
+        canceledScheduledDeletion:
+          type: boolean
+          description: True when signing in cleared a pending scheduled_deletion_at.
+        linkedToExistingUser:
+          type: boolean
+          description: >-
+            True when an email identity was attached to a user who had signed up
+            through another provider. This is the same-email case that OAuth
+            refuses and the magic link allows.
 
     LandingExample:
       type: object

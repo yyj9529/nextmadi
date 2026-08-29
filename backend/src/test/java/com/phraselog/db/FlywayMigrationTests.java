@@ -51,7 +51,8 @@ class FlywayMigrationTests {
               "expression_variants",
               "review_cards",
               "review_attempts",
-              "practice_turns");
+              "practice_turns",
+              "verification_tokens");
 
       assertThat(constraints(connection))
           .contains(
@@ -70,7 +71,8 @@ class FlywayMigrationTests {
               "uq_practice_turns_session_turn",
               "uq_tts_audio_cache_key",
               "chk_expressions_roleplay_result_index",
-              "pk_anonymous_analysis_usage");
+              "pk_anonymous_analysis_usage",
+              "pk_verification_tokens");
 
       assertThat(indexes(connection))
           .contains(
@@ -81,7 +83,10 @@ class FlywayMigrationTests {
               "idx_tts_cache_lookup",
               "idx_logs_correlation",
               "uq_expressions_roleplay_save_idem",
-              "uq_expressions_roleplay_result_index_active");
+              "uq_expressions_roleplay_result_index_active",
+              "uq_verification_tokens_token",
+              "idx_verification_tokens_expires",
+              "idx_verification_tokens_identifier");
 
       assertThat(columns(connection, "users")).contains("deleted_at", "scheduled_deletion_at");
       assertThat(columns(connection, "expressions"))
