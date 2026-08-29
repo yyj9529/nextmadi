@@ -179,6 +179,25 @@ the cap by one. That is accepted — a reservation protocol is more machinery th
 deliberately crude guard warrants. The cap protects one address; it does not stop an
 attacker who varies the address, and there is no per-IP limiter on this path yet.
 
+### The console fallback is opt-in, not "not production"
+
+With no SMTP configuration, `email-provider.ts` prints the magic link to the server console
+instead of sending it. That path exists so the whole flow can be exercised before SES
+production access, and what it prints is a credential: whoever reads that line signs in as
+that address.
+
+It opens only when `AUTH_EMAIL_DEV_CONSOLE=true`, and even then not when `VERCEL` or
+`VERCEL_ENV` is set or `NODE_ENV` is `production`. Every other case throws, so a missing
+configuration fails loudly rather than quietly printing.
+
+The condition used to be `NODE_ENV !== "production"` alone. `NODE_ENV` says whether to build
+for production, not whether this process is deployed and reachable — a staging box, or a
+container started without passing the variable, satisfied it while being exposed. The default
+has to be closed; the two deployment checks are backstops for the switch itself ending up in a
+deployed environment's variables.
+
+`AUTH_EMAIL_DEV_CONSOLE` belongs in the local `.env` only. It is never set in Vercel.
+
 ### OAuth email verification
 
 `users.email` is the key the magic link uses to find an existing account, so that column must
@@ -203,9 +222,20 @@ same-email edge case). `OAuthIdentityService` is untouched by the email path.
 
 `verification_tokens` (V010) stores `sha256(rawToken + AUTH_SECRET)`, not the value in
 the emailed link — a database leak yields no usable links. Consume is delete-and-return
-in one transaction, so a replayed link authenticates once. Expiry is judged only by
-Auth.js, which owns the `Verification` error; the backend returns an expired row once and
-purges it.
+in one transaction, so a replayed link authenticates once. The backend returns an expired
+row once and purges it; it does not judge expiry.
+
+The judging happens above it, in `bff-adapter.ts`'s `useVerificationToken`, which returns
+`null` for a token that is expired or whose `expires` does not parse. Auth.js compares
+`expires` again (`@auth/core/lib/actions/callback/index.js:147`) and both paths end in the
+same `Verification` error, so the user-visible outcome is unchanged.
+
+That duplication is deliberate, for the same reason the OAuth email-verification rule runs
+on both sides. The Auth.js comparison alone was load-bearing while `package.json` carries a
+caret range over a prerelease, and it is only correct when `expires` is a valid `Date`: an
+unparseable value becomes `Invalid Date`, `NaN < Date.now()` is `false`, and an expired link
+would read as permanently valid. Our check asks for a finite timestamp first, so a wire-format
+drift closes the link rather than opening it.
 
 Rollback path for V010 is documented in the migration header: `DROP TABLE
 verification_tokens;` as a compensating migration, run after deploying an app build

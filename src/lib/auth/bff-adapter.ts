@@ -66,7 +66,11 @@ export function createBffAdapter(
 
     async useVerificationToken(input) {
       const consumed = await consumeVerificationToken(input, options);
-      return consumed ? toVerificationToken(consumed) : null;
+      if (!consumed) {
+        return null;
+      }
+      const token = toVerificationToken(consumed);
+      return isStillValid(token.expires) ? token : null;
     },
 
     async getUserByEmail(email) {
@@ -91,6 +95,32 @@ export function createBffAdapter(
       return null;
     },
   } as Adapter;
+}
+
+/**
+ * 링크 수명을 우리 코드에서도 판정한다.
+ *
+ * 이 판정은 원래 한 곳에만 있었다 — `@auth/core/lib/actions/callback/index.js:147`의
+ * `invite.expires.valueOf() < Date.now()`. 그 한 줄이 두 가지 이유로 유일한 방어선이기에는
+ * 약하다.
+ *
+ * 첫째, `package.json`이 캐럿 범위의 프리릴리스를 가리키므로 보안상 의미 있는 수명의 유일한
+ * 집행자가 우리가 고르지 않은 버전에 있다. 둘째, 그 비교는 `expires`가 유효한 Date일 때만
+ * 동작한다. 백엔드의 wire format이 ISO 문자열에서 벗어나면 `new Date(...)`는 `Invalid Date`가
+ * 되고 `NaN < Date.now()`는 **false** — 만료 판정이 조용히 뒤집혀 만료된 링크가 영구히 유효해진다.
+ * 그래서 `> Date.now()`가 아니라 유한성부터 확인한다. 이 방향의 실패는 열리는 쪽이 아니라 닫히는
+ * 쪽이어야 한다.
+ *
+ * 백엔드 `consume`은 만료 여부와 무관하게 행을 먼저 삭제하므로 여기서 거절해도 단일 사용은
+ * 그대로다. Auth.js 관점에서 null과 만료된 토큰은 둘 다 `Verification`으로 끝나 사용자가 보는
+ * 화면도 같다 (`callback/index.js:153`).
+ *
+ * 양쪽이 같은 규칙을 적용하는 구조는 이 경로에 이미 있다 — OAuth의 email 검증도 BFF와 Spring
+ * Boot 양쪽에서 판정한다 (`docs/auth.md` "OAuth email verification").
+ */
+function isStillValid(expires: Date) {
+  const at = expires.valueOf();
+  return Number.isFinite(at) && at > Date.now();
 }
 
 function toAdapterUser(identity: EmailIdentity): AdapterUser {
