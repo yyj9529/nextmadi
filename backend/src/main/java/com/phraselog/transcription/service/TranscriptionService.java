@@ -65,13 +65,20 @@ public class TranscriptionService {
           client.transcribe(audioBytes, safeFilename(audio), safeContentType(audio), STT_TIMEOUT);
       long latencyMs = System.currentTimeMillis() - startTimeMs;
       String transcript = result.text() == null ? "" : result.text().trim();
-      if (!StringUtils.hasText(transcript)) {
-        logCall(userId, correlationId, latencyMs, AiRequestStatus.ERROR, AiErrorCode.UNKNOWN, null);
-        throw validationFailed("transcript must not be blank.");
-      }
-
       double billableSeconds = result.usageSeconds().orElse(metadata.durationSeconds());
       BigDecimal estimatedCost = costCalculator.whisperBySeconds(billableSeconds);
+      if (!StringUtils.hasText(transcript)) {
+        // 무발화라도 Whisper 과금은 이미 발생했다. 비용을 남기지 않으면 남용이 로그에서 보이지 않는다.
+        logCall(
+            userId,
+            correlationId,
+            latencyMs,
+            AiRequestStatus.ERROR,
+            AiErrorCode.UNKNOWN,
+            estimatedCost);
+        throw emptyTranscript("transcript was blank; no speech detected.");
+      }
+
       logCall(userId, correlationId, latencyMs, AiRequestStatus.SUCCESS, null, estimatedCost);
 
       return new TranscriptionResponse(transcript, confidence(result));
@@ -85,7 +92,20 @@ public class TranscriptionService {
 
   public static ApiErrorException validationFailed(String developerHint) {
     return new ApiErrorException(
-        HttpStatus.BAD_REQUEST, "validation_failed", "?낅젰媛믪쓣 ?ㅼ떆 ?뺤씤??二쇱꽭??", developerHint, false);
+        HttpStatus.BAD_REQUEST, "validation_failed", "입력값을 다시 확인해 주세요.", developerHint, false);
+  }
+
+  /**
+   * 오디오 자체는 규격에 맞았지만 말소리가 잡히지 않은 경우. 규격 오류(400 validation_failed)와 구분해야 클라이언트가 "다시 녹음" 대신 "다시
+   * 말해보기"로 안내할 수 있다(s02.md UI states). 같은 오디오를 재전송해도 결과가 같으므로 retryable 은 false 다.
+   */
+  public static ApiErrorException emptyTranscript(String developerHint) {
+    return new ApiErrorException(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        "empty_transcript",
+        "말소리를 알아듣지 못했어요. 다시 말해볼까요?",
+        developerHint,
+        false);
   }
 
   private byte[] readAudioBytes(MultipartFile audio) {
@@ -128,35 +148,35 @@ public class TranscriptionService {
           new ApiErrorException(
               HttpStatus.SERVICE_UNAVAILABLE,
               "provider_5xx",
-              "?쒕퉬?ㅺ? ?쇱떆?곸쑝濡??댁슜 遺덇??⑸땲?? ?좎떆 ???ㅼ떆 ?쒕룄?댁＜?몄슂.",
+              "서비스가 일시적으로 이용 불가합니다. 잠시 후 다시 시도해주세요.",
               "OpenAI provider returned 5xx error",
               true);
       case PROVIDER_429 ->
           new ApiErrorException(
               HttpStatus.TOO_MANY_REQUESTS,
               "provider_429",
-              "?붿껌???덈Т 留롮뒿?덈떎. ?좎떆 ???ㅼ떆 ?쒕룄?댁＜?몄슂.",
+              "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
               "OpenAI provider rate limited",
               true);
       case TIMEOUT ->
           new ApiErrorException(
               HttpStatus.REQUEST_TIMEOUT,
               "timeout",
-              "?묐떟 ?쒓컙??珥덇낵?섏뿀?듬땲?? ?ㅼ떆 ?쒕룄?댁＜?몄슂.",
+              "응답 시간이 초과되었습니다. 다시 시도해주세요.",
               "OpenAI request timed out",
               true);
       case NETWORK ->
           new ApiErrorException(
               HttpStatus.SERVICE_UNAVAILABLE,
               "network",
-              "?ㅽ듃?뚰겕 ?ㅻ쪟媛 諛쒖깮?덉뒿?덈떎. ?ㅼ떆 ?쒕룄?댁＜?몄슂.",
+              "네트워크 오류가 발생했습니다. 다시 시도해주세요.",
               "Network error calling OpenAI",
               true);
       default ->
           new ApiErrorException(
               HttpStatus.INTERNAL_SERVER_ERROR,
               "internal_server_error",
-              "臾몄젣媛 諛쒖깮?덉뼱?? ?좎떆 ???ㅼ떆 ?쒕룄??二쇱꽭??",
+              "문제가 발생했어요. 잠시 후 다시 시도해 주세요.",
               "Unexpected OpenAI transcription error: " + errorCode,
               false);
     };

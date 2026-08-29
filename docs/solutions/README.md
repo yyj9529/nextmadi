@@ -39,17 +39,19 @@
 |---|---|---:|---|---|
 | spotless 포맷 위반으로 CI 실패 | 프로세스 | 13 | 메모리만 (강제 없음) | [spotless-before-push](spotless-before-push.md) |
 | 생성 파일 churn을 커밋에 섞음 | 프로세스 | 6 | 없음 | [generated-file-churn](generated-file-churn.md) |
-| Windows 인코딩 (mojibake/BOM/cp949) | 환경 | 8 | 없음 | [windows-encoding](windows-encoding.md) |
+| Windows 인코딩 (mojibake/BOM/cp949) | 환경 | 9 | 없음 | [windows-encoding](windows-encoding.md) |
 | git 브랜치 위생 사고 | 프로세스 | 8 | 메모리 2건 | [branch-hygiene](branch-hygiene.md) |
-| Testcontainers 로컬 스킵 → 미검증 통과 | 검증 | 6 | testLogging 집계 (2026-08-02) | [green-build-proves-nothing](green-build-proves-nothing.md) |
-| 조용한 실패가 성공처럼 보임 | 설계 | 6 | 부분 | [green-build-proves-nothing](green-build-proves-nothing.md) |
-| 도구 문법 혼용 (Bash/PowerShell, npx) | 프로세스 | 5 | 메모리 1건 (재발함) | [tool-syntax-mixing](tool-syntax-mixing.md) |
+| Testcontainers 로컬 스킵 → 미검증 통과 | 검증 | 7 | testLogging 집계 (2026-08-02) — **불충분, 재설계 필요** | [green-build-proves-nothing](green-build-proves-nothing.md) |
+| 조용한 실패가 성공처럼 보임 | 설계 | 7 | 부분 | [green-build-proves-nothing](green-build-proves-nothing.md) |
+| 도구 문법 혼용 (Bash/PowerShell, npx) | 프로세스 | 6 | 메모리 1건 (재발함) | [tool-syntax-mixing](tool-syntax-mixing.md) |
 | Spring `@ConditionalOnBean` 순서 함정 | 코드 | 4 | 없음 | [spring-conditional-bean-ordering](spring-conditional-bean-ordering.md) |
 | stale `.next` 캐시 → 404/타입 오류 | 환경 | 4 | 메모리 1건 | [stale-next-cache](stale-next-cache.md) |
 | effect 내 동기 setState (lint) | 코드 | 3 | 관행만 (문서 없음) | [set-state-in-effect](set-state-in-effect.md) |
 | 목 데이터 ↔ 실데이터 계약 드리프트 | 코드 | 2 | 없음 | [mock-to-real-drift](mock-to-real-drift.md) |
+| 라이브러리 실제 호출 지점을 안 읽고 설계 확정 | 설계 | 2 | 없음 | [library-call-sites-unread](library-call-sites-unread.md) |
 | 도는 dev 서버의 브랜치를 확인 안 하고 디버깅 | 환경 | 1 | 없음 | — |
 | 실행 안 한 검증을 Pass로 기록 | 검증 | 1 | 없음 | — |
+| 이슈 본문의 미검증 관찰이 repro를 오도 | 프로세스 | 1 | 없음 | 노트 없음 (1회) |
 | 샌드박스 권한 에스컬레이션 | 환경 마찰 | 17 | — | 자동화 대상 아님 (아래 참고) |
 
 샌드박스 에스컬레이션은 실수가 아니라 설계된 마찰이다. `SECURITY.md`의 승인 경계가
@@ -62,9 +64,9 @@
 
 1. spotless (13회) — pre-push 또는 PreToolUse 훅
 2. 생성 파일 churn (6회) — 스테이징 차단 훅
-3. Windows 인코딩 (8회) — 커밋 전 mojibake/BOM 스캔
+3. Windows 인코딩 (9회) — 커밋 전 mojibake/BOM 스캔
 4. git 브랜치 위생 (8회) — `main` 편집/커밋 차단 훅
-5. 도구 문법 혼용 (5회) — Bash 입력의 `@'` 패턴 차단
+5. 도구 문법 혼용 (6회) — Bash 입력의 `@'` 패턴 차단
 6. `@ConditionalOnBean` (4회) — 금지 어노테이션 테스트
 
 ## 노트 작성 형식

@@ -41,6 +41,12 @@ public class JdbcOAuthIdentityRepository implements OAuthIdentityRepository {
   }
 
   @Override
+  public Optional<OAuthUserRow> findActiveUserById(UUID id) {
+    return queryOne(
+        "SELECT " + USER_COLUMNS + " FROM users u WHERE u.id = ? AND u.deleted_at IS NULL", id);
+  }
+
+  @Override
   public OAuthUserRow createUserWithIdentity(
       String provider, String providerUserId, String providerEmail, String displayName) {
     UUID userId = UUID.randomUUID();
@@ -59,6 +65,19 @@ public class JdbcOAuthIdentityRepository implements OAuthIdentityRepository {
         providerEmail);
     return findByProviderIdentity(provider, providerUserId)
         .orElseThrow(() -> new IllegalStateException("Created OAuth identity could not be read"));
+  }
+
+  @Override
+  public void linkIdentityToUser(
+      UUID userId, String provider, String providerUserId, String providerEmail) {
+    jdbcTemplate.update(
+        "INSERT INTO user_auth_identities"
+            + " (user_id, provider, provider_user_id, provider_email)"
+            + " VALUES (?, ?, ?, ?)",
+        userId,
+        provider,
+        providerUserId,
+        providerEmail);
   }
 
   @Override

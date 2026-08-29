@@ -34,6 +34,7 @@ describe("provisionOAuthIdentity", () => {
         providerUserId: "kakao-1",
         providerEmail: "new@example.com",
         displayName: "New User",
+        providerEmailVerified: true,
       },
       {
         backendBaseUrl: "http://backend.test",
@@ -59,6 +60,7 @@ describe("provisionOAuthIdentity", () => {
       provider_user_id: "kakao-1",
       provider_email: "new@example.com",
       display_name: "New User",
+      provider_email_verified: true,
     });
   });
 
@@ -81,6 +83,7 @@ describe("provisionOAuthIdentity", () => {
         provider: "google",
         providerUserId: "google-1",
         providerEmail: "new@example.com",
+      providerEmailVerified: true,
       },
       {
         backendBaseUrl: "http://backend.test",
@@ -118,6 +121,7 @@ describe("provisionOAuthIdentity", () => {
           provider: "google",
           providerUserId: "google-2",
           providerEmail: "same@example.com",
+      providerEmailVerified: true,
         },
         {
           backendBaseUrl: "http://backend.test",

@@ -10,11 +10,10 @@ import {
   readDraftInput,
   writeDraftInput,
 } from "@/lib/analysis/draft-input";
-import { mockAnalysisResultPath } from "@/lib/mock-api";
 
 // S06 분석 진행 모달 + S05a 텍스트 입력 모달.
-// 실제 구현: POST /analysis { input_text } -> 201 -> /save/result/{id}.
-// 목 패스: 단계 메시지 3개를 순환한 뒤 mock-analysis 결과로 라우팅한다.
+// POST /analysis { input_text } -> 201 -> /save/result/{id}. 라우팅은 제출한 화면이 응답을
+// 받고 직접 한다 — 모달은 진행 표시와 취소만 맡는다(#36에서 목 자동 라우팅 제거).
 
 const LOADING_STEPS = [
   "상황을 분석하고 있어요...",
@@ -28,30 +27,21 @@ const CANCEL_AFTER_MS = 10000; // 스펙: 10초 경과 시 취소 버튼 노출
 type AnalysisLoadingModalProps = {
   open: boolean;
   onCancel: () => void;
-  autoRoute?: boolean;
 };
 
 export function AnalysisLoadingModal({
   open,
   onCancel,
-  autoRoute = true,
 }: AnalysisLoadingModalProps) {
   if (!open) {
     return null;
   }
 
-  return <AnalysisLoadingModalBody autoRoute={autoRoute} onCancel={onCancel} />;
+  return <AnalysisLoadingModalBody onCancel={onCancel} />;
 }
 
 // open 동안에만 마운트되어 상태가 자연스럽게 초기화된다.
-function AnalysisLoadingModalBody({
-  autoRoute,
-  onCancel,
-}: {
-  autoRoute: boolean;
-  onCancel: () => void;
-}) {
-  const router = useRouter();
+function AnalysisLoadingModalBody({ onCancel }: { onCancel: () => void }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [showCancel, setShowCancel] = useState(false);
 
@@ -59,11 +49,6 @@ function AnalysisLoadingModalBody({
     const stepTimers = LOADING_STEPS.map((_, index) =>
       window.setTimeout(() => setStepIndex(index), index * STEP_MS),
     );
-    const doneTimer = autoRoute
-      ? window.setTimeout(() => {
-          router.push(mockAnalysisResultPath);
-        }, LOADING_STEPS.length * STEP_MS)
-      : undefined;
     const cancelTimer = window.setTimeout(
       () => setShowCancel(true),
       CANCEL_AFTER_MS,
@@ -71,12 +56,9 @@ function AnalysisLoadingModalBody({
 
     return () => {
       stepTimers.forEach((timer) => window.clearTimeout(timer));
-      if (doneTimer !== undefined) {
-        window.clearTimeout(doneTimer);
-      }
       window.clearTimeout(cancelTimer);
     };
-  }, [autoRoute, router]);
+  }, []);
 
   return (
     <div className="modal-backdrop" role="presentation">
@@ -155,6 +137,11 @@ async function postAnalysis(
 type TextInputSheetProps = {
   open: boolean;
   onClose: () => void;
+  /**
+   * 음성 전사문(#36). 주어지면 초안 복원 대신 이 값으로 연다 — 방금 말한 내용이
+   * 예전 초안보다 항상 우선이다. 사용자는 여기서 확인·수정한 뒤 제출한다.
+   */
+  initialText?: string;
   /** 테스트에서 실제 fetch 대신 주입. 기본은 POST /api/analysis. */
   submitAnalysis?: AnalysisSubmitter;
 };
@@ -164,26 +151,36 @@ type TextInputSheetProps = {
 export function TextInputSheet({
   open,
   onClose,
+  initialText,
   submitAnalysis = postAnalysis,
 }: TextInputSheetProps) {
   if (!open) {
     return null;
   }
   return (
-    <TextInputSheetBody onClose={onClose} submitAnalysis={submitAnalysis} />
+    <TextInputSheetBody
+      key={initialText ?? ""}
+      onClose={onClose}
+      initialText={initialText}
+      submitAnalysis={submitAnalysis}
+    />
   );
 }
 
 function TextInputSheetBody({
   onClose,
+  initialText,
   submitAnalysis,
 }: {
   onClose: () => void;
+  initialText?: string;
   submitAnalysis: AnalysisSubmitter;
 }) {
   const router = useRouter();
-  // 열 때 5분 내 초안이 있으면 복원, 없거나 stale이면 빈 값(readDraftInput이 stale을 정리).
-  const [text, setText] = useState<string>(() => readDraftInput() ?? "");
+  // 전사문이 있으면 그것으로, 없으면 5분 내 초안 복원(readDraftInput이 stale을 정리).
+  const [text, setText] = useState<string>(
+    () => initialText ?? readDraftInput() ?? "",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [rateLimited, setRateLimited] = useState(false);
   const [networkError, setNetworkError] = useState(false);

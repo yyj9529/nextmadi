@@ -83,6 +83,30 @@ NextAuth-standard Account table pattern. One row per (user, provider) link. A si
 
 `provider_email` is the email returned by the provider at link time and may differ from `users.email` (the display/contact email).
 
+### verification_tokens
+
+```sql
+CREATE TABLE verification_tokens (
+  identifier VARCHAR(255) NOT NULL,          -- the email address, lowercased by Auth.js
+  token      VARCHAR(255) NOT NULL,          -- sha256(rawToken + AUTH_SECRET), not the emailed value
+  expires    TIMESTAMPTZ  NOT NULL,
+  created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  CONSTRAINT pk_verification_tokens PRIMARY KEY (identifier, token)
+);
+
+CREATE UNIQUE INDEX uq_verification_tokens_token ON verification_tokens(token);
+CREATE INDEX idx_verification_tokens_expires ON verification_tokens(expires);
+CREATE INDEX idx_verification_tokens_identifier ON verification_tokens(identifier);
+```
+
+Auth.js-standard VerificationToken table, backing the S03 email magic link. Rows are single-use: consuming a token deletes it in the same transaction, so a replayed link cannot authenticate twice.
+
+The stored `token` is a hash, not the value in the emailed link — Auth.js computes `sha256(rawToken + AUTH_SECRET)` before the adapter sees it and puts the raw token in the URL. A leak of this table does not yield working links, and the raw token must never be logged.
+
+An identifier may hold several outstanding tokens (a user who requests a link twice), which is why the primary key is composite. The application caps how many unexpired rows one identifier may hold; without that cap the S03 email form spends our SES quota sending mail to an address the requester does not own.
+
+Next.js does not write this table directly. It reaches it through the BFF like every other table (ADR-010): the Auth.js adapter calls Spring Boot over `X-Internal-Auth`.
+
 ### coach_profiles
 
 ```sql

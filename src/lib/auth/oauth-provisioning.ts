@@ -11,6 +11,14 @@ export type ProvisionOAuthIdentityInput = {
   providerUserId: string;
   providerEmail: string;
   displayName?: string | null;
+  /**
+   * provider가 이 주소를 검증했다고 말하는가. 백엔드가 users.email에 쓸지를 여기서 가른다.
+   *
+   * users.email은 매직링크 로그인이 기존 계정을 찾는 열쇠다(S03 same-email 케이스). 그 열은
+   * 검증된 주소만 담아야 한다 — 아니면 남의 주소를 주장해 만든 계정이, 그 주소의 진짜 주인이
+   * 매직링크로 로그인할 때 그 사람을 받아버린다.
+   */
+  providerEmailVerified: boolean;
 };
 
 export type ProvisionedOAuthIdentity = {
@@ -26,9 +34,18 @@ export type ProvisionOAuthIdentityOptions = {
   backendBaseUrl?: string;
   internalAuthSecret?: string;
   fetcher?: FetchLike;
+  /** 테스트에서만 줄인다. 기본값은 BACKEND_TIMEOUT_MS. */
+  timeoutMs?: number;
 };
 
 export type FetchLike = (request: Request) => Promise<Response>;
+
+/**
+ * 백엔드 왕복 제한 시간. 로그인 요청 하나가 매달려 있을 수 있는 시간이고, Vercel 함수의
+ * 예산도 같이 갉아먹는다. Spring Boot가 반쯤 열린 채(TCP는 붙었는데 응답이 없는) 있을 때
+ * 기본 소켓 타임아웃까지 기다리면 사용자는 실패도 성공도 아닌 화면을 본다.
+ */
+const BACKEND_TIMEOUT_MS = 5_000;
 
 type ApiErrorBody = {
   error_code?: string;
@@ -92,7 +109,9 @@ export async function provisionOAuthIdentity(
           provider_user_id: input.providerUserId,
           provider_email: input.providerEmail,
           display_name: input.displayName ?? null,
+          provider_email_verified: input.providerEmailVerified,
         }),
+        signal: AbortSignal.timeout(options.timeoutMs ?? BACKEND_TIMEOUT_MS),
       },
     ),
   );
