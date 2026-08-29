@@ -97,6 +97,122 @@ The token-issue/verify pair is implemented (exec-plan
   `src/lib/internal-auth.ts`. Wiring the mint utility into real route handlers is deferred
   to the NextAuth/BFF ticket (those layers do not exist yet).
 
+## Email magic link — adapter over the BFF (2026-08-28, #19)
+
+Auth.js's email provider requires an **Adapter**, which normally means giving Next.js a
+database connection. ADR-010 says the database is Spring Boot's, and #18 already settled
+that Spring owns user and identity persistence. Those two facts collide.
+
+**Decision: implement the adapter in Next.js and route its storage calls to Spring over
+`X-Internal-Auth`**, rather than installing `@auth/pg-adapter` and pointing Vercel at RDS.
+
+Why not the pg adapter: it would put database credentials in Vercel, open a Vercel→RDS
+network path that does not exist today, and create a second writer for `users`. That is
+an ADR-sized change to the data-ownership boundary, not an implementation detail.
+
+The cost is real and bounded: we hand-implement part of the adapter interface instead of
+importing it. Bounded, because under `session.strategy: "jwt"` the session-table half of
+the interface is never called. Six methods are implemented —
+`createVerificationToken`, `useVerificationToken`, `getUserByEmail` (asserted at config
+build by `@auth/core/lib/utils/assert.js` for email providers), plus `createUser`,
+`updateUser` (both reached in the email branch of `handle-login.js`) and `getUser`.
+`linkAccount` is **not** implemented; it belongs to the oauth and webauthn branches.
+
+**Every unimplemented method throws, naming itself.** No `return null`, no silent no-op —
+a stub returning a plausible value turns a missing capability into a successful-looking
+login.
+
+If the adapter ever needs session storage, that is the signal this approach has outlived
+its fit; revisit ADR-010 rather than widening the adapter.
+
+**The adapter is attached per request, not globally.** Auth.js does not scope an adapter to
+the provider that required it: once one exists, the OAuth callback asks it for
+`getUserByAccount` (`@auth/core/lib/actions/callback/index.js:56`) before the `signIn`
+callback runs, and `handle-login.js:24`'s `if (!adapter)` short-circuit — the thing that had
+kept #18's OAuth path adapter-free — stops firing. An adapter that implements only the email
+surface therefore kills Google and Kakao sign-in outright.
+
+So `NextAuth` is built from a function of the request (`next-auth/index.js:102`).
+`/api/auth/callback/{google,kakao}` gets a config with neither the adapter nor the email
+provider — the exact shape that shipped before #19 — and every other route gets both. The two
+must leave together: an email provider without an adapter fails config validation with
+`MissingAdapter` (`@auth/core/lib/utils/assert.js:135`).
+
+The alternative was implementing the OAuth surface in the adapter. It is cleaner in the long
+run and is the direction to take if the adapter ever needs to own both paths, but it rewrites
+an already-deployed login path and needs a backend lookup endpoint that does not exist —
+an ADR-sized change, not a fix.
+
+### Endpoint authority
+
+The six `/auth/email/*` operations are the only endpoints whose caller has no user yet.
+They are authorized by a dedicated `session_token` value, `__email_provisioning__`,
+rather than a `user_id`. The OAuth provisioning token does not open them and this token
+does not open OAuth provisioning, so a leak on one side does not carry the other's
+authority.
+
+Lookup is split from resolve for the same reason. Auth.js calls `getUserByEmail` while
+the link is merely being *sent* — before anyone has clicked anything — so a combined
+create-or-find endpoint would mint an account for every address typed into the S03 form.
+See `docs/api/openapi.yaml` for the per-operation contract.
+
+### The outstanding-token cap sits ahead of the send, not the store
+
+An address may hold at most five unexpired links. That cap is checked by
+`POST /auth/email/verification-tokens/quota`, which the BFF calls from inside
+`sendVerificationRequest` — before anything reaches SES — and **not** while storing the
+token.
+
+Auth.js starts the send and the store concurrently and awaits them together
+(`@auth/core/lib/actions/signin/send-token.js`). A cap applied at store time therefore fires
+after the mail is already in flight: the SES quota the cap exists to protect is spent anyway,
+and the recipient receives a link with no row behind it, which they see as "링크가 만료됐어요".
+In that position the cap is strictly worse than no cap, which is why enforcement moved.
+
+The store operation keeps the same cap as a backstop. Auth.js does not cancel it when the send
+is refused, so without one every refused attempt would still write a row — inflating the count
+and locking the address out until expiry. Refusing there is harmless now, because the quota
+check already stopped the mail.
+
+The check decides rather than reserves, so a race between the check and the store can exceed
+the cap by one. That is accepted — a reservation protocol is more machinery than a
+deliberately crude guard warrants. The cap protects one address; it does not stop an
+attacker who varies the address, and there is no per-IP limiter on this path yet.
+
+### OAuth email verification
+
+`users.email` is the key the magic link uses to find an existing account, so that column must
+only ever hold addresses somebody proved they control. OAuth provisioning therefore refuses an
+address the provider explicitly marked unverified — Google's `email_verified`, Kakao's
+`kakao_account.is_email_verified`. Without that, an account registered while claiming a
+stranger's address would swallow that stranger the first time they signed in by magic link.
+
+Only an explicit `false` is refused. A provider that says nothing is allowed through; treating
+silence as unverified would block every provider that omits the claim. Both the BFF and Spring
+Boot apply the rule, so neither side alone is load-bearing and a mismatched deploy cannot open
+the gap.
+
+### Same-email divergence from OAuth
+
+`/auth/email/identity` links an address to an existing user where
+`/auth/oauth/identity` raises `account_link_required`. This is deliberate: a provider's
+claimed email is a claim, a clicked magic link is proof of mailbox control (s03.md,
+same-email edge case). `OAuthIdentityService` is untouched by the email path.
+
+### Token storage and rollback
+
+`verification_tokens` (V010) stores `sha256(rawToken + AUTH_SECRET)`, not the value in
+the emailed link — a database leak yields no usable links. Consume is delete-and-return
+in one transaction, so a replayed link authenticates once. Expiry is judged only by
+Auth.js, which owns the `Verification` error; the backend returns an expired row once and
+purges it.
+
+Rollback path for V010 is documented in the migration header: `DROP TABLE
+verification_tokens;` as a compensating migration, run after deploying an app build
+without the email provider. The table is standalone with no foreign keys in either
+direction and holds only single-use rows that expire within 24 hours, so the only loss is
+magic links already in flight.
+
 ## Related
 
 - `architecture.md` — Authentication and authorization section.

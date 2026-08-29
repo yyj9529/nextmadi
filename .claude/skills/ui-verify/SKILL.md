@@ -11,7 +11,7 @@ allowed-tools: mcp__playwright__browser_navigate, mcp__playwright__browser_snaps
 
 격리(fork) 컨텍스트에서 실행되므로 메인 작업 맥락을 더럽히지 않는다. 다음을 수행하라.
 
-1. `mcp__playwright__browser_navigate`로 `$1`에 접속한다. (로컬 dev 서버 미기동이면 그 사실을 보고하고 중단)
+1. `mcp__playwright__browser_navigate`로 `$1`에 접속한다. (로컬 dev 서버 미기동이면 그 사실을 보고하고 중단 — 기동은 `bun run dev`, 주소는 `localhost:3000` 또는 `127.0.0.1:3000`. LAN 주소로 열면 HMR이 거절돼 하이드레이션이 죽는다, #131)
 2. `mcp__playwright__browser_snapshot`으로 접근성 트리를 캡처해 핵심 요소가 렌더됐는지 확인한다.
 3. 해당 화면 스펙(`docs/screens/sNN.md`)의 주요 UI 상태를 재현한다 — 가능한 한 빈 상태 / 에러 상태 / 정상 상태를 각각 캡처.
    - 모바일 우선 제품이므로 `mcp__playwright__browser_resize`로 모바일 폭(예: 390x844)에서도 1회 확인.

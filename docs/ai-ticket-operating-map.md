@@ -160,6 +160,7 @@ Hooks는 모든 티켓에 반복해서 쓰지 않습니다.
   - Required context: `git status --short --branch`
   - Post-change verification: backend test command, scaffold 생성 후 확정
   - Post-change verification: `bun run lint`, `bun run typecheck`, `bun run build` if frontend can be affected
+  - 화면이 바뀌었으면 위 세 가지로 끝이 아니다. `bun run dev`를 띄우고 브라우저로 확인해야 UI 게이트를 통과한다 (`docs/quality-gates.md` "UI change")
   - PR 전: `git diff --check`
 
 - **Hooks**
