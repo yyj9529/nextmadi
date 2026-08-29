@@ -1,5 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 
+import { withoutEnv } from "../testing/without-env";
 import type { FetchLike } from "./get-landing-examples";
 
 mock.module("server-only", () => ({}));
@@ -86,7 +87,22 @@ describe("getLandingExamples", () => {
   });
 
   test("returns [] when the backend base url is not configured", async () => {
-    const result = await getLandingExamples({ backendBaseUrl: undefined });
-    expect(result).toEqual([]);
+    // 인자가 없으면 process.env로 폴백하므로, 미설정 경로는 그 변수를 지워야 검증된다.
+    // fetcher는 비어 있지 않은 응답을 준다 — 앰비언트 env가 다시 새어 들어와 요청이 실제로
+    // 나가면 결과가 []가 아니게 되어 테스트가 깨진다. 빈 응답이면 그 누출이 가려진다.
+    let called = false;
+    const fetcher: FetchLike = async () => {
+      called = true;
+      return Response.json(
+        { examples: [{ id: "leaked", korean_text: "요청이 나갔다" }] },
+        { status: 200 },
+      );
+    };
+
+    await withoutEnv("PHRASELOG_BACKEND_BASE_URL", async () => {
+      const result = await getLandingExamples({ fetcher });
+      expect(result).toEqual([]);
+      expect(called).toBe(false);
+    });
   });
 });

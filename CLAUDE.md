@@ -226,6 +226,7 @@ mostly-irrelevant context degrades output (context rot).
 | AI 파이프라인 / eval | `green-build-proves-nothing`, `windows-encoding` |
 | 브랜치 정리 / 머지 / PR | `branch-hygiene`, `tool-syntax-mixing` |
 | 목 데이터 → 실 API 전환 | `mock-to-real-drift` |
+| env 폴백이 있는 BFF 함수 (`src/lib/**`) 테스트 | `ambient-env-in-tests` |
 
 대장 표에서 해당 패턴의 재발 횟수가 0이 아니면 그 노트를 읽는다. 전부 읽지 않는다.
 

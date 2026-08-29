@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { jwtVerify } from "jose";
 
+import { withoutEnv } from "../testing/without-env";
 import type { FetchLike } from "./email-provisioning";
 
 mock.module("server-only", () => ({}));
@@ -265,20 +266,8 @@ describe("linkEmailIdentityByUserId", () => {
 
 describe("configuration", () => {
   // bun loads .env for tests and this repo's .env defines both variables, so the fallback has to
-  // be exercised with them explicitly removed. Reading ambient env here would make the test pass
-  // in CI (no .env) and fail locally.
-  async function withoutEnv<T>(name: string, run: () => Promise<T>): Promise<T> {
-    const previous = process.env[name];
-    delete process.env[name];
-    try {
-      return await run();
-    } finally {
-      if (previous !== undefined) {
-        process.env[name] = previous;
-      }
-    }
-  }
-
+  // be exercised with them explicitly removed (see ../testing/without-env). Reading ambient env
+  // here would make the test pass in CI (no .env) and fail locally.
   test("refuses to call without a backend base url", async () => {
     const { fetcher } = recordingFetcher(() => Response.json(IDENTITY));
 

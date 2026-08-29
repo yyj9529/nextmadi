@@ -48,6 +48,7 @@
 | stale `.next` 캐시 → 404/타입 오류 | 환경 | 4 | 메모리 1건 | [stale-next-cache](stale-next-cache.md) |
 | effect 내 동기 setState (lint) | 코드 | 3 | 관행만 (문서 없음) | [set-state-in-effect](set-state-in-effect.md) |
 | 목 데이터 ↔ 실데이터 계약 드리프트 | 코드 | 2 | 없음 | [mock-to-real-drift](mock-to-real-drift.md) |
+| 테스트가 앰비언트 env를 읽어 로컬/CI가 갈림 | 검증 | 2 | 공유 `withoutEnv` 헬퍼 | [ambient-env-in-tests](ambient-env-in-tests.md) |
 | 라이브러리 실제 호출 지점을 안 읽고 설계 확정 | 설계 | 2 | 없음 | [library-call-sites-unread](library-call-sites-unread.md) |
 | 도는 dev 서버의 브랜치를 확인 안 하고 디버깅 | 환경 | 2 | 없음 | [dev-server-branch-unverified](dev-server-branch-unverified.md) |
 | 실행 안 한 검증을 Pass로 기록 | 검증 | 1 | 없음 | — |
