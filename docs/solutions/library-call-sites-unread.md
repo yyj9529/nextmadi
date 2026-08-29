@@ -40,7 +40,7 @@
   있고, 실제로 그렇게 됐다. 라이브러리가 실제로 받아갈 값을 만들어내는 함수를 내보내서
   그것을 검사한다
 - 수정을 되돌려 **빨간불을 눈으로 확인**한 뒤에 커밋한다. 초록불은 테스트가 무엇을 검사하는지
-  말해주지 않는다 ([green-build-proves-nothing](green-build-proves-nothing.md))
+  말해주지 않는다 ([silent-failure-looks-like-success](silent-failure-looks-like-success.md))
 
 ## 자동화 후보
 

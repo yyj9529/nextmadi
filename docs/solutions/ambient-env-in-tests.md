@@ -18,7 +18,7 @@ CI에는 `.env`가 없어 폴백이 비고, 그래서 통과한다. 로컬/CI �
 
 방향이 반대인 경우가 더 위험하다. 같은 테스트가 "설정됐을 때"를 보는 것이었다면
 로컬 백엔드에 붙어 **초록으로** 나오면서 실제로는 아무것도 검증하지 않았을 것이다.
-`green-build-proves-nothing`과 같은 계열이다.
+[silent-failure-looks-like-success](silent-failure-looks-like-success.md)와 같은 계열이다.
 
 ## 올바른 방법
 
@@ -47,6 +47,7 @@ CI에는 `.env`가 없어 폴백이 비고, 그래서 통과한다. 로컬/CI �
 
 ## 재발 이력
 
-`20260827_0754_ticket-19-email-magic-link-u1-u5` (email-provisioning — 작성 중
-발견해 로컬 `withoutEnv` 헬퍼로 우회),
-`20260829_0959_merge-4-open-prs` (#147 리뷰에서 landing 건 분리 판정)
+- `20260827_0754_ticket-19-email-magic-link-u1-u5` (email-provisioning — 작성 중
+  발견해 로컬 `withoutEnv` 헬퍼로 우회)
+- `20260829_1130_landing-examples-ambient-env-test` (get-landing-examples — #147
+  리뷰에서 분리돼 별도 티켓으로 수정)

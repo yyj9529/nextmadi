@@ -185,7 +185,7 @@ describe("unimplemented methods", () => {
     "deleteUser",
   ])("%s throws instead of returning a plausible value", (name) => {
     // A stub that returns null or undefined turns a missing capability into a successful-looking
-    // login (docs/solutions/green-build-proves-nothing.md).
+    // login (docs/solutions/silent-failure-looks-like-success.md).
     const { adapter } = adapterWith(() => json(IDENTITY));
     const method = (adapter as unknown as Record<string, () => unknown>)[name];
 
