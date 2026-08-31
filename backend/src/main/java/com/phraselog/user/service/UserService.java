@@ -9,11 +9,14 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-/** Backend core for {@code GET /me} and {@code PATCH /me} (#52). */
+/** Backend core for {@code GET /me}, {@code PATCH /me}, and account deletion (#52, #24). */
 @Service
 public class UserService {
 
   private static final int MAX_DISPLAY_NAME_LENGTH = 100;
+
+  /** Grace window from S11 User Story 3. The hard delete itself belongs to the E02.3 job. */
+  static final int DELETION_GRACE_DAYS = 14;
 
   private final UserRepository userRepository;
 
@@ -37,6 +40,32 @@ public class UserService {
     return userRepository
         .update(userId, displayName, selectedCoachId, setOnboardedTrue)
         .orElseThrow(UserService::userNotFound);
+  }
+
+  /**
+   * Starts the 14-day grace period ({@code DELETE /me}, #24).
+   *
+   * <p>Nothing is removed here. The row keeps serving requests until the E02.3 sweep passes {@code
+   * scheduled_deletion_at}, which is what makes the window cancelable at all.
+   */
+  public void scheduleDeletion(InternalAuthPrincipal principal) {
+    UUID userId = requireAuthenticatedUser(principal);
+    if (!userRepository.scheduleDeletion(userId, DELETION_GRACE_DAYS)) {
+      throw userNotFound();
+    }
+  }
+
+  /**
+   * Clears a scheduled deletion ({@code POST /me/cancel-deletion}, #24).
+   *
+   * <p>The sign-in paths already clear the field while provisioning, so this endpoint is the
+   * explicit route for a client that holds a session and wants to stay.
+   */
+  public void cancelDeletion(InternalAuthPrincipal principal) {
+    UUID userId = requireAuthenticatedUser(principal);
+    if (!userRepository.cancelDeletion(userId)) {
+      throw userNotFound();
+    }
   }
 
   /** {@code null} = field absent, leave unchanged. Non-null is validated against the length cap. */

@@ -193,6 +193,68 @@ class UserServiceTests {
             ApiErrorException.class, e -> assertThat(e.status()).isEqualTo(HttpStatus.NOT_FOUND));
   }
 
+  @Test
+  void scheduleDeletionStartsTheFourteenDayWindow() {
+    UUID userId = UUID.randomUUID();
+    when(userRepository.scheduleDeletion(userId, 14)).thenReturn(true);
+
+    service.scheduleDeletion(InternalAuthPrincipal.ofUser(userId.toString()));
+
+    verify(userRepository).scheduleDeletion(userId, 14);
+  }
+
+  @Test
+  void scheduleDeletionReturns404WhenUserMissing() {
+    UUID userId = UUID.randomUUID();
+    when(userRepository.scheduleDeletion(eq(userId), org.mockito.ArgumentMatchers.anyInt()))
+        .thenReturn(false);
+
+    assertThatThrownBy(
+            () -> service.scheduleDeletion(InternalAuthPrincipal.ofUser(userId.toString())))
+        .isInstanceOfSatisfying(
+            ApiErrorException.class, e -> assertThat(e.status()).isEqualTo(HttpStatus.NOT_FOUND));
+  }
+
+  @Test
+  void scheduleDeletionRejectsAnonymousSessionPrincipalWith401() {
+    assertThatThrownBy(
+            () -> service.scheduleDeletion(InternalAuthPrincipal.ofSession("anon-token")))
+        .isInstanceOfSatisfying(
+            ApiErrorException.class,
+            e -> assertThat(e.status()).isEqualTo(HttpStatus.UNAUTHORIZED));
+    verify(userRepository, never()).scheduleDeletion(any(), org.mockito.ArgumentMatchers.anyInt());
+  }
+
+  @Test
+  void cancelDeletionClearsTheField() {
+    UUID userId = UUID.randomUUID();
+    when(userRepository.cancelDeletion(userId)).thenReturn(true);
+
+    service.cancelDeletion(InternalAuthPrincipal.ofUser(userId.toString()));
+
+    verify(userRepository).cancelDeletion(userId);
+  }
+
+  @Test
+  void cancelDeletionReturns404WhenUserMissing() {
+    UUID userId = UUID.randomUUID();
+    when(userRepository.cancelDeletion(userId)).thenReturn(false);
+
+    assertThatThrownBy(
+            () -> service.cancelDeletion(InternalAuthPrincipal.ofUser(userId.toString())))
+        .isInstanceOfSatisfying(
+            ApiErrorException.class, e -> assertThat(e.status()).isEqualTo(HttpStatus.NOT_FOUND));
+  }
+
+  @Test
+  void cancelDeletionRejectsAnonymousSessionPrincipalWith401() {
+    assertThatThrownBy(() -> service.cancelDeletion(InternalAuthPrincipal.ofSession("anon-token")))
+        .isInstanceOfSatisfying(
+            ApiErrorException.class,
+            e -> assertThat(e.status()).isEqualTo(HttpStatus.UNAUTHORIZED));
+    verify(userRepository, never()).cancelDeletion(any());
+  }
+
   private static UserResponse user(UUID userId) {
     return new UserResponse(
         userId,

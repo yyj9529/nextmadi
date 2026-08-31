@@ -26,4 +26,14 @@ public final class UnavailableUserRepository implements UserRepository {
       UUID userId, String displayName, UUID selectedCoachId, boolean setOnboardedTrue) {
     throw unavailable();
   }
+
+  @Override
+  public boolean scheduleDeletion(UUID userId, int graceDays) {
+    throw unavailable();
+  }
+
+  @Override
+  public boolean cancelDeletion(UUID userId) {
+    throw unavailable();
+  }
 }

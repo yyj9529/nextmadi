@@ -53,6 +53,7 @@ Gradle의 up-to-date 재사용이 이걸 한 겹 더 가린다. 입력이 안 �
 - `20260715_0510_ticket-15-seed-landing-examples`
 - `20260802_0830` (CI 로그에 컨테이너 흔적 0건)
 - `20260828_ticket-19-u6-u7-review` (`Task :build UP-TO-DATE`로 0건 실행)
+- `20260901_ticket-24-account-deletion` (신규 리포지터리 테스트 10건 전부 skipped)
 
 ## Related
 

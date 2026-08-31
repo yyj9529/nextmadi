@@ -37,7 +37,17 @@ mock.module("@/lib/user/patch-me", () => ({
   PatchMeError: FakePatchMeError,
 }));
 
-const { PATCH } = await import("./route");
+let scheduleImpl: (input: unknown) => Promise<void>;
+const scheduleCalls: unknown[] = [];
+
+mock.module("@/lib/user/account-deletion", () => ({
+  scheduleAccountDeletion: async (input: unknown) => {
+    scheduleCalls.push(input);
+    return scheduleImpl(input);
+  },
+}));
+
+const { PATCH, DELETE } = await import("./route");
 
 const COACH_UUID = "11111111-1111-1111-1111-111111111111";
 
@@ -54,6 +64,8 @@ beforeEach(() => {
   headerMap = new Map();
   patchCalls.length = 0;
   patchImpl = async () => ({ id: "user-1", is_onboarded: true });
+  scheduleCalls.length = 0;
+  scheduleImpl = async () => {};
 });
 
 describe("PATCH /api/me", () => {
@@ -124,6 +136,45 @@ describe("PATCH /api/me", () => {
       jsonRequest({ selected_coach_id: COACH_UUID, is_onboarded: true }),
     );
 
+    expect(response.status).toBe(502);
+  });
+});
+
+describe("DELETE /api/me", () => {
+  test("schedules deletion for the session user and returns 204", async () => {
+    const response = await DELETE();
+
+    expect(response.status).toBe(204);
+    expect(scheduleCalls).toEqual([{ userId: "user-1" }]);
+  });
+
+  test("rejects an unauthenticated request with 401", async () => {
+    currentSession = null;
+
+    const response = await DELETE();
+
+    expect(response.status).toBe(401);
+    expect(scheduleCalls).toHaveLength(0);
+  });
+
+  test("rejects a cross-origin request with 403", async () => {
+    headerMap.set("origin", "http://evil.test");
+    headerMap.set("host", "localhost");
+
+    const response = await DELETE();
+
+    expect(response.status).toBe(403);
+    expect(scheduleCalls).toHaveLength(0);
+  });
+
+  test("maps a backend failure to 502 instead of reporting success", async () => {
+    scheduleImpl = async () => {
+      throw new Error("backend down");
+    };
+
+    const response = await DELETE();
+
+    // 204를 돌려주면 클라이언트가 로그아웃시켜 삭제된 것처럼 보인다. 실패는 실패로 보여야 한다.
     expect(response.status).toBe(502);
   });
 });

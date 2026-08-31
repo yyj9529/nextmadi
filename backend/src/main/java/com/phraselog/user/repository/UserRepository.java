@@ -22,4 +22,19 @@ public interface UserRepository {
    */
   Optional<UserResponse> update(
       UUID userId, String displayName, UUID selectedCoachId, boolean setOnboardedTrue);
+
+  /**
+   * Sets {@code scheduled_deletion_at = now() + graceDays} for an active user (#24).
+   *
+   * <p>Calling it again restarts the window rather than failing — the caller confirmed deletion
+   * either way, and a second confirmation should not shorten the grace period. Returns false if the
+   * user has no active row.
+   */
+  boolean scheduleDeletion(UUID userId, int graceDays);
+
+  /**
+   * Clears {@code scheduled_deletion_at} for an active user (#24). A no-op when nothing was
+   * scheduled. Returns false if the user has no active row.
+   */
+  boolean cancelDeletion(UUID userId);
 }

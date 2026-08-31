@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 
 import { auth } from "@/auth";
+import { scheduleAccountDeletion } from "@/lib/user/account-deletion";
 import { PatchMeError, patchMe } from "@/lib/user/patch-me";
 
 // 현재 사용자 부분 수정 BFF. (#53, S03b 코치 선택 완료 / S11 프로필)
@@ -114,6 +115,35 @@ export async function PATCH(request: Request): Promise<Response> {
       502,
       "update_failed",
       "변경 사항을 저장하지 못했어요. 다시 시도해주세요.",
+    );
+  }
+}
+
+// 계정 삭제 예약 BFF. (#24, S11 User Story 3)
+//
+// 여기서 지워지는 데이터는 없다 — 백엔드가 users.scheduled_deletion_at 을 14일 뒤로 세우고,
+// 실제 삭제는 유예가 지난 뒤 E02.3 잡이 한다. 그래서 유예 안에 다시 로그인하면 복원된다.
+// 성공은 204라서 본문이 없다. 세션 종료(signOut)는 호출한 클라이언트가 한다 — 쿠키를 지우는
+// 것은 브라우저 쪽 동작이고, 여기서 대신 하면 실패했을 때도 로그아웃돼 삭제된 것처럼 보인다.
+export async function DELETE(): Promise<Response> {
+  if (!(await isSameOrigin())) {
+    return jsonError(403, "forbidden", "요청을 처리할 수 없어요.");
+  }
+
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return jsonError(401, "unauthorized", "로그인이 필요해요.");
+  }
+
+  try {
+    await scheduleAccountDeletion({ userId });
+    return new Response(null, { status: 204 });
+  } catch {
+    return jsonError(
+      502,
+      "deletion_failed",
+      "계정 삭제를 처리하지 못했어요. 다시 시도해주세요.",
     );
   }
 }
