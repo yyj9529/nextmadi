@@ -133,15 +133,31 @@ kept #18's OAuth path adapter-free — stops firing. An adapter that implements 
 surface therefore kills Google and Kakao sign-in outright.
 
 So `NextAuth` is built from a function of the request (`next-auth/index.js:102`).
-`/api/auth/callback/{google,kakao}` gets a config with neither the adapter nor the email
-provider — the exact shape that shipped before #19 — and every other route gets both. The two
-must leave together: an email provider without an adapter fails config validation with
-`MissingAdapter` (`@auth/core/lib/utils/assert.js:135`).
+`/api/auth/callback/{google,kakao}` gets a config without the email provider and without the
+BFF adapter; every other route gets both. They must leave together: an email provider without
+an adapter fails config validation with `MissingAdapter`
+(`@auth/core/lib/utils/assert.js:135`).
 
-The alternative was implementing the OAuth surface in the adapter. It is cleaner in the long
-run and is the direction to take if the adapter ever needs to own both paths, but it rewrites
-an already-deployed login path and needs a backend lookup endpoint that does not exist —
-an ADR-sized change, not a fix.
+**The callback config still carries an adapter — one that stores nothing.** Leaving the
+adapter key absent looks correct and is not, because `assert.js` keeps its provider scan in
+module-level state (`assert.js:15-17`, set at `:90-94`, never reset). One request with the
+email provider latches `hasEmail` for the life of the process, and from then on every
+adapter-less config is rejected with `MissingAdapter` — so the OAuth callback 500s unless it
+happens to be the first auth request that process ever sees (#157). `createOAuthCallbackAdapter()`
+satisfies that check while answering the OAuth path exactly as no storage would:
+`getUserByAccount`, `getUser` and `getUserByEmail` return null, `linkAccount` is a no-op, and
+`createUser` hands back the very object it was given — the user the `signIn` callback has
+already provisioned. Identity is still created in one place. Everything else throws.
+
+That latch is why the regression test runs **two** requests against one process. A test that
+exercises the callback alone passes with the bug present.
+
+The alternative was implementing the OAuth surface in the BFF adapter. It is cleaner in the
+long run and is the direction to take if the adapter ever needs to own both paths, but it
+rewrites an already-deployed login path and needs a backend lookup endpoint that does not
+exist — an ADR-sized change, not a fix. Upgrading past the latch was checked and is not
+available: `@auth/core@0.41.3` (the newest release as of 2026-09-01) still declares that
+state at module scope.
 
 ### Endpoint authority
 

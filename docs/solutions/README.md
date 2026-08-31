@@ -72,7 +72,7 @@
 | effect 내 동기 setState (lint) | 코드 | 자동화 | 관행만 (문서 없음) | [set-state-in-effect](set-state-in-effect.md) |
 | 목 데이터 ↔ 실데이터 계약 드리프트 | 코드 | 노트 | 없음 | [mock-to-real-drift](mock-to-real-drift.md) |
 | 테스트가 앰비언트 env를 읽어 로컬/CI가 갈림 | 검증 | 노트 | 공유 `withoutEnv` 헬퍼 | [ambient-env-in-tests](ambient-env-in-tests.md) |
-| 라이브러리 실제 호출 지점을 안 읽고 설계 확정 | 설계 | 노트 | 없음 | [library-call-sites-unread](library-call-sites-unread.md) |
+| 라이브러리 실제 호출 지점을 안 읽고 설계 확정 | 설계 | 자동화 | auth 요청 경로 회귀 테스트 (`src/auth-callback-config.test.ts`) | [library-call-sites-unread](library-call-sites-unread.md) |
 | 도는 dev 서버의 브랜치를 확인 안 하고 디버깅 | 환경 | 노트 | 없음 | [dev-server-branch-unverified](dev-server-branch-unverified.md) |
 | 시점(TIMESTAMPTZ)을 UTC로 포맷해 날짜가 하루 밀림 | 코드 | 기록 | 없음 | 노트 없음 (1회) |
 | 실행 안 한 검증을 Pass로 기록 | 검증 | 기록 | 없음 | 노트 없음 (1회) |
