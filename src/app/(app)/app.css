@@ -2217,6 +2217,18 @@
   color: var(--app-faint);
 }
 
+.nickname-action:disabled {
+  color: var(--app-faint);
+  cursor: not-allowed;
+}
+
+/* 닉네임 입력 규칙 안내(빈 값 / 길이 초과). */
+.settings-field-hint {
+  margin: -4px 0 0;
+  color: #e03131;
+  font-size: 0.8125rem;
+}
+
 .settings-coach-card {
   display: flex;
   align-items: center;
