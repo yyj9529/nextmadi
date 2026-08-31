@@ -13,8 +13,7 @@ export const metadata: Metadata = {
 
 // S11 설정 (#56). 첫 페인트 데이터는 서버에서 GET /me + GET /usage/today +
 // GET /coaches를 병렬 조회해 넘긴다. 변경(닉네임·코치)은 클라이언트가 PATCH /api/me로
-// 한다. 계정 삭제(DELETE /me)는 백엔드 미구현이라 이 티켓 범위 밖 — 확인 다이얼로그까지만
-// 동작하고 실제 삭제는 E03.7 티켓에서 배선한다.
+// 한다. 계정 삭제는 확인 다이얼로그 → DELETE /api/me → 로그아웃 순서로 클라이언트가 한다 (#24).
 export default async function SettingsPage() {
   const userId = await requireAuthenticatedUserId();
 

@@ -46,6 +46,13 @@ export async function sendEmailMagicLink(
   }
 }
 
-export async function signOutToLanding() {
-  await signOut({ redirectTo: "/" });
+/**
+ * 세션을 끊고 S01로 보낸다.
+ *
+ * `redirectTo`를 열어둔 이유는 계정 삭제(#24) 때문이다. 삭제 예약 뒤 보여줄 안내는
+ * 로그아웃 네비게이션을 건너뛰고 살아남아야 하는데, 컴포넌트 state는 그 지점에서 사라진다.
+ * 도착 URL에 실어 보내면 S01이 그것만 보고 렌더할 수 있고, 새로고침 한 번이면 사라진다.
+ */
+export async function signOutToLanding(redirectTo = "/") {
+  await signOut({ redirectTo });
 }

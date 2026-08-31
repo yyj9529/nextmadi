@@ -83,6 +83,31 @@ public class JdbcUserRepository implements UserRepository {
     return findById(userId);
   }
 
+  @Override
+  public boolean scheduleDeletion(UUID userId, int graceDays) {
+    // make_interval keeps the grace period a bound parameter. Concatenating it into an
+    // INTERVAL literal would put a caller-supplied value into SQL text for no benefit.
+    int updated =
+        jdbcTemplate.update(
+            """
+            UPDATE users
+               SET scheduled_deletion_at = now() + make_interval(days => ?)
+             WHERE id = ? AND deleted_at IS NULL
+            """,
+            graceDays,
+            userId);
+    return updated > 0;
+  }
+
+  @Override
+  public boolean cancelDeletion(UUID userId) {
+    int updated =
+        jdbcTemplate.update(
+            "UPDATE users SET scheduled_deletion_at = NULL WHERE id = ? AND deleted_at IS NULL",
+            userId);
+    return updated > 0;
+  }
+
   private static RowMapper<UserResponse> userRowMapper() {
     return (rs, rowNum) ->
         new UserResponse(

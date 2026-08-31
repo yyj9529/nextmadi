@@ -5,8 +5,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -88,6 +90,49 @@ class MeControllerTests {
   void patchMeWithoutVerifiedPrincipalReturns401() throws Exception {
     mockMvc
         .perform(patch("/api/v1/me").contentType("application/json").content("{}"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error_code").value("internal_auth_invalid"));
+  }
+
+  @Test
+  void deleteMeSchedulesDeletionAndReturns204() throws Exception {
+    UUID userId = UUID.randomUUID();
+    InternalAuthPrincipal principal = InternalAuthPrincipal.ofUser(userId.toString());
+
+    mockMvc
+        .perform(
+            delete("/api/v1/me").requestAttr(InternalAuthPrincipal.REQUEST_ATTRIBUTE, principal))
+        .andExpect(status().isNoContent());
+
+    verify(userService).scheduleDeletion(principal);
+  }
+
+  @Test
+  void deleteMeWithoutVerifiedPrincipalReturns401() throws Exception {
+    mockMvc
+        .perform(delete("/api/v1/me"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error_code").value("internal_auth_invalid"));
+  }
+
+  @Test
+  void cancelDeletionReturns204() throws Exception {
+    UUID userId = UUID.randomUUID();
+    InternalAuthPrincipal principal = InternalAuthPrincipal.ofUser(userId.toString());
+
+    mockMvc
+        .perform(
+            post("/api/v1/me/cancel-deletion")
+                .requestAttr(InternalAuthPrincipal.REQUEST_ATTRIBUTE, principal))
+        .andExpect(status().isNoContent());
+
+    verify(userService).cancelDeletion(principal);
+  }
+
+  @Test
+  void cancelDeletionWithoutVerifiedPrincipalReturns401() throws Exception {
+    mockMvc
+        .perform(post("/api/v1/me/cancel-deletion"))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error_code").value("internal_auth_invalid"));
   }
