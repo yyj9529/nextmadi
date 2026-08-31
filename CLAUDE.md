@@ -262,4 +262,6 @@ Lessons accumulated from corrections during W1–3 planning. Append, don't rewri
 
 - **Public GitHub comments follow the thread's existing language, not the Korean default.** Posted a Korean review comment to issue #66 while every prior comment on that issue was English; owner had it rewritten in English. The "general interaction: Korean" rule covers conversation with the owner, not public repo artifacts. Lesson: before posting an issue/PR comment, check the language of the existing thread and match it — public repo visibility also favors English.
 
+- **자동 게이트 통과가 그다음 단계의 위임까지 뜻하지 않는다.** #56에서 typecheck/lint/test를 통과시킨 뒤, 남은 브라우저 검증까지 혼자 끝내려고 묻지 않고 백엔드와 dev 서버를 기동하다 중단당했다. 오너는 "뭐 해야 하는지만 알려주면 브라우저 검증은 내가 할게"라고 했고 그 편이 실제로 더 빨랐다. 게이트를 스스로 정의했다는 사실이 그 게이트를 실행할 환경을 마음대로 띄울 권한이 되지는 않는다. 서버 기동·프로세스 시작은 부수효과가 세션 밖까지 남으므로 확인을 받는다.
+
 - **Premature trimming based on current phase is a recurring failure pattern.** Cut subagent strategy because "기획 단계라 불필요." Cut autonomous bug fixing because "코드 작성 단계 아님." Both were wrong. CLAUDE.md is a 12-week-plus lifecycle document; sections relevant to any phase must exist from day 1. Lesson: when tempted to omit a section because "we don't use it yet," ask instead "will we use it within the project lifecycle?" If yes, keep it.

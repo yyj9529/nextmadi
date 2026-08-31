@@ -1,18 +1,19 @@
 "use client";
 
 import { CheckIcon } from "@/components/app/icons";
-import { mockCoaches, mockCoachSampleLines } from "@/lib/mock-api";
+import { mockCoachSampleLines } from "@/lib/mock-api";
 import type { Coach } from "@/lib/mock-api";
 
 // 코치 비교 카드 — S03b 코치 선택과 S11 코치 변경 모달이 공유.
-// 데이터 출처: GET /coaches. S03b는 실제 목록을 coaches로 넘기고,
-// S11은 아직 목(mockCoaches, 기본값)을 쓴다.
+// 데이터 출처: GET /coaches. 두 화면 모두 실제 목록을 coaches로 넘긴다(#56).
+// 목 폴백 기본값은 두지 않는다 — 조회가 실패해도 화면이 그럴듯하게 그려져
+// 실패가 성공처럼 보이는 경로가 생긴다(docs/solutions/mock-to-real-drift.md).
 
 type CoachCardListProps = {
   selectedId: string | null;
   onSelect: (coach: Coach) => void;
-  /** 렌더할 코치 목록. 생략 시 목 데이터(S11 호환). */
-  coaches?: Coach[];
+  /** 렌더할 코치 목록(GET /coaches). */
+  coaches: Coach[];
   /** 저장 중 등 카드 상호작용을 잠글 때. */
   disabled?: boolean;
   /** 저장 중인 카드에 스피너를 표시한다(S03b Selecting 상태). */
@@ -22,7 +23,7 @@ type CoachCardListProps = {
 export function CoachCardList({
   selectedId,
   onSelect,
-  coaches = mockCoaches,
+  coaches,
   disabled = false,
   savingId = null,
 }: CoachCardListProps) {
