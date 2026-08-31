@@ -74,6 +74,7 @@
 | 테스트가 앰비언트 env를 읽어 로컬/CI가 갈림 | 검증 | 노트 | 공유 `withoutEnv` 헬퍼 | [ambient-env-in-tests](ambient-env-in-tests.md) |
 | 라이브러리 실제 호출 지점을 안 읽고 설계 확정 | 설계 | 노트 | 없음 | [library-call-sites-unread](library-call-sites-unread.md) |
 | 도는 dev 서버의 브랜치를 확인 안 하고 디버깅 | 환경 | 노트 | 없음 | [dev-server-branch-unverified](dev-server-branch-unverified.md) |
+| 시점(TIMESTAMPTZ)을 UTC로 포맷해 날짜가 하루 밀림 | 코드 | 기록 | 없음 | 노트 없음 (1회) |
 | 실행 안 한 검증을 Pass로 기록 | 검증 | 기록 | 없음 | 노트 없음 (1회) |
 | 실패할 수 없는 검사를 증거로 제시 | 검증 | 기록 | 없음 | 노트 없음 (1회) |
 | 이슈 본문의 미검증 관찰이 repro를 오도 | 프로세스 | 기록 | 없음 | 노트 없음 (1회) |
