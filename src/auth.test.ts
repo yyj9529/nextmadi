@@ -67,15 +67,20 @@ describe("per-request config selection (#19 OAuth regression guard)", () => {
     expect(isOAuthCallbackRequest(undefined)).toBe(false);
   });
 
-  test("hands the OAuth callback a config with no adapter at all", () => {
-    // 어댑터가 있으면 @auth/core/lib/actions/callback/index.js:56이 getUserByAccount를 부르고,
-    // handle-login.js:24의 `if (!adapter)` 조기 반환이 사라져 OAuth 프로비저닝 경로가 무너진다.
+  test("hands the OAuth callback a config with no storing adapter", () => {
+    // BFF 어댑터가 붙으면 @auth/core/lib/actions/callback/index.js:56이 getUserByAccount를 부르고,
+    // handle-login.js가 createUser/linkAccount까지 그 어댑터에 물어서 신원 생성 출처가 둘이 된다.
+    //
+    // 그렇다고 어댑터 자리를 비우면 #157로 죽는다. 콜백 설정에는 저장하지 않는 어댑터가 붙는다.
     const config = selectAuthConfig(
       callbackRequest("/api/auth/callback/google"),
     );
 
-    expect(config.adapter).toBeUndefined();
-    // 이메일 provider도 같이 빠져야 한다 — 남으면 Auth.js가 MissingAdapter로 설정을 거부한다.
+    expect(config.adapter).toBeDefined();
+    expect(config.adapter).not.toBe(
+      selectAuthConfig(callbackRequest("/api/auth/providers")).adapter,
+    );
+    // 이메일 provider는 빠진다 — 이 설정의 어댑터는 매직링크 토큰을 발급할 수 없다.
     expect(providerIdsOf(config)).toEqual(["google", "kakao"]);
   });
 
@@ -86,7 +91,10 @@ describe("per-request config selection (#19 OAuth regression guard)", () => {
       "/api/auth/providers",
     ]) {
       const config = selectAuthConfig(callbackRequest(path));
-      expect(config.adapter).toBeDefined();
+      // "어댑터가 있다"만 보면 저장하지 않는 콜백용 어댑터가 여기 잘못 붙어도 통과한다.
+      // 그 어댑터는 매직링크 토큰 발급에서 던지므로 이메일 로그인이 통째로 죽는다.
+      expect(config.adapter).toBe(selectAuthConfig(undefined).adapter);
+      expect(config.adapter?.createVerificationToken).toBeInstanceOf(Function);
       expect(providerIdsOf(config)).toEqual(["google", "kakao", "nodemailer"]);
     }
 

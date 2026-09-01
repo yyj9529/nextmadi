@@ -9,6 +9,7 @@ import Kakao from "next-auth/providers/kakao";
 
 import { createBffAdapter } from "./lib/auth/bff-adapter";
 import { buildEmailProvider } from "./lib/auth/email-provider";
+import { createOAuthCallbackAdapter } from "./lib/auth/oauth-callback-adapter";
 import { EMAIL_PROVIDER_ID } from "./lib/auth/email-signin";
 import {
   OAuthProvisioningError,
@@ -51,21 +52,24 @@ export function isOAuthCallbackRequest(request?: Request): boolean {
 type BuildAuthConfigOptions = {
   secureCookies?: boolean;
   /**
-   * 이메일 provider와 어댑터를 포함할지. false면 #19 이전과 정확히 같은 설정이 된다.
+   * 이메일 provider와 **BFF 어댑터**를 포함할지.
    *
-   * Auth.js의 adapter는 provider별로 범위가 잡히지 않는다. 어댑터가 존재하기만 하면
-   * OAuth 콜백도 `getUserByAccount` → `linkAccount` → `getUserByEmail`을 어댑터에 묻는다
-   * (@auth/core/lib/actions/callback/index.js:56, handle-login.js:175/230/264). 우리 어댑터는
-   * 이메일 경로만 구현했으므로 그 호출들이 던지고, Google/Kakao 로그인이 전부 실패한다.
-   * #19 이전에 OAuth를 지켜준 건 handle-login.js:24의 `if (!adapter)` 조기 반환이었다.
+   * Auth.js의 adapter는 provider별로 범위가 잡히지 않는다. BFF 어댑터가 존재하기만 하면
+   * OAuth 콜백도 `getUserByAccount` → `createUser` → `linkAccount`를 그 어댑터에 묻는다
+   * (@auth/core/lib/actions/callback/index.js:56, handle-login.js:175/260/264). BFF 어댑터의
+   * `createUser`는 이메일 신원을 만들므로, 그 경로가 열리면 신원 생성 출처가 `signIn` 콜백과
+   * 둘로 갈린다. #19 이전에 OAuth를 지켜준 건 handle-login.js:24의 `if (!adapter)` 조기 반환이었다.
    *
-   * 어댑터에 OAuth 면을 구현해 넣는 대신 콜백 요청에서만 떼기로 했다. #18의 signIn 콜백
-   * 프로비저닝을 한 줄도 건드리지 않고, 두 경로가 서로를 깨뜨릴 수 없게 된다.
+   * 그래서 콜백 요청에서는 BFF 어댑터를 떼되, 어댑터 자리를 비워두지는 않는다. 비워두면
+   * `assertConfig`의 전역 `hasEmail` 래치에 걸려 MissingAdapter로 죽는다 (#157). 대신 저장을
+   * 하지 않는 `createOAuthCallbackAdapter()`를 붙인다 — 근거는 그 파일 주석에 있다.
    */
   includeEmailProvider?: boolean;
   provisionOAuthIdentity?: typeof provisionOAuthIdentityDefault;
   /** 테스트에서 BFF 어댑터를 대체한다. 기본값은 Spring Boot를 호출하는 실제 어댑터. */
   adapter?: Adapter;
+  /** 테스트에서 콜백 전용 어댑터를 대체한다. */
+  oauthCallbackAdapter?: Adapter;
   /** 테스트에서 provider를 대체한다. 기본값은 env로 SES/개발 모드를 고르는 실제 provider. */
   emailProvider?: NextAuthConfig["providers"][number];
 };
@@ -87,14 +91,18 @@ export function buildAuthConfig(
   const includeEmail = options.includeEmailProvider ?? true;
   const adapter = options.adapter ?? createBffAdapter();
   const emailProvider = options.emailProvider ?? buildEmailProvider();
+  const oauthCallbackAdapter =
+    options.oauthCallbackAdapter ?? createOAuthCallbackAdapter();
 
   return {
-    // 어댑터는 이메일 provider가 요구해서 존재한다. 저장은 여전히 Spring Boot가 한다 (ADR-010) —
-    // 어댑터 메서드가 X-Internal-Auth로 백엔드를 호출할 뿐, Next.js는 DB에 접근하지 않는다.
+    // BFF 어댑터는 이메일 provider가 요구해서 존재한다. 저장은 여전히 Spring Boot가 한다
+    // (ADR-010) — 어댑터 메서드가 X-Internal-Auth로 백엔드를 호출할 뿐, Next.js는 DB에 접근하지
+    // 않는다. 이메일 provider와 BFF 어댑터는 항상 같이 있거나 같이 없다.
     //
-    // 둘은 항상 같이 있거나 같이 없어야 한다. 이메일 provider만 남기면 Auth.js가 설정 검증에서
-    // MissingAdapter("Email login requires an adapter")로 실패한다 (@auth/core/lib/utils/assert.js:135).
-    ...(includeEmail ? { adapter } : {}),
+    // 어댑터 키 자체는 두 설정 모두에 있어야 한다. `assertConfig`의 `hasEmail`이 모듈 전역이라
+    // 한 번 켜지면 안 꺼지고, 그 뒤로는 어댑터 없는 설정이 전부 MissingAdapter로 거부된다
+    // (#157, assert.js:15-17/130-135). 콜백 쪽에 붙는 어댑터는 저장을 하지 않는다.
+    adapter: includeEmail ? adapter : oauthCallbackAdapter,
     providers: includeEmail ? [Google, Kakao, emailProvider] : [Google, Kakao],
     pages: {
       signIn: "/login",
@@ -216,7 +224,7 @@ export function buildAuthConfig(
 
 export const authConfig = buildAuthConfig();
 
-/** OAuth 콜백 전용 설정 — 어댑터도 이메일 provider도 없는, #19 이전과 동일한 모양. */
+/** OAuth 콜백 전용 설정 — 이메일 provider도, 저장하는 어댑터도 없다. */
 const oauthCallbackConfig = buildAuthConfig({ includeEmailProvider: false });
 
 /**
