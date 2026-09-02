@@ -11,6 +11,9 @@
 - 세션 도중 브랜치가 바뀐 것을 모르고 `main`에 직접 커밋 (`20260826_0447`)
 - `git checkout main && git pull`에서 pull만 실패. 체크아웃은 이미 끝나 stale main 위에
   앉았고, 방금 머지한 내용이 워킹트리에서 사라진 것처럼 보였다 (`20260829_1500`)
+- PR이 **머지 완료(보라색)인데 코드가 main에 없다.** base가 `main`이 아니라 다른 작업
+  브랜치였고, 그 브랜치를 main으로 넣는 PR이 **51초 먼저** 머지돼 실어 나를 배가 이미
+  떠난 뒤였다. PR 목록은 전부 merged라 눈으로는 아무 이상이 없다 (`20260902_2226`, #156/#24)
 
 ## 근본 원인
 
@@ -29,6 +32,13 @@
   단 `git stash create`는 untracked를 포함하지 않으므로 별도 처리 필요
 - 브랜치 삭제 판단은 커밋 카운트가 아니라 "내용이 main에 실제로 있는가"를
   파일/클래스 단위로 확인
+- **PR을 열 때 base가 `main`인지 본다.** 다른 티켓 브랜치 위에서 브랜치를 따면 GitHub이
+  base를 그 브랜치로 잡아준다. 그 상태로 머지하면 코드는 중간 브랜치에 얹히고, 그
+  중간 브랜치가 이미 main에 들어간 뒤라면 main으로 갈 경로가 사라진다. 머지 버튼은
+  "main으로 보내기"가 아니라 "이 PR이 적어둔 목적지로 보내기"다
+- **"PR 다 머지함"은 "코드 다 들어감"이 아니다.** 티켓을 닫기 전에 main에서 파일 존재를
+  확인한다 — `git ls-tree -r --name-only origin/main | grep <새로 만든 파일>`.
+  `gh pr list --state merged --json number,title,baseRefName`로 목적지도 함께 본다
 - PR 올리기 직전 `git fetch && rebase origin/main` — 충돌을 리뷰 중에 만나지 않는다
 - **커밋 직전에 `git branch --show-current`를 확인한다.** 세션이 길어지면 그 사이
   오너나 다른 세션이 브랜치를 바꿔놓을 수 있다. 세션 시작 때 확인한 브랜치가 커밋
@@ -40,7 +50,7 @@
 
 ## 자동화 후보
 
-재발 9회. 3회 기준을 한참 넘겼는데 아직 사람 확인에만 의존 중이다.
+재발 10회. 3회 기준을 한참 넘겼는데 아직 사람 확인에만 의존 중이다.
 
 - PreToolUse(Edit/Write) 훅: 현재 브랜치가 `main`이면 편집 차단
 - PreToolUse(Bash) 훅: `git commit`인데 현재 브랜치가 `main`이면 차단.
@@ -48,6 +58,11 @@
   커밋만 main에서 하는 경우가 생긴다)
 - 세션 Stop 훅 확장: 작업 트리에 커밋 안 된 변경이 N개 이상이면 경고 출력
   (기존 `check-dev-log.ps1`과 같은 자리)
+- **base가 `main`이 아닌 PR은 열 때 경고한다.** `gh pr create` 앞단(훅 또는 래퍼)에서
+  base를 확인하고, 의도한 스택 PR이 아니면 막는다. 10회차가 이 경우였고 위 두 훅으로는
+  못 잡는다 — 브랜치도 커밋도 전부 정상이었고 목적지만 틀렸다
+- CI 또는 주기 작업으로 **"merged인데 base가 main이 아니고, 그 base도 main에 없는 PR"**
+  을 열거한다. 사람이 PR 목록을 눈으로 훑어서는 절대 안 보이는 상태다
 
 ## 재발 이력
 
@@ -61,3 +76,5 @@
 - `20260826_0447`
 - `20260829_1500_repo-sync-audit-and-worktree-cleanup` (`git checkout main && git pull`에서
   pull만 실패 — 체크아웃은 이미 끝나 stale main 위에 앉았고 워킹트리가 되돌아갔다)
+- `20260902_2226_ticket-24-merge-target-not-main.md` (#156의 base가 main이 아니어서
+  머지됐는데도 계정 삭제 코드가 main에 도달하지 못했다)
