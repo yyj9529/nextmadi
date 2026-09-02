@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CoachCardList } from "@/components/app/CoachCards";
 import { BackIcon, CloseIcon, PencilIcon } from "@/components/app/icons";
 import { signOutToLanding } from "@/lib/auth/oauth-client";
+import { ACCOUNT_DELETED_PARAM } from "@/lib/user/account-deleted-notice";
 import type { Coach } from "@/lib/mock-api";
 import type { UsageTodayResult } from "@/lib/usage/get-usage-today";
 import type { GetMeResult } from "@/lib/user/get-me";
@@ -17,9 +18,9 @@ import { MAX_NICKNAME_LENGTH, validateNickname } from "@/lib/user/nickname";
 // 닉네임 저장: PATCH /api/me { display_name } — 빈 값은 저장할 수 없다(nickname.ts 참고).
 // 코치 변경: PATCH /api/me { selected_coach_id } (모달은 S03b 카드 재사용).
 // 로그아웃: NextAuth signOut → /.
-// 계정 삭제: 백엔드 DELETE /me가 아직 없어 확인 다이얼로그까지만 동작한다. 여기서 로그아웃
-// 시키면 삭제된 것처럼 보이지만 서버에는 아무 일도 안 일어난다 —
-// docs/solutions/silent-failure-looks-like-success.md 패턴이라 일부러 하지 않는다.
+// 계정 삭제 (#24): DELETE /api/me 가 200/204로 답한 뒤에만 로그아웃한다. 실패하면 세션을
+// 유지한 채 에러 토스트만 띄운다 — 로그아웃부터 시키면 서버에 아무 일도 안 일어난 채
+// 삭제된 것처럼 보인다 (docs/solutions/silent-failure-looks-like-success.md).
 
 type SettingsExperienceProps = {
   me: GetMeResult;
@@ -63,6 +64,7 @@ export function SettingsExperience({
   const [savingCoachId, setSavingCoachId] = useState<string | null>(null);
 
   const [confirmDeletion, setConfirmDeletion] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
 
   const coach = coaches.find((item) => item.id === coachId) ?? null;
@@ -140,6 +142,44 @@ export function SettingsExperience({
     setCoachId(next.id);
     setCoachModalOpen(false);
     setToast({ tone: "info", message: "코치가 변경됐어요" });
+  }
+
+  /**
+   * 계정 삭제 예약 (S11 User Story 3).
+   *
+   * 서버가 예약을 확인한 뒤에만 로그아웃한다. 안내 문구는 URL로 넘긴다 — 로그아웃은 전체
+   * 네비게이션이라 이 컴포넌트의 토스트 state가 도착지까지 살아남지 못한다.
+   */
+  async function handleDeleteAccount() {
+    if (deleting) {
+      return;
+    }
+    setDeleting(true);
+
+    let response: Response;
+    try {
+      response = await fetch("/api/me", { method: "DELETE" });
+    } catch {
+      setDeleting(false);
+      setConfirmDeletion(false);
+      setToast({
+        tone: "error",
+        message: "계정 삭제를 처리하지 못했어요. 다시 시도해주세요.",
+      });
+      return;
+    }
+
+    if (!response.ok) {
+      setDeleting(false);
+      setConfirmDeletion(false);
+      setToast({
+        tone: "error",
+        message: "계정 삭제를 처리하지 못했어요. 다시 시도해주세요.",
+      });
+      return;
+    }
+
+    await signOutToLanding(`/?${ACCOUNT_DELETED_PARAM}=1`);
   }
 
   return (
@@ -375,6 +415,7 @@ export function SettingsExperience({
               <button
                 className="retry-button"
                 type="button"
+                disabled={deleting}
                 onClick={() => setConfirmDeletion(false)}
               >
                 취소
@@ -382,16 +423,10 @@ export function SettingsExperience({
               <button
                 className="confirm-destructive"
                 type="button"
-                onClick={() => {
-                  // DELETE /me 미구현. 로그아웃시켜 성공처럼 보이게 하지 않는다.
-                  setConfirmDeletion(false);
-                  setToast({
-                    tone: "error",
-                    message: "계정 삭제는 아직 준비 중이에요.",
-                  });
-                }}
+                disabled={deleting}
+                onClick={() => void handleDeleteAccount()}
               >
-                계속 진행
+                {deleting ? "처리 중…" : "계속 진행"}
               </button>
             </div>
           </div>

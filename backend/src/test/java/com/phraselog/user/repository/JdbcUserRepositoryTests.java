@@ -3,6 +3,7 @@ package com.phraselog.user.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.phraselog.user.dto.UserResponse;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -106,6 +107,48 @@ class JdbcUserRepositoryTests {
   @Test
   void updateReturnsEmptyForUnknownUser() {
     assertThat(repository.update(UUID.randomUUID(), "x", null, false)).isEmpty();
+  }
+
+  @Test
+  void scheduleDeletionSetsWindowFourteenDaysOut() {
+    UUID id = insertUser("leaving@example.com");
+
+    assertThat(repository.scheduleDeletion(id, 14)).isTrue();
+
+    OffsetDateTime scheduled = repository.findById(id).orElseThrow().scheduledDeletionAt();
+    assertThat(scheduled).isNotNull();
+    // Bounded rather than exact: now() is the database clock, not the test's.
+    assertThat(scheduled)
+        .isAfter(OffsetDateTime.now().plusDays(13))
+        .isBefore(OffsetDateTime.now().plusDays(15));
+  }
+
+  @Test
+  void cancelDeletionClearsTheWindow() {
+    UUID id = insertUser("returning@example.com");
+    repository.scheduleDeletion(id, 14);
+
+    assertThat(repository.cancelDeletion(id)).isTrue();
+    assertThat(repository.findById(id).orElseThrow().scheduledDeletionAt()).isNull();
+  }
+
+  @Test
+  void cancelDeletionIsANoOpWhenNothingScheduled() {
+    UUID id = insertUser("staying@example.com");
+
+    assertThat(repository.cancelDeletion(id)).isTrue();
+    assertThat(repository.findById(id).orElseThrow().scheduledDeletionAt()).isNull();
+  }
+
+  @Test
+  void deletionSchedulingIgnoresSoftDeletedAndUnknownUsers() {
+    UUID gone = insertUser("gone@example.com");
+    jdbcTemplate.update("UPDATE users SET deleted_at = now() WHERE id = ?", gone);
+
+    assertThat(repository.scheduleDeletion(gone, 14)).isFalse();
+    assertThat(repository.cancelDeletion(gone)).isFalse();
+    assertThat(repository.scheduleDeletion(UUID.randomUUID(), 14)).isFalse();
+    assertThat(repository.cancelDeletion(UUID.randomUUID())).isFalse();
   }
 
   private UUID insertUser(String email) {

@@ -4,6 +4,10 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { getLandingExamples } from "@/lib/landing/get-landing-examples";
+import {
+  ACCOUNT_DELETED_MESSAGE,
+  shouldShowAccountDeletedNotice,
+} from "@/lib/user/account-deleted-notice";
 
 export const metadata: Metadata = {
   title: "PhraseLog — 못한 말, 다음엔 할 수 있게",
@@ -14,13 +18,21 @@ export const metadata: Metadata = {
 // - 예시 카드는 GET /landing/examples(공개, 무작위 3개)에서 실데이터로 채운다.
 //   네트워크 오류/0건이면 getLandingExamples가 []를 돌려주고, 예시 섹션은 조용히
 //   생략된다(s01 UI states). 방문자는 이 데이터 없이도 CTA로 행동할 수 있다.
-export default async function LandingPage() {
+type LandingPageProps = {
+  searchParams?:
+    | Promise<Record<string, string | string[] | undefined>>
+    | Record<string, string | string[] | undefined>;
+};
+
+export default async function LandingPage({ searchParams }: LandingPageProps) {
   const session = await auth();
   if (session?.user?.id) {
     redirect("/home");
   }
 
   const examples = await getLandingExamples();
+  // 계정 삭제 예약 직후 도착한 경우의 일회성 안내 (#24, s11 User Story 3 AC2).
+  const accountDeleted = shouldShowAccountDeletedNotice(await searchParams);
 
   return (
     <div className="app-screen landing-screen">
@@ -30,6 +42,12 @@ export default async function LandingPage() {
           로그인
         </Link>
       </header>
+
+      {accountDeleted ? (
+        <p className="review-toast settings-toast" role="status">
+          {ACCOUNT_DELETED_MESSAGE}
+        </p>
+      ) : null}
 
       <div className="landing-desktop-grid">
         <section className="landing-hero" aria-label="서비스 소개">
