@@ -5,12 +5,13 @@ Not a generic English-learning app. Not a real-time translation tool.
 
 Core promise: "Turn what I couldn't say today into something I can say next time."
 
-## Status (May 2026)
+## Status (September 2026)
 
-Planning phase. ADRs 001~007 and 010~011 accepted; 008~009 proposed. PRD, screen specs, the eval
-plan, and the agent harness docs exist; the codebase begins at W4.
+Implemented. Next.js frontend lives in `src/`, Spring Boot backend in `backend/`; all S01~S12b
+screens, auth, and the AI pipeline exist in code. ADRs 001~007 and 010~011 accepted;
+008~009 proposed. Current focus: expanding the eval system (`eval/`, `docs/EVAL_PLAN.md`).
 
-Target: v1 launch at W12 of the launch phase (12 weeks from planning start, per ADR-004).
+Schedule baseline: 12-week launch phase per ADR-004; exec-plans in `docs/exec-plans/` track actual progress.
 
 ## Read in this order
 

@@ -1,13 +1,16 @@
 ---
 eval_component: s07_judge
-judge_prompt_version: judge-v1
-judge_model: claude-sonnet-4-6
+judge_prompt_version: judge-v2
+judge_model: claude-opus-5
 created: 2026-06-04
+updated: 2026-09-05
 notes: >
-  Model-based grading per EVAL_PLAN.md Tier 1. Judge is the higher-tier model (Sonnet),
-  not the cheaper one, because judging quality matters more than speed. Freeze this
-  version for trend continuity; bump to judge-v2 only with a deliberate re-baseline
-  (EVAL_PLAN open question 1).
+  Model-based grading per EVAL_PLAN.md Tier 1. judge-v2 changes only the judge model:
+  the rubric text below is identical to judge-v1. The judge must be a different model
+  from the S07 generator (Sonnet 4.6) because a model grading its own output shows
+  self-preference bias; judge-v1 used the same model for both and its baselines are not
+  comparable with judge-v2 runs. Freeze this version for trend continuity; bump to
+  judge-v3 only with a deliberate re-baseline (EVAL_PLAN open question 1).
 ---
 
 You are a strict, fair evaluator of English-learning output for Korean immigrants in

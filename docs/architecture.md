@@ -66,7 +66,7 @@ Frontend framework. App-router-based pages map directly to the screen IDs in `do
 
 Server components are used for initial data fetches (the `화면 진입시 실행되는 쿼리` in the screen-queries document). Client components handle interactive state (sessionStorage for `pending_save`, mic recording, etc.).
 
-Vercel auto-deploys on push to `main`. Hobby tier covers the v1 **non-commercial** private-validation phase only — Vercel's Fair Use restricts Hobby to non-commercial/personal use (verified 2026-06-05, vercel.com/docs/limits/fair-use-guidelines). Switch to Pro the moment any commercial use begins: paid beta, ads, payments, or serving paying customers (per PRD §4.3).
+Vercel auto-deploys on push to `main`. Hobby tier covers the v1 **non-commercial** private-validation phase only — Vercel's Fair Use restricts Hobby to non-commercial/personal use (verified 2026-06-05, vercel.com/docs/limits/fair-use-guidelines). Switch to Pro the moment any commercial use begins: paid beta, ads, payments, or serving paying customers (per PRD section 4.3).
 
 ### PWA scope (v1)
 
@@ -77,7 +77,7 @@ Vercel auto-deploys on push to `main`. Hobby tier covers the v1 **non-commercial
 Explicitly **not** in v1 PWA scope:
 
 - Offline mode for AI features — every AI call requires network; cached UI shell exists only to render faster
-- Push notifications — deferred to v1.5+ (PRD §4.3, PPT v2.2 slide 17)
+- Push notifications — deferred to v1.5+ (PRD section 4.3, PPT v2.2 slide 17)
 - Background sync — no use case in v1
 
 ### NextAuth on Next.js
@@ -395,5 +395,5 @@ Resolve before launch:
 - `docs/api/*.yaml` — REST API contracts hosted by the Spring Boot layer.
 - `docs/screens/sNN.md` — Per-screen behavior implemented on this architecture.
 - `.github/workflows/` (forthcoming) — Actual CI/CD workflow files.
-- PRD §4.2 — Screen map this architecture serves.
-- PRD §6 Cross-cutting requirements — Observability requirements satisfied by `ai_request_logs` and CloudWatch.
+- PRD section 4.2 — Screen map this architecture serves.
+- PRD section 6 Cross-cutting requirements — Observability requirements satisfied by `ai_request_logs` and CloudWatch.

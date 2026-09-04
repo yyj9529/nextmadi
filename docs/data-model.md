@@ -121,7 +121,7 @@ CREATE TABLE coach_profiles (
 );
 ```
 
-Seed-only table. v1 ships three rows (Mia, David, Sarah). User chooses one at S03b (PRD §5.9). AI auto-matching is not in v1 (deferred to v1.1+, PRD §4.3).
+Seed-only table. v1 ships three rows (Mia, David, Sarah). User chooses one at S03b (PRD section 5.9). AI auto-matching is not in v1 (deferred to v1.1+, PRD section 4.3).
 
 ### landing_examples
 
@@ -168,9 +168,9 @@ CREATE UNIQUE INDEX uq_analysis_idem_session
   WHERE user_id IS NULL AND idempotency_key IS NOT NULL;
 ```
 
-Both `user_id` and `session_token` allow the pre-signup (S02) → signup → claim flow (PRD §5.2). On signup, pending rows with matching `session_token` are claimed by updating `user_id` and clearing `session_token`.
+Both `user_id` and `session_token` allow the pre-signup (S02) → signup → claim flow (PRD section 5.2). On signup, pending rows with matching `session_token` are claimed by updating `user_id` and clearing `session_token`.
 
-`input_text` is hard-capped at 500 characters at the database level (PRD §4.3, decided via PPT v2.2 slide 7).
+`input_text` is hard-capped at 500 characters at the database level (PRD section 4.3, decided via PPT v2.2 slide 7).
 
 ### anonymous_analysis_usage
 
@@ -186,7 +186,7 @@ CREATE TABLE anonymous_analysis_usage (
 CREATE INDEX idx_anon_usage_date ON anonymous_analysis_usage(usage_date);
 ```
 
-Per-IP daily counter for pre-signup S02 analysis calls. Enforced at the application layer using an UPSERT pattern (`INSERT ... ON CONFLICT (ip_address, usage_date) DO UPDATE SET count = count + 1`). When `count >= 2`, the request is rejected with a signup prompt (PRD §5.1).
+Per-IP daily counter for pre-signup S02 analysis calls. Enforced at the application layer using an UPSERT pattern (`INSERT ... ON CONFLICT (ip_address, usage_date) DO UPDATE SET count = count + 1`). When `count >= 2`, the request is rejected with a signup prompt (PRD section 5.1).
 
 A daily job deletes rows where `usage_date < current_date - interval '30 days'` to bound table size. Retention window TBD.
 
@@ -277,7 +277,7 @@ Three rows per parent `expressions` row (one per analysis variant). The `(expres
 
 `tts_audio_cache_id` is set when TTS audio is first generated and cached for this exact variant text. Multiple variants with identical English text + voice will share the same `tts_audio_cache` row (content-hashed).
 
-The GIN index on `english_text` supports library keyword search (PRD §5.5). For Korean situation search the GIN index lives on `expressions.original_situation` (added below — note: not in the earlier table because `expressions` no longer carries the English text):
+The GIN index on `english_text` supports library keyword search (PRD section 5.5). For Korean situation search the GIN index lives on `expressions.original_situation` (added below — note: not in the earlier table because `expressions` no longer carries the English text):
 
 ```sql
 CREATE INDEX idx_expressions_situation_search ON expressions
@@ -365,7 +365,7 @@ CREATE INDEX idx_sessions_daily_count ON practice_sessions(user_id, started_at);
 
 `expression_id` is `ON DELETE SET NULL` so historical sessions remain analyzable when their source expression is soft-deleted at the application layer (the FK only fires on hard delete, which is currently never).
 
-Daily limit enforcement (PRD §5.8, 2 sessions per user per day) runs at the application layer:
+Daily limit enforcement (PRD section 5.8, 2 sessions per user per day) runs at the application layer:
 
 ```sql
 SELECT count(*) FROM practice_sessions
@@ -463,7 +463,7 @@ When a screen needs TTS:
 
 `text_content` is denormalized for debugging (the hash alone is opaque) and to support cache audits without recomputing hashes.
 
-`expires_at` default policy: **TBD in W1-3**. Two candidates: no expiry (audio is small, S3 storage cheap) vs 90-day expiry (clean unused entries). The choice affects a daily cleanup job design.
+`expires_at` default policy: **TBD (open)**. As of 2026-09 the code inserts `NULL` (no expiry; `backend/.../tts/service/TtsPlaybackService.java`, `InsertTtsCacheCommand.java`) and no cleanup job exists. Two candidates: no expiry (audio is small, S3 storage cheap) vs 90-day expiry (clean unused entries). The choice affects a daily cleanup job design.
 
 ### ai_request_logs
 
@@ -575,7 +575,7 @@ Migration tool (Flyway recommended for Spring Boot) handles this ordering automa
 
 ## Open questions affecting schema
 
-Resolve before W4:
+Open unless struck through:
 
 1. ~~**`review_cards.current_interval_days` initial value**~~ — Resolved 2026-06-10: `next_review_at = now()`, `current_interval_days = 1`. See `review_cards` section.
 2. ~~**Abandoned `practice_sessions` and daily limit counting**~~ — Resolved in #59: `abandoned` rows do **not** count toward the 2-per-day cap; the daily-count query filters `status != 'abandoned'`. See `docs/screens/s12.md` US3-AC2.
@@ -594,7 +594,7 @@ Resolve before W4:
 - ADR-002 — Cumulative bookshelf; motivates the distinction between user-initiated soft delete and absence-based decay on `expressions`.
 - ADR-001 — Pipeline whose calls populate `ai_request_logs`.
 - ADR-003 — Eval system; Tier 3 will add `eval_*` tables post-launch.
-- PRD §6 Cross-cutting requirements — defines `ai_request_logs` as required observability.
+- PRD section 6 Cross-cutting requirements — defines `ai_request_logs` as required observability.
 - AI_PIPELINE.md — JSONB column internal structures, `feature_name` enumeration, TTS cache lookup pattern.
 - docs/screens/s02.md — pre-signup analysis flow and `anonymous_analysis_usage` enforcement.
 - docs/screens/s03b.md — `users.is_onboarded` gating.
