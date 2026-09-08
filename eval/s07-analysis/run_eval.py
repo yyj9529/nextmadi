@@ -151,6 +151,19 @@ def validate_schema(output: dict) -> list[str]:  # 모델 출력 딕셔너리를
 
 # --- Model calls -------------------------------------------------------------  # AI 모델 API 호출 섹션 구분선
 
+def response_text(resp) -> str:  # API 응답에서 텍스트 블록만 골라 이어붙여 반환하는 함수
+    """Join the text blocks of a response.
+
+    Do not assume content[0] is text: models that return a reasoning block put a
+    ThinkingBlock first, and ThinkingBlock has no .text (2026-09-06, judge=Opus 5).
+    """
+    # content는 블록 리스트다. 생각(thinking) 블록이 먼저 오는 모델이 있으므로 type으로 걸러낸다.
+    parts = [b.text for b in resp.content if getattr(b, "type", None) == "text"]
+    if not parts:  # 텍스트 블록이 하나도 없으면 파싱할 것이 없다
+        raise ValueError(f"no text block in response (blocks: {[getattr(b, 'type', '?') for b in resp.content]})")
+    return "".join(parts)  # 텍스트 블록이 여러 개면 순서대로 이어붙인다
+
+
 def generate(client: Anthropic, system_prompt: str, input_text: str) -> tuple[str, float]:  # S07 모델을 호출해 응답 텍스트와 비용을 묶음으로 반환하는 함수
     resp = client.messages.create(  # Anthropic 메시지 API를 호출해 응답 객체 받기
         model=GEN_MODEL,            # 사용할 생성 모델 ID 지정
@@ -158,7 +171,7 @@ def generate(client: Anthropic, system_prompt: str, input_text: str) -> tuple[st
         system=system_prompt,       # 시스템 프롬프트 전달 (S07 동작 지침)
         messages=[{"role": "user", "content": input_text}],  # 유저 입력 메시지를 리스트 형태로 전달
     )
-    return resp.content[0].text, cost_usd(GEN_MODEL, resp.usage)  # 첫 번째 응답 텍스트와 달러 비용을 튜플로 반환
+    return response_text(resp), cost_usd(GEN_MODEL, resp.usage)  # 첫 번째 응답 텍스트와 달러 비용을 튜플로 반환
 
 
 def judge(client: Anthropic, judge_prompt: str, case: dict, output: dict) -> tuple[dict, float]:  # 판정 모델을 호출해 점수 딕셔너리와 비용을 묶음으로 반환하는 함수
@@ -171,11 +184,11 @@ def judge(client: Anthropic, judge_prompt: str, case: dict, output: dict) -> tup
     }
     resp = client.messages.create(         # Anthropic 메시지 API를 판정용으로 호출
         model=JUDGE_MODEL,                 # 사용할 판정 모델 ID 지정
-        max_tokens=1000,                   # 판정 응답 최대 토큰 수 제한
+        max_tokens=4000,                   # 판정 응답 최대 토큰 수 제한. Opus 5는 thinking 블록 토큰도 여기서 차감하므로 1000이면 JSON이 잘린다 (2026-09-06 확인: stop_reason=max_tokens)
         system=judge_prompt,               # 판정 기준이 담긴 시스템 프롬프트 전달
         messages=[{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],  # payload를 JSON 문자열로 변환해 유저 메시지로 전달 (한국어 보존)
     )
-    return extract_json(resp.content[0].text), cost_usd(JUDGE_MODEL, resp.usage)  # 판정 JSON 파싱 결과와 달러 비용을 튜플로 반환
+    return extract_json(response_text(resp)), cost_usd(JUDGE_MODEL, resp.usage)  # 판정 JSON 파싱 결과와 달러 비용을 튜플로 반환
 
 
 # --- One trial ---------------------------------------------------------------  # 단일 시험 실행 섹션 구분선

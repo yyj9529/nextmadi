@@ -31,6 +31,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r eval/s07-analysis/requirements.txt
 
+      # EVAL_PLAN.md CI integration step 1: deterministic checks on the case set, no API
+      # calls. Runs first so a malformed or lopsided test_cases.json fails in seconds
+      # instead of after a full paid run.
+      - name: Run no-API unit tests
+        run: python -m unittest discover -s eval/s07-analysis -p 'test_*.py' -v
+
       - name: Locate latest baseline artifact
         id: baseline
         run: |
