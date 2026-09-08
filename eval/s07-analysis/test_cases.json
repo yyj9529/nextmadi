@@ -1,5 +1,5 @@
 {
-  "schema_note": "Structure and taxonomy codes defined in EVAL_PLAN.md Tier 1 ('Scenario coverage taxonomy'). Owner-authored starter set: 22 cases on 2026-06-13, expanded to 74 on 2026-09-05 by filling the domain x act x input_mode matrix. Real user text is prohibited here. 'id' is stable and never renumbered.",
+  "schema_note": "Structure and taxonomy codes defined in EVAL_PLAN.md Tier 1 ('Scenario coverage taxonomy'). Owner-authored starter set: 22 cases on 2026-06-13, expanded to 74 on 2026-09-05 by filling the domain x act x input_mode matrix, then to 82 on 2026-09-06 with 8 implicit-cue twins (pair_of) and check_it draft_quality tags (docs/exec-plans/2026-09-06-eval-case-criteria-revision.md). Real user text is prohibited here. 'id' is stable and never renumbered. check_it draft_quality labels were reviewed by a native US English speaker on 2026-09-06; 024 moved good -> flawed (register: a real American patient would not phrase it this elaborately, not sentence length), 043/074 marked as pragmatic flaws in natural English; 064 kept good per the reviewer, with a firmer close offered only as an extra option.",
   "cases": [
     {
       "id": "s07_001",
@@ -174,7 +174,6 @@
       "expected_behaviors": [
         "Clearly states the problem and the desired outcome",
         "Phone-call appropriate phrasing",
-        "tone_label is generated dynamically, not picked from a fixed enum",
         "Pronunciation tip targets a hard sound for phone clarity"
       ],
       "expected_failure_modes": [
@@ -427,16 +426,17 @@
       "act": "clarify",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output recognizes the user's sentence was natural and appropriate; variant 1 keeps it essentially as-is or with only minimal polish (accuracy)",
-        "Model does not manufacture a problem with the draft to justify a rewrite (accuracy)",
+        "Variant 1 uses plainer, more direct phrasing that a real American patient would actually say in the exam room, not a more elaborate or formal request; a native reviewer judged the draft as something a real American would not phrase that way in this moment (naturalness)",
+        "No variant or tip implies the draft was rude or unclear; the named problem is register (too elaborate/formal for the moment), not politeness or clarity (accuracy)",
         "Other variants offer genuinely different strategies (e.g., asking the doctor to write it down, asking for the key point), not rewordings (naturalness)",
         "Cultural tip confirms this is a normal patient request that doctors expect (cultural_appropriateness)"
       ],
       "expected_failure_modes": [
-        "Variant 1 rewrites a fine sentence into something stiffer or more formal",
+        "Variant 1 keeps or adds formal/elaborate phrasing a real patient would not use in the moment",
         "Output implies the user was rude or unclear when they were not",
         "Adds an unnecessary apology such as 'I'm sorry to bother you' to the repaired version"
-      ]
+      ],
+      "draft_quality": "flawed"
     },
     {
       "id": "s07_025",
@@ -446,7 +446,7 @@
       "act": "clarify",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output makes clear the user's 'Okay, okay, yes' was not adequate because it signaled understanding they did not have (accuracy)",
+        "expressions[0].cultural_tip names why the original 'Okay, okay, yes' was a problem: it signaled understanding the user did not have (accuracy)",
         "Variant 1 honestly says the user did not follow and asks for the instructions again, matching the frank tone (tone_match)",
         "At least one variant asks for written instructions or a teach-back, which is standard US discharge practice (cultural_appropriateness)",
         "Phrasing is everyday patient English, not clinical vocabulary (naturalness)"
@@ -456,7 +456,8 @@
         "Repaired variant apologizes repeatedly instead of stating plainly that the user did not understand",
         "Uses abstract wording like 'clarify the regimen' that a patient would not say",
         "Cultural tip fails to mention that nurses expect patients to ask and it is not embarrassing"
-      ]
+      ],
+      "draft_quality": "flawed"
     },
     {
       "id": "s07_026",
@@ -506,8 +507,8 @@
       "act": "request",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output confirms the sentence was natural and polite; variant 1 keeps it nearly verbatim (accuracy)",
-        "Does not invent a flaw such as 'too direct' to justify changing it (accuracy)",
+        "Variant 1 (expressions[0].english) keeps the user's draft essentially as-is, changing at most a few words (accuracy)",
+        "No variant's english or cultural_tip implies the draft was rude, unclear, or too direct; expressions[0].cultural_tip says it was appropriate for this situation (accuracy)",
         "Alternative variants add genuinely different options, e.g., offering availability windows or asking about a cancellation list (naturalness)",
         "Cultural tip is specific to scheduler calls, such as being ready with insurance and date of birth (cultural_appropriateness)"
       ],
@@ -515,18 +516,19 @@
         "Rewrites the fine sentence into a longer, stiffer version",
         "Claims 'What's the earliest opening' is too demanding when it is standard phrasing",
         "Cultural tip is generic ('be polite on the phone')"
-      ]
+      ],
+      "draft_quality": "good"
     },
     {
       "id": "s07_029",
-      "input_text": "my daughter has had a fever of 102 since last night and tylenol isn't helping. calling the nurse line, what do I say",
+      "input_text": "my 4-year-old daughter has had a fever of 102 since last night and tylenol isn't helping. calling the nurse line, what do I say",
       "tone_intent": null,
       "domain": "healthcare",
       "act": "request",
       "input_mode": "robustness",
       "expected_behaviors": [
         "Handles English-only input gracefully and still returns valid JSON with exactly 3 expressions (accuracy)",
-        "Variants state the key facts a triage nurse needs: age implied, temperature, duration, what was tried (accuracy)",
+        "Variants state the key facts a triage nurse needs: age (4), temperature (102), duration (since last night), what was tried (Tylenol) (accuracy)",
         "Phrasing is concise phone English a worried parent would actually say, not a medical report (naturalness)",
         "tone_label, pronunciation_tip, and cultural_tip are still in Korean per schema even though input was English (accuracy)",
         "Tone range is appropriate for a worried but composed parent when tone_intent is null (tone_match)"
@@ -586,8 +588,9 @@
       "act": "complain",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output reassures the user the sentence was clear and appropriately firm, not too harsh; variant 1 keeps it essentially unchanged (accuracy)",
-        "Does not soften the fine sentence into a hedged version (tone_match)",
+        "Variant 1 (expressions[0].english) keeps the user's draft essentially as-is, changing at most a few words (accuracy)",
+        "Light warming of the slightly stiff wording (e.g., 'It looks like I was charged twice this month') counts as polish, not a rewrite, as long as the meaning and firmness stay (naturalness)",
+        "No variant softens the draft into a hedged version; expressions[0].cultural_tip says the draft was appropriately firm (tone_match)",
         "Alternatives offer different strategies, such as asking for the charge dates or a confirmation email (naturalness)",
         "Cultural tip notes that stating the problem and desired fix directly is the expected register with customer service (cultural_appropriateness)"
       ],
@@ -595,7 +598,8 @@
         "Agrees with the user's worry and rewrites the sentence more apologetically",
         "Adds 'I'm sorry to bother you' to the repaired variant",
         "Claims 'reverse the charge' is unnatural when it is standard"
-      ]
+      ],
+      "draft_quality": "good"
     },
     {
       "id": "s07_033",
@@ -605,7 +609,7 @@
       "act": "clarify",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output identifies that repeated apologizing for English shifted focus away from the actual repair need (accuracy)",
+        "expressions[0].cultural_tip names why repeating 'Sorry, my English is not good' was a problem: it shifted focus away from the actual repair need (accuracy)",
         "Variant 1 asks the agent to slow down or repeat with no apology at all, satisfying the negative-form tone (tone_match)",
         "At least one variant puts the request on the agent's pace ('you're going a bit fast for me') rather than on the user's ability (naturalness)",
         "Cultural tip states that agents are trained to slow down on request and that apologizing is unnecessary (cultural_appropriateness)"
@@ -615,7 +619,8 @@
         "Treats the user's original as fine",
         "Over-corrects into a rude 'Speak slower'",
         "Cultural tip is generic"
-      ]
+      ],
+      "draft_quality": "flawed"
     },
     {
       "id": "s07_034",
@@ -626,7 +631,7 @@
       "input_mode": "fix_it",
       "expected_behaviors": [
         "Variant 1 is a natural written-register sentence or short email body that questions the bill and asks for a review, keeping both polite and firm elements (tone_match)",
-        "Repair adds what a utility company needs to act: account reference, the month, a request for a usage breakdown or meter check (accuracy)",
+        "Repair adds what a utility company needs to act: account reference, the month, a request for a usage breakdown or meter check; placeholders such as [account number] are acceptable (accuracy)",
         "Fixes 'complain my bill' and 'answer me quickly' into idiomatic written English (naturalness)",
         "Cultural tip mentions email conventions such as a subject line or including the account number (cultural_appropriateness)"
       ],
@@ -648,7 +653,7 @@
         "Variant 1 references the three prior requests, states this is now in writing, and names the next step (city or code enforcement) without bluffing (tone_match)",
         "Phrasing fits a tenant-to-landlord relationship: firm and documented, not threatening or emotional (naturalness)",
         "Cultural tip reflects the talk-then-write-then-report sequence and the value of dated written records (cultural_appropriateness)",
-        "At least one variant sets a specific deadline for the repair (accuracy)"
+        "At least one variant proposes a repair deadline; a placeholder such as [date] or 'by the end of this week' is acceptable since the input gives none (accuracy)"
       ],
       "expected_failure_modes": [
         "Softens to 'I would really appreciate it if you could...' losing the escalation",
@@ -705,8 +710,8 @@
       "act": "complain",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output confirms the sentence was clear, appropriate, and strategically correct; variant 1 keeps it essentially intact (accuracy)",
-        "Does not manufacture a flaw such as 'too confrontational' (tone_match)",
+        "Variant 1 (expressions[0].english) keeps the user's draft essentially as-is, changing at most a few words (accuracy)",
+        "No variant's english or cultural_tip implies the draft was rude, unclear, or too direct; expressions[0].cultural_tip says it was appropriate for this situation (accuracy)",
         "Alternatives add real options, such as asking for receipts or citing the move-in inspection report (naturalness)",
         "Cultural tip notes that many states require landlords to provide itemized deductions (cultural_appropriateness)"
       ],
@@ -714,7 +719,8 @@
         "Softens the sentence into a request that no longer withholds agreement",
         "Suggests the user was rude for asking for itemization",
         "Cultural tip is generic"
-      ]
+      ],
+      "draft_quality": "good"
     },
     {
       "id": "s07_039",
@@ -784,8 +790,8 @@
       "act": "refuse",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output confirms the refusal was appropriately firm and normal for US coworkers; variant 1 keeps it essentially unchanged (accuracy)",
-        "Does not add apologies or softeners the user did not need (tone_match)",
+        "Variant 1 (expressions[0].english) keeps the user's draft essentially as-is, changing at most a few words (accuracy)",
+        "No variant adds apologies or softeners the user did not need; expressions[0].cultural_tip says the refusal was normal among peers (tone_match)",
         "Alternatives differ in strategy, such as offering a later time or a smaller help, without weakening the no (naturalness)",
         "Cultural tip notes that a clear no with a redirect is considered helpful, not cold, among peers (cultural_appropriateness)"
       ],
@@ -793,7 +799,8 @@
         "Agrees it was cold and rewrites it with 'I'm so sorry'",
         "Rewrites the fine sentence into a vaguer refusal",
         "Cultural tip is generic"
-      ]
+      ],
+      "draft_quality": "good"
     },
     {
       "id": "s07_043",
@@ -803,7 +810,8 @@
       "act": "assert",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output identifies that the user's answer was heard as approval and hid their real opinion (accuracy)",
+        "expressions[0].cultural_tip names why 'Maybe... I'm not sure' was a problem: a US manager hears it as approval, so the real opinion was hidden (accuracy)",
+        "The output does not call the user's sentence unnatural or ungrammatical; it is natural English, and the problem is only what it communicated in this situation (naturalness)",
         "Variant 1 states a clear reservation with a reason, directed at a manager, matching the clear tone (tone_match)",
         "At least one variant uses a common US framing such as 'I have a concern about X' or 'I'd push back on one part' (naturalness)",
         "Cultural tip notes that US managers who ask for opinions generally want honest input and read vagueness as lack of engagement (cultural_appropriateness)"
@@ -812,8 +820,10 @@
         "Treats the user's 'Maybe... I'm not sure' as acceptable",
         "Repaired variant still hedges so much the disagreement is invisible",
         "Over-corrects into blunt 'I disagree, it's a bad plan' to a manager",
-        "Cultural tip is generic"
-      ]
+        "Cultural tip is generic",
+        "Labels the sentence as bad English instead of as a message that hid the user's real position"
+      ],
+      "draft_quality": "flawed"
     },
     {
       "id": "s07_044",
@@ -903,8 +913,8 @@
       "act": "written",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output confirms the message was natural and appropriate; variant 1 keeps it nearly verbatim (accuracy)",
-        "Does not invent a problem such as 'too casual' or 'missing greeting' when the message is fine for a teacher text (accuracy)",
+        "Variant 1 (expressions[0].english) keeps the user's draft essentially as-is, changing at most a few words (accuracy)",
+        "No variant's english or cultural_tip implies the draft was rude, unclear, or too direct; expressions[0].cultural_tip says it was appropriate for this situation (accuracy)",
         "Alternatives are written-register variations, e.g., asking about making up work, not spoken sentences (naturalness)",
         "Cultural tip notes that short absence notes to teachers are normal and that some schools also require notifying the front office (cultural_appropriateness)"
       ],
@@ -912,17 +922,18 @@
         "Rewrites the fine message into a formal letter",
         "Claims the message was rude or incomplete",
         "Cultural tip is generic"
-      ]
+      ],
+      "draft_quality": "good"
     },
     {
       "id": "s07_049",
-      "input_text": "아이 IEP 미팅 전에 학교 사무실에 한국어 통역 준비해달라고 요청하고 싶어. 부탁이 아니라 당연히 받을 수 있는 거라 분명하게",
+      "input_text": "아이 IEP 미팅이 다음 주 목요일인데 그 전에 학교 사무실에 한국어 통역 준비해달라고 요청하고 싶어. 부탁이 아니라 당연히 받을 수 있는 거라 분명하게",
       "tone_intent": "분명하게",
       "domain": "school",
       "act": "request",
       "input_mode": "say_it",
       "expected_behaviors": [
-        "Variant 1 requests a Korean interpreter for the IEP meeting as an expected service, stating the meeting date, not as a favor (tone_match)",
+        "Variant 1 requests a Korean interpreter for the IEP meeting as an expected service, naming the meeting day (next Thursday), not as a favor (tone_match)",
         "Uses the actual term 'IEP meeting' and 'interpreter' naturally (accuracy)",
         "At least one variant is suitable for a phone call or email to the front office (naturalness)",
         "Cultural tip notes that schools are expected to provide interpreters for IEP meetings and that asking in advance is standard (cultural_appropriateness)"
@@ -1002,8 +1013,8 @@
       "act": "clarify",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output confirms the sentence was appropriate and clear; variant 1 keeps it essentially as-is (accuracy)",
-        "Does not manufacture a problem such as 'too blunt' when brevity is correct at a government counter (tone_match)",
+        "Variant 1 (expressions[0].english) keeps the user's draft essentially as-is, changing at most a few words (accuracy)",
+        "No variant implies the short request was blunt or rude; expressions[0].cultural_tip says brevity is the expected form at a government counter (tone_match)",
         "Alternatives add useful context, e.g., the reason for the visit or a phone-interpreter option, not padding (naturalness)",
         "Cultural tip notes that SSA offices provide free interpreters and that a short request is the expected form (cultural_appropriateness)"
       ],
@@ -1011,7 +1022,8 @@
         "Rewrites the fine sentence into a long apologetic version",
         "Suggests the user was rude",
         "Cultural tip is generic"
-      ]
+      ],
+      "draft_quality": "good"
     },
     {
       "id": "s07_054",
@@ -1081,16 +1093,17 @@
       "act": "small_talk",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output confirms the reply was natural and correctly returned the ritual question; variant 1 keeps it essentially as-is (accuracy)",
-        "Does not manufacture a problem such as 'too short' or 'should share more' (accuracy)",
+        "Variant 1 (expressions[0].english) keeps the user's draft essentially as-is, changing at most a few words (accuracy)",
+        "No variant's english or cultural_tip implies the draft was rude, unclear, or too direct; expressions[0].cultural_tip says it was appropriate for this situation (accuracy)",
         "Alternatives show other natural ritual replies or a one-line follow-up about the neighborhood, not longer answers (naturalness)",
-        "Cultural tip explains that 'How's it going' is a greeting, not a real question, and the return question is what makes it work (cultural_appropriateness)"
+        "Cultural tip explains that in a passing exchange like this, 'How's it going' works as a greeting, and a short reply plus a return question is the usual pattern (cultural_appropriateness)"
       ],
       "expected_failure_modes": [
         "Suggests a literal, detailed answer about the user's week",
         "Rewrites the fine reply into something stiffer",
         "Cultural tip is generic"
-      ]
+      ],
+      "draft_quality": "good"
     },
     {
       "id": "s07_058",
@@ -1100,7 +1113,7 @@
       "act": "social_norm",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output clearly identifies that asking age and marital status of a new acquaintance is intrusive in US norms, explaining the neighbor's reaction (cultural_appropriateness)",
+        "expressions[0].cultural_tip names why asking a new acquaintance's age and marital status was a problem: it is intrusive in US norms, which explains the reaction (cultural_appropriateness)",
         "Variant 1 offers a friendly first-conversation question that is safe (how long they've lived here, the neighborhood, pets), matching the friendly tone (tone_match)",
         "At least one variant is a light recovery line the user could use next time they see the neighbor (accuracy)",
         "Phrasing is natural neighborly small talk (naturalness)"
@@ -1110,7 +1123,8 @@
         "Explains the norm without giving usable replacement questions",
         "Suggests an over-the-top apology for the earlier questions",
         "Cultural tip is generic"
-      ]
+      ],
+      "draft_quality": "flawed"
     },
     {
       "id": "s07_059",
@@ -1122,7 +1136,7 @@
       "expected_behaviors": [
         "Variant 1 is a polite, natural way to ask what to call them, e.g., 'What would you like me to call you?' (tone_match)",
         "At least one variant starts with the title and lets the parent offer a first name, which is the common US pattern (cultural_appropriateness)",
-        "Cultural tip notes that many American parents of adult friends will say 'call me Linda' and that using the title first is never wrong (cultural_appropriateness)",
+        "Cultural tip notes that many American parents of adult friends will say 'call me Linda' and that starting with the title is a safe default until they offer a first name (cultural_appropriateness)",
         "Phrasing is warm, not stiff or overly formal (naturalness)"
       ],
       "expected_failure_modes": [
@@ -1221,17 +1235,18 @@
       "act": "refuse",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output identifies that 'Maybe later, I'll think about it' was heard as an opening, which is why the calls continue (accuracy)",
-        "Variant 1 is a clear, final no that asks to be removed from the call list, matching the clear tone (tone_match)",
-        "Phrasing is polite but leaves no follow-up hook (naturalness)",
-        "Cultural tip notes that US salespeople treat soft refusals as 'not yet' and that a direct no is not rude (cultural_appropriateness)"
+        "Variant 1 (expressions[0].english) keeps the user's draft essentially as-is, changing at most a few words; a native reviewer judged 'Maybe later, I'll think about it' natural and polite (accuracy)",
+        "No variant or tip implies the draft was rude, unnatural, or a mistake; expressions[0].cultural_tip says it was a polite, normal response (accuracy)",
+        "Because the user says the calls keep coming, at least one other variant offers a clear, final no that asks to be removed from the call list, presented as a stronger option rather than as a correction (tone_match)",
+        "Cultural tip notes that US salespeople often treat a soft 'maybe later' as 'not yet', so a direct no is available and is not rude (cultural_appropriateness)"
       ],
       "expected_failure_modes": [
-        "Treats the user's soft refusal as acceptable",
-        "Repaired variant still includes 'maybe' or 'not right now'",
-        "Over-apologizes for declining",
+        "Variant 1 replaces the draft with a firm refusal, treating the polite sentence as wrong",
+        "Output implies the user was rude or made an English mistake",
+        "No variant offers a firmer way to end the calls, so the user's stated problem is ignored",
         "Cultural tip is generic"
-      ]
+      ],
+      "draft_quality": "good"
     },
     {
       "id": "s07_065",
@@ -1243,8 +1258,8 @@
       "expected_behaviors": [
         "Variant 1 expresses enthusiasm for the offer and then makes both asks (two remote days, later start) as a normal negotiation, not a plea (tone_match)",
         "Uses real US offer-stage phrasing such as 'before I accept, I'd like to discuss' (naturalness)",
-        "At least one variant gives a brief reason for the start date without over-explaining (accuracy)",
-        "Cultural tip notes that negotiating terms after an offer is expected and rarely leads to withdrawal when done professionally (cultural_appropriateness)"
+        "Does not invent a reason for the later start date, which the input does not give; a neutral framing such as 'I'd like to start on [date]' is sufficient (accuracy)",
+        "Cultural tip notes that negotiating terms after an offer is a normal, expected step in US hiring (cultural_appropriateness)"
       ],
       "expected_failure_modes": [
         "Undercuts with 'I totally understand if that's not possible' before even asking",
@@ -1364,7 +1379,7 @@
         "Variant 1 is a brief, matter-of-fact apology plus a practical note (offering to help or asking if they need anything), not a groveling one (tone_match)",
         "Sounds like a real parent in a restaurant, e.g., 'So sorry about that, is there anything I can do?' (naturalness)",
         "Does not offer to pay repeatedly or make the child the subject of a big apology (accuracy)",
-        "Cultural tip notes that servers treat this as routine and that a single apology plus a slightly larger tip is the normal gesture (cultural_appropriateness)"
+        "Cultural tip notes that servers treat a broken glass as routine and that one apology is enough; repeated apologies or insisting on paying are not expected (cultural_appropriateness)"
       ],
       "expected_failure_modes": [
         "Multiple apologies stacked in one variant",
@@ -1375,19 +1390,19 @@
     },
     {
       "id": "s07_072",
-      "input_text": "매니저한테 마감 못 맞출 것 같다고 미리 말하려고 해. \"Sorry, I think I cannot finish until Friday because too many things.\" 변명처럼 안 들리게 고쳐줘",
+      "input_text": "매니저한테 마감 못 맞출 것 같다고 미리 말하려고 해. 마감이 이번 금요일인데 다음 주 화요일에나 끝날 것 같아. \"Sorry, I think I cannot finish until Friday because too many things.\" 변명처럼 안 들리게 고쳐줘",
       "tone_intent": "변명처럼 들리지 않게",
       "domain": "workplace",
       "act": "bad_news",
       "input_mode": "fix_it",
       "expected_behaviors": [
-        "Variant 1 leads with the news and a concrete new date or option, not with an apology, satisfying the negative-form tone (tone_match)",
-        "Fixes 'cannot finish until Friday' (which reverses the meaning) and 'too many things' into clear, natural phrasing (accuracy)",
+        "Variant 1 leads with the news and the concrete new date (Tuesday) or an option, not with an apology, satisfying the negative-form tone (tone_match)",
+        "Fixes 'cannot finish until Friday': the deadline is Friday, so the draft says the opposite of the intent; the repair must say the work cannot be done by Friday and names Tuesday (accuracy)",
         "Frames the reason as a prioritization fact rather than a personal excuse, and asks the manager for a decision (naturalness)",
         "Cultural tip notes that early heads-up with options is valued by US managers far more than a last-minute apology (cultural_appropriateness)"
       ],
       "expected_failure_modes": [
-        "Keeps 'cannot finish until Friday', which means the opposite of the intent",
+        "Keeps 'cannot finish until Friday', which with a Friday deadline means the opposite of the intent",
         "Still opens with 'Sorry' or stacks apologies",
         "Vague 'too many things' remains without a concrete reason or option",
         "Cultural tip is generic"
@@ -1421,7 +1436,8 @@
       "act": "clarify",
       "input_mode": "check_it",
       "expected_behaviors": [
-        "Output identifies that answering 'Okay' and leaving lost the chance to learn exactly what was missing (accuracy)",
+        "expressions[0].cultural_tip names why answering 'Okay' and leaving was a problem: the user lost the chance to learn exactly what was missing (accuracy)",
+        "The output does not call the user's sentence unnatural or ungrammatical; it is natural English, and the problem is only what it communicated in this situation (naturalness)",
         "Variant 1 asks the clerk to specify which documents are missing and, ideally, to write it down or point to the list (tone_match)",
         "At least one variant asks whether the user needs a new appointment or can return the same day (accuracy)",
         "Cultural tip notes that DMV clerks will list required documents on request and that asking is expected, not an imposition (cultural_appropriateness)"
@@ -1430,7 +1446,193 @@
         "Treats the user's 'Okay' as fine",
         "Repaired variant apologizes instead of asking the concrete question",
         "Vague 'What do I need?' with no request for a written list or specifics",
+        "Cultural tip is generic",
+        "Labels the sentence as bad English instead of as a message that hid the user's real position"
+      ],
+      "draft_quality": "flawed"
+    },
+    {
+      "id": "s07_075",
+      "pair_of": "s07_023",
+      "input_text": "병원 접수할 때 한국어 통역이 필요하다고 말하고 싶어. 뭐라고 해?",
+      "tone_intent": null,
+      "domain": "healthcare",
+      "act": "clarify",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "No tone was requested. Variant 1 must still infer the register from the relationship and situation cues alone and land on the paired case's tone_intent '분명하게' (tone_match)",
+        "Variant 1 states the need for a Korean interpreter as a plain, entitled request, not an apology (tone_match)",
+        "At least one variant is short enough to say at a busy front desk without rehearsal (naturalness)",
+        "Cultural tip notes that US clinics receiving federal funds are expected to provide interpreters and that asking is routine (cultural_appropriateness)",
+        "No variant frames the user's English as a personal deficiency to apologize for (accuracy)"
+      ],
+      "expected_failure_modes": [
+        "Defaults to a generic polite register because no tone was stated, ignoring the relationship cue in the input",
+        "Variant 1 opens with 'Sorry, my English is not good' and buries the request",
+        "Uses 'translator' interchangeably with 'interpreter' without the natural clinic wording",
+        "Cultural tip is generic ('be polite to staff') instead of naming that interpreter access is standard",
+        "All three variants are near-identical rewordings of 'I need an interpreter'"
+      ]
+    },
+    {
+      "id": "s07_076",
+      "pair_of": "s07_026",
+      "input_text": "병원 청구서에 받은 적 없는 검사 항목이 있어서 청구 부서에 전화하려고 해. 뭐라고 하지?",
+      "tone_intent": null,
+      "domain": "healthcare",
+      "act": "complain",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "No tone was requested. Variant 1 must still infer the register from the relationship and situation cues alone and land on the paired case's tone_intent '단호하게' (tone_match)",
+        "Variant 1 clearly disputes the specific charge and asks for it to be removed or reviewed, not merely 'asks about' it (tone_match)",
+        "At least one variant asks for an itemized bill or a reference number, reflecting how US billing disputes actually proceed (cultural_appropriateness)",
+        "Wording is firm without accusing the billing agent personally of fraud (naturalness)",
+        "Variants differ in escalation level, e.g., first call vs. after being brushed off (accuracy)"
+      ],
+      "expected_failure_modes": [
+        "Defaults to a generic polite register because no tone was stated, ignoring the relationship cue in the input",
+        "Softens the firm intent into 'I was just wondering if maybe there is a mistake'",
+        "Sounds hostile or threatens legal action in variant 1 when a firm dispute was asked for",
+        "Literal translation of '따지다' producing something like 'I want to argue about my bill'",
+        "Cultural tip does not mention itemized bills, EOBs, or documenting the call"
+      ]
+    },
+    {
+      "id": "s07_077",
+      "pair_of": "s07_031",
+      "input_text": "인터넷 회사에 벌써 두 번 전화했는데 아직도 안 고쳐줘. 이번엔 상급자 바꿔달라고 할 거야. 뭐라고 해?",
+      "tone_intent": null,
+      "domain": "remote_support",
+      "act": "complain",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "No tone was requested. Variant 1 must still infer the register from the relationship and situation cues alone and land on the paired case's tone_intent '단호하게' (tone_match)",
+        "Variant 1 references the prior two calls and asks to be transferred to a supervisor in firm, non-negotiable wording (tone_match)",
+        "At least one variant asks for a ticket or case number, reflecting real escalation practice (cultural_appropriateness)",
+        "Firmness is directed at the outcome, not at insulting the agent (naturalness)",
+        "Variants span from firm-but-cooperative to firmest, not from soft to firm (tone_match)"
+      ],
+      "expected_failure_modes": [
+        "Defaults to a generic polite register because no tone was stated, ignoring the relationship cue in the input",
+        "Variant 1 hedges with 'if possible' or 'would it be okay' and loses the firm intent",
+        "Sounds abusive toward the agent",
+        "Omits the history of two prior calls, which is the leverage for escalation",
+        "Literal rendering like 'change to your superior person'"
+      ]
+    },
+    {
+      "id": "s07_078",
+      "pair_of": "s07_036",
+      "input_text": "집주인이 렌트를 200달러 올리겠대. 오래 살았고 문제 없었으니 인상폭을 줄여달라고 하고 싶어. 뭐라고 하지?",
+      "tone_intent": null,
+      "domain": "housing",
+      "act": "negotiate",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "No tone was requested. Variant 1 must still infer the register from the relationship and situation cues alone and land on the paired case's tone_intent '정중하지만 물러서지 않게' (tone_match)",
+        "Variant 1 makes a concrete counter (smaller increase or phased increase) backed by tenure and reliability, keeping both politeness and firmness (tone_match)",
+        "Leverage points (on-time payment, low turnover cost for the landlord) are stated as reasons, the way US tenants actually negotiate (accuracy)",
+        "Variants differ in strategy: counteroffer, ask for something in return, request time to consider (naturalness)",
+        "Cultural tip notes that negotiating a rent increase is normal and does not offend a landlord (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Defaults to a generic polite register because no tone was stated, ignoring the relationship cue in the input",
+        "Pleads or emphasizes hardship instead of negotiating from value",
+        "Retreats into 'if that's okay with you' so no counteroffer is actually made",
+        "Sounds confrontational for a relationship the user wants to keep",
         "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_079",
+      "pair_of": "s07_041",
+      "input_text": "매니저가 준 마감이 현실적으로 불가능해. 어떻게 말하지?",
+      "tone_intent": null,
+      "domain": "workplace",
+      "act": "assert",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "No tone was requested. Variant 1 must still infer the register from the relationship and situation cues alone and land on the paired case's tone_intent '정중하지만 물러서지 않게' (tone_match)",
+        "Variant 1 states plainly that the deadline is not achievable and proposes an alternative (scope cut or new date), holding both the polite and unyielding elements (tone_match)",
+        "Register is upward (to a manager) but not deferential to the point of silence (naturalness)",
+        "Pushback is grounded in facts or trade-offs, the way US managers expect it (accuracy)",
+        "Cultural tip notes that raising concerns early is seen as competence, not insubordination, in most US workplaces (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Defaults to a generic polite register because no tone was stated, ignoring the relationship cue in the input",
+        "Hedged to 'It might be a little tight, but I'll try' which does not push back",
+        "Sounds like a flat refusal with no alternative",
+        "Peer-level casual register inappropriate for a manager",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_080",
+      "pair_of": "s07_047",
+      "input_text": "학부모 면담에서 선생님이 아이를 ESL 반으로 옮기자는데 난 반대야. 뭐라고 말하지?",
+      "tone_intent": null,
+      "domain": "school",
+      "act": "assert",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "No tone was requested. Variant 1 must still infer the register from the relationship and situation cues alone and land on the paired case's tone_intent '단호하지만 예의 있게' (tone_match)",
+        "Variant 1 clearly states the parent does not consent to the move and asks what data supports it, holding both firm and courteous elements (tone_match)",
+        "Uses natural spoken conference English, not written or legal phrasing (naturalness)",
+        "At least one variant asks for alternatives or a trial period rather than only saying no (accuracy)",
+        "Cultural tip notes that parents can decline or request re-evaluation of language placement and that teachers expect this discussion (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Defaults to a generic polite register because no tone was stated, ignoring the relationship cue in the input",
+        "Politeness swallows the refusal, sounding like reluctant agreement",
+        "Sounds hostile or implies the teacher is prejudiced",
+        "Uses 'ESL' incorrectly or invents program names",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_081",
+      "pair_of": "s07_050",
+      "input_text": "DMV 창구 직원이 너무 빨리 말해. 천천히 말해주거나 통역을 불러달라고 하고 싶어. 뭐라고 해?",
+      "tone_intent": null,
+      "domain": "government",
+      "act": "clarify",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "No tone was requested. Variant 1 must still infer the register from the relationship and situation cues alone and land on the paired case's tone_intent '정중하게' (tone_match)",
+        "Variant 1 politely asks the clerk to slow down, and at least one variant asks for interpreter or language assistance (tone_match)",
+        "Short, counter-appropriate phrasing that works with a busy clerk (naturalness)",
+        "Does not apologize for the user's English as the opening move (accuracy)",
+        "Cultural tip notes that DMV offices typically have language assistance and that asking to slow down is common (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Defaults to a generic polite register because no tone was stated, ignoring the relationship cue in the input",
+        "Variant 1 is a long, self-deprecating apology before the request",
+        "Only offers 'slow down' with no interpreter option",
+        "Sounds curt in a way that could read as rude to a clerk",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_082",
+      "pair_of": "s07_056",
+      "input_text": "친구가 내 영어 많이 늘었다고 칭찬하는데 매번 \"No, no, still bad\"라고 해. 뭐라고 받아야 해?",
+      "tone_intent": null,
+      "domain": "friendship",
+      "act": "compliment",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "No tone was requested. Variant 1 must still infer the register from the relationship and situation cues alone and land on the paired case's tone_intent '자연스럽게' (tone_match)",
+        "Variant 1 accepts the compliment with thanks and optionally a light addition, with no denial (tone_match)",
+        "Phrasing sounds like a real friend, e.g., 'Thanks, I've been working on it' (naturalness)",
+        "At least one variant returns the compliment or adds a small joke, showing different acceptance strategies (accuracy)",
+        "Cultural tip explains that denying a compliment reads as awkward or as rejecting the speaker in US culture, and that simple acceptance is expected (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Defaults to a generic polite register because no tone was stated, ignoring the relationship cue in the input",
+        "Variant still contains a denial such as 'not really' or 'I still have a long way to go' as the main move",
+        "Over-formal 'I appreciate your kind words'",
+        "Cultural tip is generic",
+        "All three variants are 'thank you' with minor changes"
       ]
     }
   ]

@@ -180,6 +180,11 @@ def judge(client: Anthropic, judge_prompt: str, case: dict, output: dict) -> tup
         "tone_intent": case.get("tone_intent"),         # 의도한 어조 (없는 케이스는 None)
         "expected_behaviors": case["expected_behaviors"],       # 기대하는 올바른 동작 목록
         "expected_failure_modes": case["expected_failure_modes"],  # 예상되는 실패 패턴 목록
+        "input_mode": case["input_mode"],               # say_it / check_it / fix_it / robustness (judge-v3부터 전달)
+        "domain": case["domain"],                       # 생활 영역 코드
+        "act": case["act"],                             # 화행 코드
+        "draft_quality": case.get("draft_quality"),     # check_it 전용: 사용자 초안이 good/flawed 인지. 그 외 None
+        "pair_of": case.get("pair_of"),                 # 암시 단서 쌍둥이면 원본 케이스 id, 아니면 None
         "output": output,                               # S07 모델이 실제 생성한 출력
     }
     resp = client.messages.create(         # Anthropic 메시지 API를 판정용으로 호출
@@ -214,6 +219,7 @@ def run_trial(client, system_prompt, judge_prompt, case) -> dict:  # 한 케이�
         trial["scores"] = {d: float(verdict[d]) for d in DIMENSIONS}     # 각 차원 점수를 실수(float)로 변환해 저장
         trial["failure_modes_observed"] = verdict.get("failure_modes_observed", [])  # 판정 모델이 관찰한 실패 패턴 목록 저장
         trial["rationale"] = verdict.get("rationale", {})                 # 판정 근거 딕셔너리 저장
+        trial["draft_handling"] = verdict.get("draft_handling", "n/a")    # check_it 초안 처리: kept / rewritten / n/a (judge-v3)
     except Exception as e:                  # 채점 API 호출 또는 파싱이 실패한 경우
         trial["error"] = f"judge failed: {e}"           # 오류 내용을 문자열로 저장
         trial["scores"] = {d: 1 for d in DIMENSIONS}   # 모든 평가 차원 점수를 최저값 1로 설정
@@ -238,6 +244,60 @@ def aggregate_case(trials: list[dict]) -> dict:  # 여러 시험 결과 목록�
             t["scores"][d] for t in trials for d in DIMENSIONS  # 시험×차원 모든 조합의 점수를 순회해 최솟값 구하기
         ),
     }
+
+
+def summarize_input_modes(results: list[dict]) -> dict:
+    """Per-input_mode dimension averages. Reported, not gated (exec-plan 2026-09-06 section C)."""
+    # 입력 형태별 차원 평균. 게이트가 아니라 보고용. 평균에 묻히는 check_it 실패를 눈에 보이게 한다.
+    out = {}
+    for mode in sorted({r["input_mode"] for r in results}):
+        rows = [r for r in results if r["input_mode"] == mode]
+        out[mode] = {
+            "n": len(rows),
+            **{d: round(statistics.mean(r["aggregate"]["dim_mean"][d] for r in rows), 3) for d in DIMENSIONS},
+        }
+    return out
+
+
+def summarize_drafts(results: list[dict]) -> dict:
+    """check_it false-alarm / missed-flaw counts (Lin et al. 2026, Data Analysis: a correct segment
+    flagged is a false alarm; left alone is an accurate non-intervention). Counted per trial."""
+    # 좋은 초안을 고쳤으면 false_alarm, 나쁜 초안을 그대로 뒀으면 missed_flaw. 시험(trial) 단위로 센다.
+    fa = mf = good_trials = flawed_trials = 0
+    for r in results:
+        q = r.get("draft_quality")
+        if not q:
+            continue
+        for t in r["trials"]:
+            h = t.get("draft_handling", "n/a")
+            if q == "good":
+                good_trials += 1
+                fa += h == "rewritten"
+            elif q == "flawed":
+                flawed_trials += 1
+                mf += h == "kept"
+    return {"good_draft_trials": good_trials, "false_alarms": fa,
+            "flawed_draft_trials": flawed_trials, "missed_flaws": mf}
+
+
+def summarize_pairs(results: list[dict]) -> list[dict]:
+    """tone_match delta between an implicit-cue twin (pair_of) and its explicit original.
+    Nasim et al. 2026 section 3.2: same scenario, instruction present vs absent; the gap is the
+    implicit-adaptation shortfall. Negative delta = the model needs to be told."""
+    # 쌍둥이(말투 미지정) 대비 원본(말투 지정)의 tone_match 차이. 음수면 "시키지 않으면 못 한다".
+    by_id = {r["id"]: r for r in results}
+    rows = []
+    for r in results:
+        src = by_id.get(r.get("pair_of") or "")
+        if not src:
+            continue
+        rows.append({
+            "twin": r["id"], "original": src["id"],
+            "tone_match_original": src["aggregate"]["dim_mean"]["tone_match"],
+            "tone_match_twin": r["aggregate"]["dim_mean"]["tone_match"],
+            "delta": round(r["aggregate"]["dim_mean"]["tone_match"] - src["aggregate"]["dim_mean"]["tone_match"], 3),
+        })
+    return rows
 
 
 def evaluate_pass(cases: list[dict]) -> tuple[bool, list[str]]:  # 전체 케이스 결과를 받아 통과 여부(True/False)와 실패 이유 목록을 반환하는 함수
@@ -314,6 +374,8 @@ def main() -> int:  # 프로그램 진입점 함수. 실행 성공 시 0, 실패
         results.append({"id": case["id"],                               # 케이스 ID와
                         "domain": case["domain"], "act": case["act"],   # 분류표 3축(EVAL_PLAN 'Scenario coverage taxonomy')을 포함해
                         "input_mode": case["input_mode"],
+                        "draft_quality": case.get("draft_quality"),   # check_it 초안 품질 태그 (없으면 None)
+                        "pair_of": case.get("pair_of"),               # 쌍둥이 원본 id (없으면 None)
                         "aggregate": agg, "trials": trials})  # 집계 결과와 시험별 원시 결과를 results에 추가
         flag = "  ⚠ high variance" if max(agg["dim_variance"].values()) > 0.5 else ""  # 최대 분산이 0.5 초과하면 경고 문자열 생성, 아니면 빈 문자열
         print(f"  {case['id']:<9} score={agg['case_score']:.2f}"   # 케이스 ID(왼쪽 정렬 9자)와 종합 점수 출력
@@ -340,6 +402,9 @@ def main() -> int:  # 프로그램 진입점 함수. 실행 성공 시 0, 실패
         "passed": passed,                   # 통과 여부 (True 또는 False) 저장
         "pass_reasons": pass_reasons,       # 실패 이유 목록 저장 (통과 시 빈 리스트)
         "estimated_cost_usd": round(total_cost, 4),  # 총 예상 비용(달러) 저장 (소수점 4자리 반올림)
+        "by_input_mode": summarize_input_modes(results),  # 입력 형태별 차원 평균 (보고용, 게이트 아님)
+        "draft_summary": summarize_drafts(results),       # check_it false_alarm / missed_flaw 집계 (보고용)
+        "pair_deltas": summarize_pairs(results),          # 암시 단서 쌍둥이 vs 원본 tone_match 차이 (보고용)
         "cases": results,                   # 케이스별 상세 결과 목록 저장
     }
 
@@ -348,6 +413,8 @@ def main() -> int:  # 프로그램 진입점 함수. 실행 성공 시 0, 실패
     out_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8")  # artifact를 들여쓰기 2칸 JSON 문자열로 변환해 파일에 저장
 
     print(f"\naggregate={aggregate_score:.3f}  dims={dim_averages}")   # 빈 줄 후 전체 점수와 차원별 평균 출력
+    print(f"drafts={artifact['draft_summary']}")                          # 좋은 초안 잘못 고침 / 나쁜 초안 방치 횟수
+    print(f"pair_deltas={[(p['twin'], p['delta']) for p in artifact['pair_deltas']]}")  # 쌍둥이별 tone_match 차이
     print(f"cost=${total_cost:.4f}  artifact={out_path.relative_to(REPO_ROOT)}")  # 총 비용(달러)과 저장된 파일의 상대 경로 출력
     print(f"PASS={passed}" + ("" if passed else f"  reasons={pass_reasons}"))  # 통과 여부 출력, 실패하면 이유도 함께 출력
 
