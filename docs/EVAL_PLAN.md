@@ -417,6 +417,7 @@ A cost alert (per `architecture.md` AI cost alerts section) triggers if eval mon
 3. **Tier 2 activation criteria** — currently "50 sessions, 10 distinct users." Tune from actual production volume observed in W13–14.
 4. **Tier 3 dashboard tool** — Langfuse vs Braintrust vs custom. Decision in W17.
 5. **Validator network formalization** — informal favors vs paid contract vs both. Decision before Tier 3 activation.
+6. **Tier 1 cross-family judge check** — generator and judge are both Claude, so the same-family inflation noted under Judge prompt applies to every run. Once a judge-v3 baseline exists, re-score the same cases with a non-Anthropic judge and compare case rankings rather than absolute means. Anthropic ran the equivalent check on its political even-handedness study, grading a subsample with GPT-5 and reporting 92 percent per-sample agreement and r = 0.86 (https://www.anthropic.com/news/political-even-handedness , verified 2026-09-09).
 
 ## Related
 
