@@ -48,3 +48,7 @@ docs/.playwright-mcp/
 # Ad-hoc screenshots dropped at the repo root during UI verification. Browser
 # evidence belongs on the issue/PR, not in the tree.
 /*.png
+
+# Python bytecode cache from the eval runner and its unit tests.
+__pycache__/
+*.py[cod]
