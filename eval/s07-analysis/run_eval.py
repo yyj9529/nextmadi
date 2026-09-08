@@ -74,10 +74,13 @@ EVAL_DIR = REPO_ROOT / "eval" / "s07-analysis"   # 평가 파일들(test_cases.j
 RUNS_DIR = REPO_ROOT / "eval" / "runs"            # 실행 결과(artifact JSON)를 저장할 폴더 경로
 
 GEN_MODEL = "claude-sonnet-4-6"   # S07 응답 생성에 사용할 AI 모델 (AI_PIPELINE.md 라우팅 기준)
-JUDGE_MODEL = "claude-sonnet-4-6"  # 채점(판정)에 사용할 AI 모델 (EVAL_PLAN: Haiku보다 상위 모델)
+JUDGE_MODEL = "claude-opus-5"  # 채점(판정)에 사용할 AI 모델. 생성 모델과 반드시 다른 모델 (EVAL_PLAN Judge prompt 절, 2026-09-05)
 
 # Pricing per MTok (AI_PIPELINE.md, verified 2026-05-23). Used for run cost reporting.  # MTok당 단가 (2026-05-23 확인). 실행 비용 보고에 사용
-PRICE = {"claude-sonnet-4-6": {"in": 3.0, "out": 15.0}}  # 입력 토큰 $3/MTok, 출력 토큰 $15/MTok
+PRICE = {  # USD per MTok, platform.claude.com/docs/en/about-claude/pricing 에서 2026-09-05 확인
+    "claude-sonnet-4-6": {"in": 3.0, "out": 15.0},
+    "claude-opus-5": {"in": 5.0, "out": 25.0},
+}
 
 DIMENSIONS = ["naturalness", "accuracy", "cultural_appropriateness", "tone_match"]  # 평가할 4개 품질 차원: 자연스러움, 정확도, 문화 적절성, 어조 일치
 REQUIRED_VARIANT_FIELDS = [      # S07 출력 JSON에서 각 표현 변형이 반드시 가져야 할 필드 목록
@@ -295,7 +298,9 @@ def main() -> int:  # 프로그램 진입점 함수. 실행 성공 시 0, 실패
                   for _ in range(args.trials)]   # args.trials 횟수만큼 반복 (리스트 컴프리헨션)
         total_cost += sum(t["cost_usd"] for t in trials)  # 이 케이스의 모든 시험 비용 합산 후 총비용에 누적
         agg = aggregate_case(trials)              # 시험 결과들을 집계해 케이스 점수 계산
-        results.append({"id": case["id"], "category": case["category"],  # 케이스 ID와 카테고리를 포함해
+        results.append({"id": case["id"],                               # 케이스 ID와
+                        "domain": case["domain"], "act": case["act"],   # 분류표 3축(EVAL_PLAN 'Scenario coverage taxonomy')을 포함해
+                        "input_mode": case["input_mode"],
                         "aggregate": agg, "trials": trials})  # 집계 결과와 시험별 원시 결과를 results에 추가
         flag = "  ⚠ high variance" if max(agg["dim_variance"].values()) > 0.5 else ""  # 최대 분산이 0.5 초과하면 경고 문자열 생성, 아니면 빈 문자열
         print(f"  {case['id']:<9} score={agg['case_score']:.2f}"   # 케이스 ID(왼쪽 정렬 9자)와 종합 점수 출력

@@ -1,11 +1,13 @@
 {
-  "schema_note": "Structure defined in EVAL_PLAN.md Tier 1. Owner-authored starter set expanded to 22 crafted cases on 2026-06-13. Real user text is prohibited here. 'id' is stable and never renumbered.",
+  "schema_note": "Structure and taxonomy codes defined in EVAL_PLAN.md Tier 1 ('Scenario coverage taxonomy'). Owner-authored starter set: 22 cases on 2026-06-13, expanded to 74 on 2026-09-05 by filling the domain x act x input_mode matrix. Real user text is prohibited here. 'id' is stable and never renumbered.",
   "cases": [
     {
       "id": "s07_001",
       "input_text": "친구가 약속을 또 취소했는데 화내고 싶지는 않고 서운한 마음을 정중하게 표현하고 싶어",
       "tone_intent": "정중하게",
-      "category": "emotional_expression",
+      "domain": "friendship",
+      "act": "emotion",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "All 3 variants are grammatically correct American English",
         "Variant 1 matches the requested polite tone",
@@ -22,7 +24,9 @@
       "id": "s07_002",
       "input_text": "아이 학교 선생님한테 우리 아이가 따돌림을 당하는 것 같다고 조심스럽게 말하고 싶어",
       "tone_intent": "조심스럽게",
-      "category": "school_parenting",
+      "domain": "school",
+      "act": "bad_news",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Tone is careful and collaborative, not accusatory",
         "Register is appropriate for a first conversation with a teacher",
@@ -38,7 +42,9 @@
       "id": "s07_003",
       "input_text": "병원에서 증상을 설명해야 하는데 영어로 어떻게 말해야 할지 모르겠어. 가슴이 답답하고 숨이 차",
       "tone_intent": null,
-      "category": "healthcare",
+      "domain": "healthcare",
+      "act": "request",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Variants describe the symptom clearly enough for a clinician",
         "Uses everyday symptom vocabulary an American patient would use",
@@ -54,7 +60,9 @@
       "id": "s07_004",
       "input_text": "식당에서 주문한 음식이 잘못 나왔는데 직원에게 무례하지 않게 바꿔달라고 하고 싶어",
       "tone_intent": "정중하게",
-      "category": "service_interaction",
+      "domain": "dining",
+      "act": "complain",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Polite but clear request to correct the order",
         "Variant 1 is the most courteous option",
@@ -70,7 +78,9 @@
       "id": "s07_005",
       "input_text": "직장 동료가 자꾸 자기 일을 나에게 넘기는데 단호하게 선을 긋고 싶어",
       "tone_intent": "단호하게",
-      "category": "professional",
+      "domain": "workplace",
+      "act": "refuse",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Variant 1 sets a firm boundary without being hostile",
         "Workplace-appropriate register",
@@ -86,7 +96,9 @@
       "id": "s07_006",
       "input_text": "고마운 마음을 진심으로 표현하고 싶은데 thank you만 반복하게 돼",
       "tone_intent": "진심 어린",
-      "category": "emotional_expression",
+      "domain": "friendship",
+      "act": "emotion",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Variants go beyond bare 'thank you' with genuine warmth",
         "Natural, not greeting-card cliche",
@@ -102,7 +114,9 @@
       "id": "s07_007",
       "input_text": "집주인한테 수리를 빨리 해달라고 요청하는데 강하게 들리지 않으면서도 분명하게 말하고 싶어",
       "tone_intent": "분명하게",
-      "category": "service_interaction",
+      "domain": "housing",
+      "act": "request",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Clear request with a sense of urgency but not aggressive",
         "Register fits a tenant-landlord relationship in the US",
@@ -118,7 +132,9 @@
       "id": "s07_008",
       "input_text": "새로 이사 온 동네에서 이웃에게 가볍게 인사하며 친해지고 싶어",
       "tone_intent": "가벼운",
-      "category": "social",
+      "domain": "neighbors",
+      "act": "small_talk",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Friendly, low-pressure opener",
         "Natural American small-talk register",
@@ -134,7 +150,9 @@
       "id": "s07_009",
       "input_text": "회의에서 동의하지 않는다는 의견을 예의 있게 내고 싶어",
       "tone_intent": "정중하게",
-      "category": "professional",
+      "domain": "workplace",
+      "act": "assert",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Disagrees while preserving collegiality",
         "Variant 1 is the most diplomatic",
@@ -150,7 +168,9 @@
       "id": "s07_010",
       "input_text": "전화로 인터넷이 안 된다고 고객센터에 문제를 설명하고 해결을 요청하고 싶어",
       "tone_intent": null,
-      "category": "service_interaction",
+      "domain": "remote_support",
+      "act": "complain",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Clearly states the problem and the desired outcome",
         "Phone-call appropriate phrasing",
@@ -167,7 +187,9 @@
       "id": "s07_011",
       "input_text": "친구가 힘든 일을 겪고 있어서 위로하고 싶은데 어색하지 않게 말하고 싶어",
       "tone_intent": "따뜻한",
-      "category": "emotional_expression",
+      "domain": "friendship",
+      "act": "emotion",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Comforting without being cliche or hollow",
         "Natural register a close friend would use",
@@ -183,7 +205,9 @@
       "id": "s07_012",
       "input_text": "약속을 못 지켜서 미안하다고 너무 굽신거리지 않으면서 사과하고 싶어",
       "tone_intent": "담백한",
-      "category": "emotional_expression",
+      "domain": "friendship",
+      "act": "apologize",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Sincere but not excessively self-deprecating apology",
         "Variant 1 strikes the balanced, non-groveling tone",
@@ -199,7 +223,9 @@
       "id": "s07_013",
       "input_text": "아이 학교 선생님에게 우리 아이가 수업 내용을 잘 못 따라가는 것 같다고 조심스럽게 상담을 요청하고 싶어",
       "tone_intent": "조심스럽게",
-      "category": "school_parenting",
+      "domain": "school",
+      "act": "request",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Tone is collaborative and non-blaming toward the teacher",
         "Clearly asks for a conversation or guidance, not a diagnosis",
@@ -215,7 +241,9 @@
       "id": "s07_014",
       "input_text": "병원 예약을 잡으려고 전화했는데 가능한 가장 빠른 날짜가 언제인지 정중하지만 분명하게 묻고 싶어",
       "tone_intent": "정중하지만 분명하게",
-      "category": "healthcare",
+      "domain": "healthcare",
+      "act": "request",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Expression is appropriate for a phone call with a clinic scheduler",
         "Clearly asks for the earliest available appointment",
@@ -231,7 +259,9 @@
       "id": "s07_015",
       "input_text": "회사에서 회의 중에 내 역할이 명확하지 않아서 내가 무엇을 담당하면 되는지 차분하게 확인하고 싶어",
       "tone_intent": "차분하게",
-      "category": "professional",
+      "domain": "workplace",
+      "act": "clarify",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Clarifies responsibility without sounding incompetent",
         "Professional meeting register",
@@ -247,7 +277,9 @@
       "id": "s07_016",
       "input_text": "마트에서 계산 후 영수증을 보니 가격이 다르게 찍힌 것 같아서 직원에게 공손하게 확인해 달라고 말하고 싶어",
       "tone_intent": "공손하게",
-      "category": "service_interaction",
+      "domain": "shopping",
+      "act": "complain",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Politely asks the cashier or service desk to check the price",
         "States the concern without accusing the employee",
@@ -263,7 +295,9 @@
       "id": "s07_017",
       "input_text": "새로 만난 이웃에게 너무 부담스럽지 않게 언젠가 커피 한잔하자고 자연스럽게 말하고 싶어",
       "tone_intent": "부담스럽지 않게",
-      "category": "social",
+      "domain": "neighbors",
+      "act": "small_talk",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Friendly but low-pressure invitation",
         "Natural American small-talk phrasing",
@@ -279,7 +313,9 @@
       "id": "s07_018",
       "input_text": "친구가 내 말을 오해한 것 같아서 방어적으로 들리지 않게 내 의도를 다시 설명하고 싶어",
       "tone_intent": "방어적이지 않게",
-      "category": "emotional_expression",
+      "domain": "friendship",
+      "act": "clarify",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Clarifies intent without blaming the friend for misunderstanding",
         "Warm peer-level register",
@@ -295,7 +331,9 @@
       "id": "s07_019",
       "input_text": "아이 친구 부모에게 우리 집에 놀러 와도 되는지 물어보면서 알레르기나 주의할 점이 있는지도 함께 묻고 싶어",
       "tone_intent": "친근하고 배려 있게",
-      "category": "school_parenting",
+      "domain": "school",
+      "act": "request",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Friendly invitation appropriate between parents",
         "Naturally asks about allergies or things to watch for",
@@ -311,7 +349,9 @@
       "id": "s07_020",
       "input_text": "약국에서 처방약 설명을 들었는데 잘 이해하지 못해서 복용 방법을 다시 천천히 설명해 달라고 말하고 싶어",
       "tone_intent": "정중하게",
-      "category": "healthcare",
+      "domain": "healthcare",
+      "act": "clarify",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Clearly asks the pharmacist to repeat dosage instructions",
         "Normalizes not understanding without self-blame",
@@ -327,7 +367,9 @@
       "id": "s07_021",
       "input_text": "휴대폰 매장에서 요금제 설명을 들었는데 잘 이해가 안 돼서 직원에게 다시 쉽게 설명해 달라고 말하고 싶어",
       "tone_intent": "공손하게",
-      "category": "service_interaction",
+      "domain": "shopping",
+      "act": "clarify",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Politely asks the store employee to explain the plan again in simpler terms",
         "Normalizes not understanding without self-blame or embarrassment",
@@ -343,7 +385,9 @@
       "id": "s07_022",
       "input_text": "회의에서 동료가 부탁한 일을 정확히 이해했는지 확인하고 싶어서 내가 해야 할 일을 다시 정리해서 물어보고 싶어",
       "tone_intent": "차분하게",
-      "category": "professional",
+      "domain": "workplace",
+      "act": "clarify",
+      "input_mode": "say_it",
       "expected_behaviors": [
         "Restates the task back clearly to confirm understanding",
         "Sounds professional and composed rather than insecure",
@@ -353,6 +397,1040 @@
         "Sounds like the user was not paying attention",
         "Too apologetic for a routine workplace clarification",
         "Fails to ask for confirmation of the user's understanding"
+      ]
+    },
+    {
+      "id": "s07_023",
+      "input_text": "병원 접수할 때 한국어 통역이 필요하다고 말하고 싶어. 미안해하는 느낌 없이 당연한 권리처럼 분명하게.",
+      "tone_intent": "분명하게",
+      "domain": "healthcare",
+      "act": "clarify",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 states the need for a Korean interpreter as a plain, entitled request, not an apology (tone_match)",
+        "At least one variant is short enough to say at a busy front desk without rehearsal (naturalness)",
+        "Cultural tip notes that US clinics receiving federal funds are expected to provide interpreters and that asking is routine (cultural_appropriateness)",
+        "No variant frames the user's English as a personal deficiency to apologize for (accuracy)"
+      ],
+      "expected_failure_modes": [
+        "Variant 1 opens with 'Sorry, my English is not good' and buries the request",
+        "Uses 'translator' interchangeably with 'interpreter' without the natural clinic wording",
+        "Cultural tip is generic ('be polite to staff') instead of naming that interpreter access is standard",
+        "All three variants are near-identical rewordings of 'I need an interpreter'"
+      ]
+    },
+    {
+      "id": "s07_024",
+      "input_text": "의사가 검사 결과 설명할 때 \"Could you go over that again a bit slower? I want to make sure I've got it.\"라고 했는데 괜찮았어?",
+      "tone_intent": "정중하게",
+      "domain": "healthcare",
+      "act": "clarify",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output recognizes the user's sentence was natural and appropriate; variant 1 keeps it essentially as-is or with only minimal polish (accuracy)",
+        "Model does not manufacture a problem with the draft to justify a rewrite (accuracy)",
+        "Other variants offer genuinely different strategies (e.g., asking the doctor to write it down, asking for the key point), not rewordings (naturalness)",
+        "Cultural tip confirms this is a normal patient request that doctors expect (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Variant 1 rewrites a fine sentence into something stiffer or more formal",
+        "Output implies the user was rude or unclear when they were not",
+        "Adds an unnecessary apology such as 'I'm sorry to bother you' to the repaired version"
+      ]
+    },
+    {
+      "id": "s07_025",
+      "input_text": "간호사가 퇴원 후 약 먹는 법 설명하는데 잘 못 알아듣고 그냥 \"Okay, okay, yes\"만 했어. 다음엔 어떻게 말해야 했을까",
+      "tone_intent": "솔직하게",
+      "domain": "healthcare",
+      "act": "clarify",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output makes clear the user's 'Okay, okay, yes' was not adequate because it signaled understanding they did not have (accuracy)",
+        "Variant 1 honestly says the user did not follow and asks for the instructions again, matching the frank tone (tone_match)",
+        "At least one variant asks for written instructions or a teach-back, which is standard US discharge practice (cultural_appropriateness)",
+        "Phrasing is everyday patient English, not clinical vocabulary (naturalness)"
+      ],
+      "expected_failure_modes": [
+        "Treats 'Okay, okay, yes' as acceptable and simply offers alternatives without flagging the risk",
+        "Repaired variant apologizes repeatedly instead of stating plainly that the user did not understand",
+        "Uses abstract wording like 'clarify the regimen' that a patient would not say",
+        "Cultural tip fails to mention that nurses expect patients to ask and it is not embarrassing"
+      ]
+    },
+    {
+      "id": "s07_026",
+      "input_text": "병원 청구서에 받은 적 없는 검사 항목이 있어서 청구 부서에 전화로 따지려고 해. 단호하게.",
+      "tone_intent": "단호하게",
+      "domain": "healthcare",
+      "act": "complain",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 clearly disputes the specific charge and asks for it to be removed or reviewed, not merely 'asks about' it (tone_match)",
+        "At least one variant asks for an itemized bill or a reference number, reflecting how US billing disputes actually proceed (cultural_appropriateness)",
+        "Wording is firm without accusing the billing agent personally of fraud (naturalness)",
+        "Variants differ in escalation level, e.g., first call vs. after being brushed off (accuracy)"
+      ],
+      "expected_failure_modes": [
+        "Softens the firm intent into 'I was just wondering if maybe there is a mistake'",
+        "Sounds hostile or threatens legal action in variant 1 when a firm dispute was asked for",
+        "Literal translation of '따지다' producing something like 'I want to argue about my bill'",
+        "Cultural tip does not mention itemized bills, EOBs, or documenting the call"
+      ]
+    },
+    {
+      "id": "s07_027",
+      "input_text": "약국에서 30분 기다렸는데 약이 안 나와. \"Excuse me, my medicine is not ready? I am waiting 30 minutes.\" 이렇게 말하려는데 자연스럽게 고쳐줘",
+      "tone_intent": "정중하지만 물러서지 않게",
+      "domain": "healthcare",
+      "act": "request",
+      "input_mode": "fix_it",
+      "expected_behaviors": [
+        "Variant 1 repairs the draft into natural pharmacy-counter English that mentions the wait and asks for a status or estimate (naturalness)",
+        "Keeps the user's core content (prescription, 30 minutes, not ready) rather than replacing it with a different situation (accuracy)",
+        "Tone stays polite but does not retreat into a pure apology; it still expects an answer (tone_match)",
+        "Pronunciation tip targets a real hard sound in the repaired sentence, such as 'prescription' clusters (naturalness)"
+      ],
+      "expected_failure_modes": [
+        "Keeps the tense error 'I am waiting 30 minutes' or the rising-question fragment",
+        "Over-corrects into a complaint that sounds angry at the pharmacy tech",
+        "Drops the 30-minute detail, losing the reason the request is reasonable",
+        "Uses 'medicine' where 'prescription' is the natural counter word without adjusting"
+      ]
+    },
+    {
+      "id": "s07_028",
+      "input_text": "병원에 전화해서 \"Hi, I'd like to book a follow-up with Dr. Patel. What's the earliest opening you have?\"라고 했어. 이상한 데 없었어?",
+      "tone_intent": "정중하게",
+      "domain": "healthcare",
+      "act": "request",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output confirms the sentence was natural and polite; variant 1 keeps it nearly verbatim (accuracy)",
+        "Does not invent a flaw such as 'too direct' to justify changing it (accuracy)",
+        "Alternative variants add genuinely different options, e.g., offering availability windows or asking about a cancellation list (naturalness)",
+        "Cultural tip is specific to scheduler calls, such as being ready with insurance and date of birth (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Rewrites the fine sentence into a longer, stiffer version",
+        "Claims 'What's the earliest opening' is too demanding when it is standard phrasing",
+        "Cultural tip is generic ('be polite on the phone')"
+      ]
+    },
+    {
+      "id": "s07_029",
+      "input_text": "my daughter has had a fever of 102 since last night and tylenol isn't helping. calling the nurse line, what do I say",
+      "tone_intent": null,
+      "domain": "healthcare",
+      "act": "request",
+      "input_mode": "robustness",
+      "expected_behaviors": [
+        "Handles English-only input gracefully and still returns valid JSON with exactly 3 expressions (accuracy)",
+        "Variants state the key facts a triage nurse needs: age implied, temperature, duration, what was tried (accuracy)",
+        "Phrasing is concise phone English a worried parent would actually say, not a medical report (naturalness)",
+        "tone_label, pronunciation_tip, and cultural_tip are still in Korean per schema even though input was English (accuracy)",
+        "Tone range is appropriate for a worried but composed parent when tone_intent is null (tone_match)"
+      ],
+      "expected_failure_modes": [
+        "Refuses or asks for Korean input instead of answering",
+        "Switches Korean-required fields (tone_label, tips) to English because the input was English",
+        "Omits the temperature or duration, which the nurse line will ask first",
+        "Gives medical advice instead of expressions to say"
+      ]
+    },
+    {
+      "id": "s07_030",
+      "input_text": "은행 콜센터에 30분 기다려 연결됐는데 본인 확인 질문을 못 알아들었어. 당황하지 않고 천천히 다시 말해달라고 하고 싶어",
+      "tone_intent": "침착하게",
+      "domain": "remote_support",
+      "act": "clarify",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 calmly asks the agent to repeat or rephrase the verification question, without self-blame (tone_match)",
+        "At least one variant asks the agent to spell or slow down a specific item, which is how phone repair actually works (naturalness)",
+        "Cultural tip notes that call-center agents expect repeat requests and that the user should not answer a question they did not understand (cultural_appropriateness)",
+        "Pronunciation tip targets phone-clarity sounds in the chosen expression (naturalness)"
+      ],
+      "expected_failure_modes": [
+        "Opens with 'Sorry, my English is bad' and sounds flustered rather than calm",
+        "Uses vague 'I don't understand' with no specific repair request",
+        "Suggests guessing an answer to the security question",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_031",
+      "input_text": "인터넷 회사에 벌써 두 번 전화했는데 아직도 안 고쳐줘. 이번엔 상급자 바꿔달라고 단호하게 말할 거야",
+      "tone_intent": "단호하게",
+      "domain": "remote_support",
+      "act": "complain",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 references the prior two calls and asks to be transferred to a supervisor in firm, non-negotiable wording (tone_match)",
+        "At least one variant asks for a ticket or case number, reflecting real escalation practice (cultural_appropriateness)",
+        "Firmness is directed at the outcome, not at insulting the agent (naturalness)",
+        "Variants span from firm-but-cooperative to firmest, not from soft to firm (tone_match)"
+      ],
+      "expected_failure_modes": [
+        "Variant 1 hedges with 'if possible' or 'would it be okay' and loses the firm intent",
+        "Sounds abusive toward the agent",
+        "Omits the history of two prior calls, which is the leverage for escalation",
+        "Literal rendering like 'change to your superior person'"
+      ]
+    },
+    {
+      "id": "s07_032",
+      "input_text": "통신사에 전화해서 \"I was charged twice this month. Can you look into it and reverse the second charge?\"라고 했는데 너무 세게 말한 건 아니지?",
+      "tone_intent": "분명하게",
+      "domain": "remote_support",
+      "act": "complain",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output reassures the user the sentence was clear and appropriately firm, not too harsh; variant 1 keeps it essentially unchanged (accuracy)",
+        "Does not soften the fine sentence into a hedged version (tone_match)",
+        "Alternatives offer different strategies, such as asking for the charge dates or a confirmation email (naturalness)",
+        "Cultural tip notes that stating the problem and desired fix directly is the expected register with customer service (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Agrees with the user's worry and rewrites the sentence more apologetically",
+        "Adds 'I'm sorry to bother you' to the repaired variant",
+        "Claims 'reverse the charge' is unnatural when it is standard"
+      ]
+    },
+    {
+      "id": "s07_033",
+      "input_text": "상담원이 너무 빨리 말해서 \"Sorry, sorry, my English is not good\"을 세 번이나 했어. 이러지 않고 다시 말해달라고 하려면?",
+      "tone_intent": "미안해하지 않고 분명하게",
+      "domain": "remote_support",
+      "act": "clarify",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output identifies that repeated apologizing for English shifted focus away from the actual repair need (accuracy)",
+        "Variant 1 asks the agent to slow down or repeat with no apology at all, satisfying the negative-form tone (tone_match)",
+        "At least one variant puts the request on the agent's pace ('you're going a bit fast for me') rather than on the user's ability (naturalness)",
+        "Cultural tip states that agents are trained to slow down on request and that apologizing is unnecessary (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Repaired variant still contains 'sorry' or 'my English is not good'",
+        "Treats the user's original as fine",
+        "Over-corrects into a rude 'Speak slower'",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_034",
+      "input_text": "전기회사에 이메일 보내려고 해. \"I am writing to complain my bill is very high this month. Please check and answer me quickly.\" 자연스럽게 고쳐줘",
+      "tone_intent": "정중하지만 단호하게",
+      "domain": "remote_support",
+      "act": "written",
+      "input_mode": "fix_it",
+      "expected_behaviors": [
+        "Variant 1 is a natural written-register sentence or short email body that questions the bill and asks for a review, keeping both polite and firm elements (tone_match)",
+        "Repair adds what a utility company needs to act: account reference, the month, a request for a usage breakdown or meter check (accuracy)",
+        "Fixes 'complain my bill' and 'answer me quickly' into idiomatic written English (naturalness)",
+        "Cultural tip mentions email conventions such as a subject line or including the account number (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Produces spoken-style variants instead of written register",
+        "Keeps 'complain my bill' or 'answer me quickly' unchanged",
+        "Drops the firm element and becomes a meek inquiry",
+        "Cultural tip talks about phone calls instead of email"
+      ]
+    },
+    {
+      "id": "s07_035",
+      "input_text": "집주인한테 히터 고쳐달라고 세 번 말했는데 계속 무시해. 이번엔 서면으로 보내고 시에 신고할 수도 있다고 단호하게 말하고 싶어",
+      "tone_intent": "단호하게",
+      "domain": "housing",
+      "act": "complain",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 references the three prior requests, states this is now in writing, and names the next step (city or code enforcement) without bluffing (tone_match)",
+        "Phrasing fits a tenant-to-landlord relationship: firm and documented, not threatening or emotional (naturalness)",
+        "Cultural tip reflects the talk-then-write-then-report sequence and the value of dated written records (cultural_appropriateness)",
+        "At least one variant sets a specific deadline for the repair (accuracy)"
+      ],
+      "expected_failure_modes": [
+        "Softens to 'I would really appreciate it if you could...' losing the escalation",
+        "Sounds like a legal threat or insult rather than a firm notice",
+        "Omits the prior-request history",
+        "Cultural tip is generic instead of naming written notice or the housing authority"
+      ]
+    },
+    {
+      "id": "s07_036",
+      "input_text": "집주인이 렌트를 200달러 올리겠대. 오래 살았고 문제 없었으니 인상폭을 줄여달라고 정중하지만 물러서지 않게 협상하고 싶어",
+      "tone_intent": "정중하지만 물러서지 않게",
+      "domain": "housing",
+      "act": "negotiate",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 makes a concrete counter (smaller increase or phased increase) backed by tenure and reliability, keeping both politeness and firmness (tone_match)",
+        "Leverage points (on-time payment, low turnover cost for the landlord) are stated as reasons, the way US tenants actually negotiate (accuracy)",
+        "Variants differ in strategy: counteroffer, ask for something in return, request time to consider (naturalness)",
+        "Cultural tip notes that negotiating a rent increase is normal and does not offend a landlord (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Pleads or emphasizes hardship instead of negotiating from value",
+        "Retreats into 'if that's okay with you' so no counteroffer is actually made",
+        "Sounds confrontational for a relationship the user wants to keep",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_037",
+      "input_text": "이사 30일 전 통지문 초안이야. \"Dear landlord, I will move out from the apartment on October 31. Please give back my deposit.\" 격식 있게 고쳐줘",
+      "tone_intent": "격식 있게",
+      "domain": "housing",
+      "act": "written",
+      "input_mode": "fix_it",
+      "expected_behaviors": [
+        "Variant 1 is in formal written register suitable for a move-out notice, including the intent to vacate, the date, and a forwarding-address or deposit-return line (tone_match)",
+        "Fixes 'move out from' and 'give back my deposit' into natural written wording (naturalness)",
+        "Preserves the October 31 date and 30-day-notice function (accuracy)",
+        "Cultural tip mentions that written notice is typically required by the lease and that the notice should be dated (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Returns spoken-register variants instead of written notice language",
+        "Keeps 'give back my deposit' or 'Dear landlord' unchanged",
+        "Omits the move-out date",
+        "Cultural tip is generic instead of naming lease notice requirements"
+      ]
+    },
+    {
+      "id": "s07_038",
+      "input_text": "보증금에서 400달러 뗀다길래 \"I'd like an itemized list of the deductions before I agree to anything.\"이라고 했어. 괜찮았어?",
+      "tone_intent": "분명하게",
+      "domain": "housing",
+      "act": "complain",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output confirms the sentence was clear, appropriate, and strategically correct; variant 1 keeps it essentially intact (accuracy)",
+        "Does not manufacture a flaw such as 'too confrontational' (tone_match)",
+        "Alternatives add real options, such as asking for receipts or citing the move-in inspection report (naturalness)",
+        "Cultural tip notes that many states require landlords to provide itemized deductions (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Softens the sentence into a request that no longer withholds agreement",
+        "Suggests the user was rude for asking for itemization",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_039",
+      "input_text": "룸메이트가 설거지를 계속 안 해. 싸우지 않고 규칙을 정하자고 부드럽지만 분명하게 말하고 싶어",
+      "tone_intent": "부드럽지만 분명하게",
+      "domain": "housing",
+      "act": "assert",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 names the issue directly and proposes a concrete rule, keeping both the soft and the clear element (tone_match)",
+        "Uses casual roommate register, not workplace or formal English (naturalness)",
+        "Frames it as 'let's agree on something' rather than an accusation (accuracy)",
+        "Cultural tip notes that US roommates usually address chores directly and early rather than hinting (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "So soft that no rule is actually proposed",
+        "Accusatory 'You never do the dishes' phrasing in variant 1",
+        "Too formal for a roommate conversation",
+        "All three variants have the same firmness"
+      ]
+    },
+    {
+      "id": "s07_040",
+      "input_text": "매니저가 금요일 밤에 또 추가 근무하래. 이번엔 못 한다고 단호하게 거절하고 싶어. 미안하다는 말 너무 많이 안 하고",
+      "tone_intent": "단호하게",
+      "domain": "workplace",
+      "act": "refuse",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 is an unambiguous no to a manager that cannot be heard as 'maybe' (tone_match)",
+        "Contains at most one brief acknowledgment, not repeated apologies (tone_match)",
+        "Register is appropriate for speaking upward to a manager: firm, professional, not defiant (naturalness)",
+        "At least one variant offers an alternative (another day, someone else) as a face-saving option (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Vague refusal such as 'I'm not sure I can' that a US manager reads as possible yes",
+        "Two or more apologies in variant 1",
+        "Sounds insubordinate or hostile",
+        "Gives a long personal excuse instead of a clean refusal"
+      ]
+    },
+    {
+      "id": "s07_041",
+      "input_text": "매니저가 준 마감이 현실적으로 불가능해. 동료가 아니라 상사한테 말하는 거라 정중하지만 물러서지 않게 말하고 싶어",
+      "tone_intent": "정중하지만 물러서지 않게",
+      "domain": "workplace",
+      "act": "assert",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 states plainly that the deadline is not achievable and proposes an alternative (scope cut or new date), holding both the polite and unyielding elements (tone_match)",
+        "Register is upward (to a manager) but not deferential to the point of silence (naturalness)",
+        "Pushback is grounded in facts or trade-offs, the way US managers expect it (accuracy)",
+        "Cultural tip notes that raising concerns early is seen as competence, not insubordination, in most US workplaces (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Hedged to 'It might be a little tight, but I'll try' which does not push back",
+        "Sounds like a flat refusal with no alternative",
+        "Peer-level casual register inappropriate for a manager",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_042",
+      "input_text": "동료가 자기 보고서 좀 봐달라길래 \"I can't take that on this week, I'm at capacity. Maybe check with Sam?\"이라고 했어. 너무 차가웠나?",
+      "tone_intent": "단호하게",
+      "domain": "workplace",
+      "act": "refuse",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output confirms the refusal was appropriately firm and normal for US coworkers; variant 1 keeps it essentially unchanged (accuracy)",
+        "Does not add apologies or softeners the user did not need (tone_match)",
+        "Alternatives differ in strategy, such as offering a later time or a smaller help, without weakening the no (naturalness)",
+        "Cultural tip notes that a clear no with a redirect is considered helpful, not cold, among peers (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Agrees it was cold and rewrites it with 'I'm so sorry'",
+        "Rewrites the fine sentence into a vaguer refusal",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_043",
+      "input_text": "상사가 새 계획 어떠냐고 물었는데 사실 반대인데도 \"Maybe... I think it's okay, but I'm not sure\"라고 했어. 다음엔 어떻게 말해야 하지",
+      "tone_intent": "분명하게",
+      "domain": "workplace",
+      "act": "assert",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output identifies that the user's answer was heard as approval and hid their real opinion (accuracy)",
+        "Variant 1 states a clear reservation with a reason, directed at a manager, matching the clear tone (tone_match)",
+        "At least one variant uses a common US framing such as 'I have a concern about X' or 'I'd push back on one part' (naturalness)",
+        "Cultural tip notes that US managers who ask for opinions generally want honest input and read vagueness as lack of engagement (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Treats the user's 'Maybe... I'm not sure' as acceptable",
+        "Repaired variant still hedges so much the disagreement is invisible",
+        "Over-corrects into blunt 'I disagree, it's a bad plan' to a manager",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_044",
+      "input_text": "연봉 인상 얘기를 꺼내려고 해. 1년 동안 성과도 있었으니 자신 있게 요구하고 싶은데 건방지게 들릴까 걱정돼",
+      "tone_intent": "자신 있게",
+      "domain": "workplace",
+      "act": "negotiate",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 opens the raise conversation confidently, anchoring on results and a specific ask, without sounding entitled (tone_match)",
+        "Uses natural US salary-conversation phrasing such as 'I'd like to talk about my compensation' rather than a literal translation of '연봉 인상 요구' (naturalness)",
+        "At least one variant asks for a meeting to discuss rather than demanding an answer on the spot (accuracy)",
+        "Cultural tip notes that stating accomplishments plainly is expected and not bragging in a US raise conversation (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Undercuts the ask with 'I know this is a lot to ask' or 'if the budget allows'",
+        "Sounds like an ultimatum",
+        "Vague about accomplishments or the specific request",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_045",
+      "input_text": "매니저한테 슬랙으로 보낼 말이야. \"Sorry I cannot do it because I have many works. Sorry.\" 미안하단 말 빼고 정중하게 고쳐줘",
+      "tone_intent": "미안해하지 않으면서 정중하게",
+      "domain": "workplace",
+      "act": "refuse",
+      "input_mode": "fix_it",
+      "expected_behaviors": [
+        "Variant 1 contains no apology, states current workload concretely, and declines or asks for prioritization, remaining polite (tone_match)",
+        "Fixes 'many works' to natural phrasing such as 'my plate is full' or 'I'm at capacity' (naturalness)",
+        "Fits Slack register: short, direct, no formal salutation (naturalness)",
+        "At least one variant asks the manager which task to deprioritize, a common US move that keeps the refusal collaborative (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Repaired variant still contains 'sorry'",
+        "Keeps 'many works' or other Korean-transfer errors",
+        "Turns a Slack message into a formal email",
+        "So indirect that the manager cannot tell it is a no"
+      ]
+    },
+    {
+      "id": "s07_046",
+      "input_text": "선생님한테 아이 읽기 레벨 낮춘 거 동의 안 한다고 이메일 보내려고 해. \"I don't agree your decision. My son can read well at home.\" 고쳐줘",
+      "tone_intent": "정중하지만 분명하게",
+      "domain": "school",
+      "act": "written",
+      "input_mode": "fix_it",
+      "expected_behaviors": [
+        "Variant 1 is written-register email language that clearly disagrees with the reading-level change and asks for the reasoning and a meeting (tone_match)",
+        "Fixes 'agree your decision' and strengthens the evidence line, e.g., what the child reads at home (naturalness)",
+        "Keeps the parent-teacher relationship collaborative while not withdrawing the disagreement (cultural_appropriateness)",
+        "Cultural tip notes that US teachers expect parents to question placements and that requesting the assessment data is normal (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Softens into 'I was just wondering why' with no disagreement stated",
+        "Keeps 'I don't agree your decision' or produces spoken rather than email register",
+        "Sounds accusatory toward the teacher",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_047",
+      "input_text": "학부모 면담에서 선생님이 아이를 ESL 반으로 옮기자는데 난 반대야. 선생님 기분 안 상하게 하면서도 단호하게 말하고 싶어",
+      "tone_intent": "단호하지만 예의 있게",
+      "domain": "school",
+      "act": "assert",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 clearly states the parent does not consent to the move and asks what data supports it, holding both firm and courteous elements (tone_match)",
+        "Uses natural spoken conference English, not written or legal phrasing (naturalness)",
+        "At least one variant asks for alternatives or a trial period rather than only saying no (accuracy)",
+        "Cultural tip notes that parents can decline or request re-evaluation of language placement and that teachers expect this discussion (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Politeness swallows the refusal, sounding like reluctant agreement",
+        "Sounds hostile or implies the teacher is prejudiced",
+        "Uses 'ESL' incorrectly or invents program names",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_048",
+      "input_text": "선생님한테 문자로 \"Minho will be out tomorrow for a dentist appointment. Please let me know if he'll miss anything important.\" 보냈어. 괜찮았어?",
+      "tone_intent": null,
+      "domain": "school",
+      "act": "written",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output confirms the message was natural and appropriate; variant 1 keeps it nearly verbatim (accuracy)",
+        "Does not invent a problem such as 'too casual' or 'missing greeting' when the message is fine for a teacher text (accuracy)",
+        "Alternatives are written-register variations, e.g., asking about making up work, not spoken sentences (naturalness)",
+        "Cultural tip notes that short absence notes to teachers are normal and that some schools also require notifying the front office (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Rewrites the fine message into a formal letter",
+        "Claims the message was rude or incomplete",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_049",
+      "input_text": "아이 IEP 미팅 전에 학교 사무실에 한국어 통역 준비해달라고 요청하고 싶어. 부탁이 아니라 당연히 받을 수 있는 거라 분명하게",
+      "tone_intent": "분명하게",
+      "domain": "school",
+      "act": "request",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 requests a Korean interpreter for the IEP meeting as an expected service, stating the meeting date, not as a favor (tone_match)",
+        "Uses the actual term 'IEP meeting' and 'interpreter' naturally (accuracy)",
+        "At least one variant is suitable for a phone call or email to the front office (naturalness)",
+        "Cultural tip notes that schools are expected to provide interpreters for IEP meetings and that asking in advance is standard (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Frames the request as 'if it's not too much trouble'",
+        "Apologizes for needing an interpreter",
+        "Uses 'translator' in a way that sounds off for a live meeting",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_050",
+      "input_text": "DMV 창구 직원이 너무 빨리 말해. 천천히 말해주거나 통역을 불러달라고 정중하게 말하고 싶어",
+      "tone_intent": "정중하게",
+      "domain": "government",
+      "act": "clarify",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 politely asks the clerk to slow down, and at least one variant asks for interpreter or language assistance (tone_match)",
+        "Short, counter-appropriate phrasing that works with a busy clerk (naturalness)",
+        "Does not apologize for the user's English as the opening move (accuracy)",
+        "Cultural tip notes that DMV offices typically have language assistance and that asking to slow down is common (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Variant 1 is a long, self-deprecating apology before the request",
+        "Only offers 'slow down' with no interpreter option",
+        "Sounds curt in a way that could read as rude to a clerk",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_051",
+      "input_text": "경찰이 차를 세웠어. 면허증이 글러브박스에 있는데 손 넣기 전에 뭐라고 말해야 안전할지 알고 싶어",
+      "tone_intent": "침착하게",
+      "domain": "driving_emergency",
+      "act": "request",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 announces the action and asks permission before reaching, e.g., 'My license is in the glove box. Is it okay if I reach for it?' (accuracy)",
+        "Phrasing is short and calm, suitable for a stressful roadside moment (tone_match)",
+        "Cultural tip is specific to US traffic stops: hands visible, announce movements, wait for the officer's okay (cultural_appropriateness)",
+        "Variants differ in what is being reached for or in level of formality, not just wording (naturalness)"
+      ],
+      "expected_failure_modes": [
+        "Omits the permission-asking element and just narrates reaching",
+        "Overly long or argumentative phrasing",
+        "Cultural tip is generic instead of naming the visible-hands norm",
+        "Uses 'driving license' rather than the US 'driver's license' without noting it"
+      ]
+    },
+    {
+      "id": "s07_052",
+      "input_text": "고속도로에서 접촉사고가 났어. 911에 전화해서 위치랑 상황을 침착하게 말하고 싶은데 뭐라고 시작해야 해",
+      "tone_intent": "침착하게",
+      "domain": "driving_emergency",
+      "act": "request",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 follows the real 911 order: what happened, where (highway, direction, nearest exit or mile marker), whether anyone is hurt (accuracy)",
+        "Phrasing is short declarative sentences a shaken caller can produce (naturalness)",
+        "Cultural tip notes the dispatcher will ask questions and that the caller should stay on the line and not hang up first (cultural_appropriateness)",
+        "Pronunciation tip targets a sound that matters for dispatcher clarity, such as numbers or place names (naturalness)"
+      ],
+      "expected_failure_modes": [
+        "Starts with a long apology or explanation instead of the emergency and location",
+        "Omits location details a dispatcher needs",
+        "Literal translation of '접촉사고' such as 'contact accident' instead of 'fender bender' or 'a minor collision'",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_053",
+      "input_text": "SSA 사무실에서 창구 직원한테 \"I need a Korean interpreter, please.\"라고만 했어. 너무 짧아서 무례했을까?",
+      "tone_intent": "분명하게",
+      "domain": "government",
+      "act": "clarify",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output confirms the sentence was appropriate and clear; variant 1 keeps it essentially as-is (accuracy)",
+        "Does not manufacture a problem such as 'too blunt' when brevity is correct at a government counter (tone_match)",
+        "Alternatives add useful context, e.g., the reason for the visit or a phone-interpreter option, not padding (naturalness)",
+        "Cultural tip notes that SSA offices provide free interpreters and that a short request is the expected form (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Rewrites the fine sentence into a long apologetic version",
+        "Suggests the user was rude",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_054",
+      "input_text": "집주인",
+      "tone_intent": null,
+      "domain": "housing",
+      "act": "request",
+      "input_mode": "robustness",
+      "expected_behaviors": [
+        "Handles the one-word input gracefully and still returns valid JSON with exactly 3 expressions (accuracy)",
+        "Variants cover plausible common tenant-to-landlord situations (repair request, question about lease or rent) rather than refusing or asking a question back (accuracy)",
+        "Cultural tips are still specific per variant despite the vague input, naming when a tenant would use each (cultural_appropriateness)",
+        "Tone range is sensible for tenant-to-landlord communication when tone_intent is null (tone_match)"
+      ],
+      "expected_failure_modes": [
+        "Returns prose asking for more detail instead of JSON",
+        "Produces three translations of the word 'landlord' instead of usable expressions",
+        "Cultural tips are generic because the situation is vague",
+        "Invalid schema (fewer or more than 3 variants)"
+      ]
+    },
+    {
+      "id": "s07_055",
+      "input_text": "접촉사고 후 상대 운전자가 내 잘못이라고 우겨. 잘못 인정하지 않고 보험 정보만 교환하자고 침착하지만 단호하게 말하고 싶어",
+      "tone_intent": "침착하지만 단호하게",
+      "domain": "driving_emergency",
+      "act": "assert",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 declines to discuss fault and redirects to exchanging insurance and contact information, holding both calm and firm elements (tone_match)",
+        "Contains no admission of fault and no apology that could be read as one (accuracy)",
+        "Phrasing is short and de-escalating for a roadside argument (naturalness)",
+        "Cultural tip notes that in the US you do not admit fault at the scene, let insurers determine it, and may call police for a report (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Includes 'I'm sorry' which can be read as admitting fault",
+        "Escalates into arguing about who was at fault",
+        "Too soft to stop the other driver's pressure",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_056",
+      "input_text": "친구가 내 영어 많이 늘었다고 칭찬하는데 매번 \"No, no, still bad\"라고 해. 겸손 떨지 않고 자연스럽게 받고 싶어",
+      "tone_intent": "자연스럽게",
+      "domain": "friendship",
+      "act": "compliment",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 accepts the compliment with thanks and optionally a light addition, with no denial (tone_match)",
+        "Phrasing sounds like a real friend, e.g., 'Thanks, I've been working on it' (naturalness)",
+        "At least one variant returns the compliment or adds a small joke, showing different acceptance strategies (accuracy)",
+        "Cultural tip explains that denying a compliment reads as awkward or as rejecting the speaker in US culture, and that simple acceptance is expected (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Variant still contains a denial such as 'not really' or 'I still have a long way to go' as the main move",
+        "Over-formal 'I appreciate your kind words'",
+        "Cultural tip is generic",
+        "All three variants are 'thank you' with minor changes"
+      ]
+    },
+    {
+      "id": "s07_057",
+      "input_text": "우편함에서 이웃이 \"How's it going?\" 하길래 \"Pretty good, busy week. How about you?\"라고 했어. 괜찮았어?",
+      "tone_intent": null,
+      "domain": "neighbors",
+      "act": "small_talk",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output confirms the reply was natural and correctly returned the ritual question; variant 1 keeps it essentially as-is (accuracy)",
+        "Does not manufacture a problem such as 'too short' or 'should share more' (accuracy)",
+        "Alternatives show other natural ritual replies or a one-line follow-up about the neighborhood, not longer answers (naturalness)",
+        "Cultural tip explains that 'How's it going' is a greeting, not a real question, and the return question is what makes it work (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Suggests a literal, detailed answer about the user's week",
+        "Rewrites the fine reply into something stiffer",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_058",
+      "input_text": "옆집 여자분이랑 처음 얘기하다가 나이가 어떻게 되냐, 결혼은 했냐고 물었어. 표정이 좀 굳던데 뭐가 문제였어?",
+      "tone_intent": "친근하게",
+      "domain": "neighbors",
+      "act": "social_norm",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output clearly identifies that asking age and marital status of a new acquaintance is intrusive in US norms, explaining the neighbor's reaction (cultural_appropriateness)",
+        "Variant 1 offers a friendly first-conversation question that is safe (how long they've lived here, the neighborhood, pets), matching the friendly tone (tone_match)",
+        "At least one variant is a light recovery line the user could use next time they see the neighbor (accuracy)",
+        "Phrasing is natural neighborly small talk (naturalness)"
+      ],
+      "expected_failure_modes": [
+        "Treats the user's questions as fine or only slightly off",
+        "Explains the norm without giving usable replacement questions",
+        "Suggests an over-the-top apology for the earlier questions",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_059",
+      "input_text": "친구 부모님을 처음 만나는데 이름으로 불러도 되는지 Mr. Mrs. 붙여야 하는지 모르겠어. 어떻게 물어보지",
+      "tone_intent": "예의 있게",
+      "domain": "friendship",
+      "act": "social_norm",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 is a polite, natural way to ask what to call them, e.g., 'What would you like me to call you?' (tone_match)",
+        "At least one variant starts with the title and lets the parent offer a first name, which is the common US pattern (cultural_appropriateness)",
+        "Cultural tip notes that many American parents of adult friends will say 'call me Linda' and that using the title first is never wrong (cultural_appropriateness)",
+        "Phrasing is warm, not stiff or overly formal (naturalness)"
+      ],
+      "expected_failure_modes": [
+        "Advises using Korean-style honorifics or 'Mother/Father'",
+        "Only says 'use first names' with no way to ask or defer",
+        "Sounds like a formal business introduction",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_060",
+      "input_text": "카페 테이크아웃인데 화면에 팁 선택이 떠. 안 주고 싶은데 직원 앞에서 어색하지 않게 넘어가고 싶어",
+      "tone_intent": "어색하지 않게",
+      "domain": "dining",
+      "act": "social_norm",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 is a short, casual line or non-verbal-plus-line that skips the tip without awkwardness, e.g., pressing 'no tip' with a friendly 'Thanks so much' (tone_match)",
+        "Does not invent an apology or justification for not tipping, which would create the awkwardness the user wants to avoid (accuracy)",
+        "Cultural tip states that tipping on counter takeout is optional and that staff commonly see 'no tip' selections (cultural_appropriateness)",
+        "Phrasing sounds like a regular customer, not a formal explanation (naturalness)"
+      ],
+      "expected_failure_modes": [
+        "Suggests apologizing or explaining why the user is not tipping",
+        "Claims tipping is required for takeout",
+        "Overly long variants for a two-second checkout moment",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_061",
+      "input_text": "친구 집에 처음 초대받았는데 집이 정말 예뻐. 진심으로 칭찬하고 싶은데 nice만 반복하게 돼",
+      "tone_intent": "진심으로",
+      "domain": "friendship",
+      "act": "compliment",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 gives a specific, sincere compliment about the home (light, a room, how it feels) rather than a bare adjective (tone_match)",
+        "Phrasing is what a guest would actually say on entering, not formal praise (naturalness)",
+        "Three variants use different compliment strategies: specific detail, feeling, question about a piece (accuracy)",
+        "Cultural tip notes that complimenting a host's home is expected and that asking about a detail is a good follow-up (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "All three are 'Your house is so nice/beautiful/lovely'",
+        "Over-the-top praise that sounds insincere",
+        "Comments on price or size, which can be awkward in the US",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_062",
+      "input_text": "옆집 개가 진짜 매일 짖어. 아침 6시부터 짖고 저녁에도 짖고 주말엔 더 심해. 처음엔 참았는데 이제 애가 잠을 못 자. 옆집 사람은 나쁜 사람은 아닌 것 같고 인사도 잘하는데 이걸 어떻게 꺼내야 할지 모르겠어. 한국이었으면 그냥 좀 참거나 관리실에 얘기했을 텐데 여기는 그런 게 없잖아. 그렇다고 바로 HOA에 신고하는 건 너무 심한 것 같고, 그냥 직접 가서 말하고 싶은데 영어로 어떻게 시작해야 할지 모르겠어. 화난 것처럼 들리면 안 되고 그렇다고 너무 약하게 말해서 그냥 넘어가면 또 계속될 것 같아. 정중하지만 분명하게, 그리고 이게 처음 말하는 거니까 관계 안 깨지게. 개 이름은 모르고 그 사람 이름은 Mike야. 낮에 집에 없을 때 짖는 건지도 물어보고 싶고 혹시 우리도 시끄러운 게 있으면 말해달라고도 하고 싶어. 이런 걸 다 한 문장에 넣을 순 없겠지만 어쨌든 첫마디를 뭐라고 해야 해?",
+      "tone_intent": "정중하지만 분명하게",
+      "domain": "neighbors",
+      "act": "complain",
+      "input_mode": "robustness",
+      "expected_behaviors": [
+        "Handles the long rambling input and still returns valid JSON with exactly 3 expressions, not a summary or advice essay (accuracy)",
+        "Variant 1 is a first-approach opener that names the barking and its effect on the child while staying friendly, matching the compound tone (tone_match)",
+        "Picks up concrete details from the input: uses the neighbor's name Mike, mentions mornings or the kid's sleep, and does not invent facts (accuracy)",
+        "At least one variant includes the reciprocity move the user asked for ('let us know if we're ever loud too') (accuracy)",
+        "Cultural tip notes that talking directly first, before HOA or animal control, is the expected neighborly sequence (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Returns prose or more than 3 expressions because the input was long",
+        "Ignores the details and produces a generic noise complaint",
+        "Variant 1 is either accusatory ('your dog is a problem') or so soft the barking is not actually raised",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_063",
+      "input_text": "은행에서 월 유지 수수료 12달러가 빠졌는데 계좌 열 때 없다고 했었어. 환불해달라고 단호하게 말하고 싶어",
+      "tone_intent": "단호하게",
+      "domain": "finance",
+      "act": "complain",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 names the fee, states what was promised at account opening, and asks for a refund as an expectation, not a hope (tone_match)",
+        "Uses natural banking vocabulary such as 'monthly maintenance fee' and 'waive' or 'refund' (naturalness)",
+        "At least one variant asks how to avoid the fee going forward, which is what a US teller will address (accuracy)",
+        "Cultural tip notes that banks routinely reverse a first fee on request and that asking firmly is normal (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Hedges the firm request into 'is there any chance you could'",
+        "Sounds accusatory toward the teller personally",
+        "Literal rendering like 'the fee went out' instead of 'I was charged'",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_064",
+      "input_text": "보험 에이전트가 전화로 생명보험 권유했는데 \"Maybe later, I'll think about it\"이라고 했어. 사실 안 살 건데 계속 전화 와",
+      "tone_intent": "분명하게",
+      "domain": "finance",
+      "act": "refuse",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output identifies that 'Maybe later, I'll think about it' was heard as an opening, which is why the calls continue (accuracy)",
+        "Variant 1 is a clear, final no that asks to be removed from the call list, matching the clear tone (tone_match)",
+        "Phrasing is polite but leaves no follow-up hook (naturalness)",
+        "Cultural tip notes that US salespeople treat soft refusals as 'not yet' and that a direct no is not rude (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Treats the user's soft refusal as acceptable",
+        "Repaired variant still includes 'maybe' or 'not right now'",
+        "Over-apologizes for declining",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_065",
+      "input_text": "오퍼를 받았는데 주 2일 재택이랑 시작일 연기를 요청하고 싶어. 오퍼 취소될까 봐 걱정되지만 자신 있게 말하고 싶어",
+      "tone_intent": "자신 있게",
+      "domain": "job_search",
+      "act": "negotiate",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 expresses enthusiasm for the offer and then makes both asks (two remote days, later start) as a normal negotiation, not a plea (tone_match)",
+        "Uses real US offer-stage phrasing such as 'before I accept, I'd like to discuss' (naturalness)",
+        "At least one variant gives a brief reason for the start date without over-explaining (accuracy)",
+        "Cultural tip notes that negotiating terms after an offer is expected and rarely leads to withdrawal when done professionally (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Undercuts with 'I totally understand if that's not possible' before even asking",
+        "Sounds like an ultimatum",
+        "Asks only one of the two items",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_066",
+      "input_text": "Interview follow-up email draft: \"Dear Mr. Johnson, Thank you for interview. I am very interested this position. I wait your reply.\" 딱딱하지 않게 고쳐줘",
+      "tone_intent": "격식 있지만 딱딱하지 않게",
+      "domain": "job_search",
+      "act": "written",
+      "input_mode": "fix_it",
+      "expected_behaviors": [
+        "Variant 1 is a natural thank-you email body: thanks for the specific interview, one line of genuine interest, a light closing that does not demand a reply (tone_match)",
+        "Fixes 'interested this position' and 'I wait your reply' into idiomatic written English (naturalness)",
+        "Keeps the salutation appropriate and preserves 'Mr. Johnson' unless the user indicated first-name terms (accuracy)",
+        "Cultural tip notes that follow-up emails are expected within a day and that referencing something discussed makes it warmer (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Returns spoken-register variants instead of email text",
+        "Keeps 'I wait your reply' or an equivalent pushy closing",
+        "So formal it is stiffer than the original",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_067",
+      "input_text": "교회에서 주일학교 봉사 맡아달라는데 지금은 못 해. 관계 안 상하게 부드럽지만 분명하게 거절하고 싶어",
+      "tone_intent": "부드럽지만 분명하게",
+      "domain": "community",
+      "act": "refuse",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 declines clearly for now, with warmth toward the community, holding both soft and clear elements (tone_match)",
+        "Does not give a vague 'maybe later' that will lead to being asked again next week (accuracy)",
+        "At least one variant offers a smaller or later contribution as a genuine alternative (naturalness)",
+        "Cultural tip notes that in US church and volunteer settings a direct no is respected and repeated soft answers are read as availability (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Softness swallows the refusal so it sounds like a yes-later",
+        "Over-apologizes or over-explains personal reasons",
+        "Too curt for a community relationship",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_068",
+      "input_text": "아이 축구 경기 때 옆에 선 다른 부모들이랑 말을 트고 싶은데 뭐라고 시작해야 할지 모르겠어",
+      "tone_intent": "가볍게",
+      "domain": "community",
+      "act": "small_talk",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 is a light sideline opener tied to the shared context (which kid is theirs, the game, the weather) (tone_match)",
+        "Sounds like a real parent on a sideline, not a formal self-introduction (naturalness)",
+        "At least one variant includes a follow-up question to keep the exchange going (accuracy)",
+        "Cultural tip notes that sideline small talk stays on the kids and the game and avoids personal questions early (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Textbook 'Hello, my name is... nice to meet you' opener",
+        "Jumps to personal questions such as job or where they are from",
+        "Only one-liners with no follow-up",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_069",
+      "input_text": "매장에서 환불 거부당했어. \"I want to speak your manager because you don't give me refund.\" 단호하지만 싸우자는 느낌 없이 고쳐줘",
+      "tone_intent": "단호하게",
+      "domain": "shopping",
+      "act": "complain",
+      "input_mode": "fix_it",
+      "expected_behaviors": [
+        "Variant 1 asks for a manager firmly and neutrally, referencing the return policy rather than blaming the clerk (tone_match)",
+        "Fixes 'speak your manager' and 'don't give me refund' into natural retail English (naturalness)",
+        "Keeps the escalation intent; does not turn it into a soft question about whether a refund is possible (accuracy)",
+        "Cultural tip notes that asking for a manager is routine and that citing the posted policy or receipt is the effective move (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Keeps the accusatory 'because you don't give me' framing",
+        "Softens into 'Would it maybe be possible to talk to someone else?'",
+        "Sounds like a threat to the employee",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_070",
+      "input_text": "코스트코에서 return하려는데 receipt가 없어. membership으로 look up 해달라고 하고 싶은데 뭐라고 해",
+      "tone_intent": null,
+      "domain": "shopping",
+      "act": "request",
+      "input_mode": "robustness",
+      "expected_behaviors": [
+        "Handles the Korean-English mixed input gracefully and returns valid JSON with exactly 3 expressions (accuracy)",
+        "Variants correctly incorporate the embedded English terms (return, receipt, membership, look up) in natural sentences (naturalness)",
+        "Variant 1 is a straightforward returns-counter request that mentions no receipt and asks for a membership lookup (accuracy)",
+        "Cultural tip notes that warehouse stores commonly look up purchases by membership and that asking is routine (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Treats the English fragments as errors and translates them into different vocabulary",
+        "Refuses or asks the user to write in one language",
+        "Over-apologizes for not having a receipt",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_071",
+      "input_text": "식당에서 아이가 물컵을 깨뜨렸어. 서버한테 사과하고 싶은데 너무 굽신거리진 않고 담백하게",
+      "tone_intent": "담백하게",
+      "domain": "dining",
+      "act": "apologize",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 is a brief, matter-of-fact apology plus a practical note (offering to help or asking if they need anything), not a groveling one (tone_match)",
+        "Sounds like a real parent in a restaurant, e.g., 'So sorry about that, is there anything I can do?' (naturalness)",
+        "Does not offer to pay repeatedly or make the child the subject of a big apology (accuracy)",
+        "Cultural tip notes that servers treat this as routine and that a single apology plus a slightly larger tip is the normal gesture (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Multiple apologies stacked in one variant",
+        "Too curt to register as an apology at all",
+        "Insists on paying for the glass in a way that sounds strange to a US server",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_072",
+      "input_text": "매니저한테 마감 못 맞출 것 같다고 미리 말하려고 해. \"Sorry, I think I cannot finish until Friday because too many things.\" 변명처럼 안 들리게 고쳐줘",
+      "tone_intent": "변명처럼 들리지 않게",
+      "domain": "workplace",
+      "act": "bad_news",
+      "input_mode": "fix_it",
+      "expected_behaviors": [
+        "Variant 1 leads with the news and a concrete new date or option, not with an apology, satisfying the negative-form tone (tone_match)",
+        "Fixes 'cannot finish until Friday' (which reverses the meaning) and 'too many things' into clear, natural phrasing (accuracy)",
+        "Frames the reason as a prioritization fact rather than a personal excuse, and asks the manager for a decision (naturalness)",
+        "Cultural tip notes that early heads-up with options is valued by US managers far more than a last-minute apology (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Keeps 'cannot finish until Friday', which means the opposite of the intent",
+        "Still opens with 'Sorry' or stacks apologies",
+        "Vague 'too many things' remains without a concrete reason or option",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_073",
+      "input_text": "친구가 500달러 빌려달래. 못 빌려준다고 단호하게 말하되 관계는 안 상하게 하고 싶어",
+      "tone_intent": "단호하지만 관계 상하지 않게",
+      "domain": "friendship",
+      "act": "refuse",
+      "input_mode": "say_it",
+      "expected_behaviors": [
+        "Variant 1 is a clear no about the loan with a warmth signal about the friendship, holding both parts of the compound tone (tone_match)",
+        "Does not leave a door open such as 'maybe next month' unless the user meant it (accuracy)",
+        "Sounds like a real friend talking, not a bank or a formal refusal (naturalness)",
+        "Cultural tip notes that a personal-policy refusal ('I don't lend money to friends') is a common, accepted US framing (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Vague excuse ('things are tight right now') that invites a smaller ask",
+        "Over-apologizes or over-explains finances",
+        "Cold or lecturing tone that damages the relationship",
+        "Cultural tip is generic"
+      ]
+    },
+    {
+      "id": "s07_074",
+      "input_text": "DMV에서 서류가 부족하다길래 \"Okay\" 하고 그냥 나왔어. 뭐가 부족한지도 못 물어봤는데 다음엔 뭐라고 해야 해",
+      "tone_intent": "분명하게",
+      "domain": "government",
+      "act": "clarify",
+      "input_mode": "check_it",
+      "expected_behaviors": [
+        "Output identifies that answering 'Okay' and leaving lost the chance to learn exactly what was missing (accuracy)",
+        "Variant 1 asks the clerk to specify which documents are missing and, ideally, to write it down or point to the list (tone_match)",
+        "At least one variant asks whether the user needs a new appointment or can return the same day (accuracy)",
+        "Cultural tip notes that DMV clerks will list required documents on request and that asking is expected, not an imposition (cultural_appropriateness)"
+      ],
+      "expected_failure_modes": [
+        "Treats the user's 'Okay' as fine",
+        "Repaired variant apologizes instead of asking the concrete question",
+        "Vague 'What do I need?' with no request for a written list or specifics",
+        "Cultural tip is generic"
       ]
     }
   ]
