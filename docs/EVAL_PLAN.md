@@ -168,7 +168,11 @@ Fields:
 - `expected_failure_modes`: negative criteria; if observed, that dimension drops
 - `draft_quality` (check_it only, required there): `good` when the English draft quoted in
   the input was already natural and appropriate, `flawed` when it had a real problem. The
-  runner uses it to count false alarms and missed flaws (see Scoring).
+  runner uses it to count false alarms and missed flaws (see Scoring). All 14 check_it
+  labels come from a native-speaker review the owner ran, applied 2026-09-06; the final
+  split is `good` 8 / `flawed` 6. Where the review disagreed with the original label the
+  review won — s07_024 went `good` to `flawed`, and on s07_064 the owner took the
+  reviewer's `good`. Treat these labels as settled; do not ask for their basis again.
 - `pair_of` (optional): the id of an explicit-tone original this case twins. See
   "Implicit-cue pairs".
 
