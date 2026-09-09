@@ -77,6 +77,35 @@ class TestCaseSchema(unittest.TestCase):
         modes = {c["input_mode"] for c in self.cases}
         self.assertEqual(modes, INPUT_MODES, f"missing input modes: {INPUT_MODES - modes}")
 
+    def test_check_it_has_draft_quality(self):
+        # exec-plan 2026-09-06 section C: the runner counts false alarms on good drafts and
+        # missed flaws on flawed drafts, so every check_it case must carry the tag and no
+        # other mode may.
+        for c in self.cases:
+            if c["input_mode"] == "check_it":
+                self.assertIn(c.get("draft_quality"), {"good", "flawed"},
+                              f"{c['id']} check_it needs draft_quality good|flawed")
+            else:
+                self.assertNotIn("draft_quality", c, f"{c['id']} draft_quality only on check_it")
+
+    def test_pairs_reference_explicit_originals(self):
+        # exec-plan 2026-09-06 section E: a twin drops tone_intent and keeps the situation.
+        # The original must exist, carry an explicit tone_intent, and share domain/act/mode.
+        by_id = {c["id"]: c for c in self.cases}
+        for c in self.cases:
+            src_id = c.get("pair_of")
+            if not src_id:
+                continue
+            self.assertIn(src_id, by_id, f"{c['id']} pair_of unknown id {src_id}")
+            src = by_id[src_id]
+            self.assertIsNone(c["tone_intent"], f"{c['id']} twin must have null tone_intent")
+            self.assertTrue(src["tone_intent"], f"{src_id} original must state a tone_intent")
+            self.assertNotIn("pair_of", src, f"{src_id} original must not itself be a twin")
+            for k in ("domain", "act", "input_mode"):
+                self.assertEqual(c[k], src[k], f"{c['id']} {k} differs from {src_id}")
+        twins = [c for c in self.cases if c.get("pair_of")]
+        self.assertGreaterEqual(len(twins), 8, "at least one implicit-cue twin per priority cell")
+
 
 if __name__ == "__main__":
     unittest.main()

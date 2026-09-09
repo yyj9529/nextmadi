@@ -23,8 +23,19 @@ The separation matters because evaluating "did the LLM produce a good 3-variant 
 Tests S07 analysis output only. Validates the `s07_analysis_v1` JSON schema (defined in `AI_PIPELINE.md`) and the quality of the three variants returned.
 
 Size: 22 hand-written cases at first baseline (2026-06). Expanded to 74 on 2026-09-05 by
-filling the scenario coverage taxonomy below. Grows past 100 only from confirmed real-input
-failures, not from more hand-written hypotheses.
+filling the scenario coverage taxonomy below, and to 82 on 2026-09-06 with eight
+implicit-cue twins (see "Implicit-cue pairs"). Grows past 100 only from confirmed
+real-input failures, not from more hand-written hypotheses.
+
+What this set can and cannot say. The cases are owner-written hypotheses that fill a
+coverage matrix; they are not a random sample of real user input. A run therefore
+supports one claim, "this prompt scores higher or lower than the previous baseline on
+the same cases", and not "the product works for N percent of real users". The second
+claim needs inputs sampled from the target population, which is the first assumption in
+Indeed's LLM-evaluation statistics note (verified 2026-09-06,
+https://engineering.indeedblog.com/blog/2026/07/bootstrap-confidence-intervals-for-llm-evaluation/ ).
+When real anonymized inputs accumulate (W13+), they replace hypotheses case by case and
+this paragraph is revisited.
 
 Why this size. Anthropic's eval guidance says 20–50 tasks drawn from real failures is a
 sound starting set because early changes have large, visible effects; its statistics note
@@ -155,6 +166,51 @@ Fields:
 - `domain`, `act`, `input_mode`: the three taxonomy axes above; every value must be one of the listed codes (replaced the free-form `category` field on 2026-09-05)
 - `expected_behaviors`: positive criteria the judge looks for
 - `expected_failure_modes`: negative criteria; if observed, that dimension drops
+- `draft_quality` (check_it only, required there): `good` when the English draft quoted in
+  the input was already natural and appropriate, `flawed` when it had a real problem. The
+  runner uses it to count false alarms and missed flaws (see Scoring). All 14 check_it
+  labels come from a native-speaker review the owner ran, applied 2026-09-06; the final
+  split is `good` 8 / `flawed` 6. Where the review disagreed with the original label the
+  review won — s07_024 went `good` to `flawed`, and on s07_064 the owner took the
+  reviewer's `good`. Treat these labels as settled; do not ask for their basis again.
+- `pair_of` (optional): the id of an explicit-tone original this case twins. See
+  "Implicit-cue pairs".
+
+Two conventions for writing criteria, both weaker claims than they first appear.
+
+Point at what the judge can see. The `s07_analysis_v1` output is three expressions with
+tips and no verdict field, so a criterion phrased as "Output confirms the draft was fine"
+does not say which field carries that confirmation. Prefer "variant 1 keeps the draft
+essentially as-is" or "the cultural tip says the draft was appropriate". This is a
+readability convention, not a correctness fix: on 2026-09-06 the judge was given the older
+"Output recognizes ..." phrasing for s07_024 and graded it without difficulty (4.75 and
+4.50 over two runs), citing the clause "variant 1 keeps it essentially as-is" as its
+evidence. No measured improvement is claimed for the rewrite.
+
+Do not require facts the input does not give. A date, an account number, or a reason that
+appears nowhere in `input_text` must not be demanded of the answer; a placeholder such as
+`[date]` is the correct handling. This one has a concrete failure behind it: s07_065 asked
+for a reason the input never supplied while s07_062 forbade inventing facts, so the set
+contradicted itself. It follows Anthropic's Step 2, write unambiguous tasks with reference
+solutions (verified 2026-09-06,
+https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents ).
+
+#### Implicit-cue pairs
+
+Most cases state the tone the user wants ("정중하지만 물러서지 않게"). Real users often
+describe only the situation. Nasim et al. (arXiv 2604.17718, section 3.2 "Triad
+Evaluation Design", verified 2026-09-06, https://arxiv.org/html/2604.17718 ) measured
+the same scenarios with and without an explicit cultural instruction and found models
+recover only about one fifth of their instructed behaviour from situational cues alone
+(mean PCS 0.196, section 4.1). PhraseLog's prompt is meant to close exactly that gap, so
+the set needs to measure it.
+
+A twin copies an original's situation, relationship cues, domain, act, input_mode, and
+criteria, removes the tone request from the input, sets `tone_intent` to null, and adds
+one criterion: variant 1 must still land on the original's tone. Eight twins exist, one
+per priority cell (s07_075 to s07_082). The runner reports the per-pair `tone_match`
+difference as `pair_deltas`; a negative delta means the prompt needs to be told. This is a
+measurement of the prompt, not a fix; the fix belongs in `prompts/s07/v2.md`.
 
 Cases are added by the owner manually for now. When user data accumulates (W13+), real anonymized inputs become candidates for the case pool.
 
@@ -162,11 +218,12 @@ Cases are added by the owner manually for now. When user data accumulates (W13+)
 
 Lives in `eval/s07-analysis/judge_prompt.md`, versioned alongside test cases.
 
-Judge model: Anthropic Claude, and it must be a different model from the one generating the S07 output. Anthropic's evaluation guidance recommends a separate model as grader because a model grading its own family's output shows self-preference bias (source https://platform.claude.com/docs/en/test-and-evaluate/develop-tests , verified 2026-09-05). From 2026-06 to 2026-09 the generator and judge were both Sonnet; that is recorded as a known gap, and baselines from that period are not comparable with later ones. The concrete model ids live in `eval/s07-analysis/run_eval.py` and `AI_PIPELINE.md`. Quality of judging matters more than speed, so the judge is never the cheapest tier.
+Judge model: Anthropic Claude, and it must be a different model from the one generating the S07 output. Anthropic's testing guide gives that as best practice without stating why (source https://platform.claude.com/docs/en/test-and-evaluate/develop-tests , verified 2026-09-09); the measured reason is that same-family generator and judge pairs inflate scores by 8.9 percent against 23.6 percent for the same model (Preference Leakage, https://arxiv.org/abs/2502.01534 , verified 2026-09-09), which the current Sonnet generator and Opus judge pairing does not escape. From 2026-06 to 2026-09 the generator and judge were both Sonnet; that is recorded as a known gap, and baselines from that period are not comparable with later ones. The concrete model ids live in `eval/s07-analysis/run_eval.py` and `AI_PIPELINE.md`. Quality of judging matters more than speed, so the judge is never the cheapest tier.
 
 The judge receives:
 1. The system prompt explaining the rubric
-2. The test case (input + expected behaviors + expected failure modes)
+2. The test case (input, tone_intent, expected behaviors, expected failure modes, and
+   since judge-v3 the taxonomy codes, `draft_quality`, and `pair_of`)
 3. The actual S07 output (3 variants in `s07_analysis_v1` JSON shape)
 
 The judge returns a JSON object with four Likert scores (1–5):
@@ -183,11 +240,12 @@ The judge returns a JSON object with four Likert scores (1–5):
     "cultural_appropriateness": "Tips reference US-specific norms (e.g., direct expression of disappointment).",
     "tone_match": "Variant 1 matches the requested polite tone clearly."
   },
-  "failure_modes_observed": []
+  "failure_modes_observed": [],
+  "draft_handling": "n/a"
 }
 ```
 
-Each rationale must be one or two sentences. The `failure_modes_observed` array references entries from `expected_failure_modes` by partial string match.
+Each rationale must be one or two sentences. The `failure_modes_observed` array references entries from `expected_failure_modes` by partial string match. `draft_handling` (judge-v3) is `kept` when variant 1 is the user's quoted draft with at most a few words polished, `rewritten` when it materially changed, and `n/a` outside check_it.
 
 ### Scoring
 
@@ -204,6 +262,19 @@ Each rationale must be one or two sentences. The `failure_modes_observed` array 
 - Aggregate drops more than 0.3 from the last `main` baseline → CI fails
 - Per-dimension average drops more than 0.5 from baseline → CI fails
 - Number of cases with any dimension < 2.0 increases → CI fails
+
+**Reported, not gated** (written into the run artifact since 2026-09-06; thresholds are
+set only after two baselines exist, so the numbers come from data rather than guesses):
+- `by_input_mode`: the four dimension averages per input_mode, so a check_it collapse is
+  visible instead of averaged away by say_it.
+- `draft_summary`: `false_alarms` (a `good` draft whose variant 1 was `rewritten`) and
+  `missed_flaws` (a `flawed` draft whose variant 1 was `kept`), counted per trial. The
+  split follows Lin, Ngo, and Chen 2026, Methodology, Data Analysis: a correct segment
+  flagged is a false alarm, a correct segment left alone is an accurate non-intervention
+  (verified 2026-09-06, https://link.springer.com/article/10.1007/s42321-026-00236-4 ).
+  The product reason is principle 1 in `PROJECT_CONTEXT.md`: rewriting a sentence the user
+  already said well adds shame without adding skill.
+- `pair_deltas`: per implicit-cue twin, `tone_match` of the twin minus the original.
 
 The CI workflow `.github/workflows/eval.yml` computes these comparisons and posts the diff as a PR comment.
 
@@ -350,6 +421,7 @@ A cost alert (per `architecture.md` AI cost alerts section) triggers if eval mon
 3. **Tier 2 activation criteria** — currently "50 sessions, 10 distinct users." Tune from actual production volume observed in W13–14.
 4. **Tier 3 dashboard tool** — Langfuse vs Braintrust vs custom. Decision in W17.
 5. **Validator network formalization** — informal favors vs paid contract vs both. Decision before Tier 3 activation.
+6. **Tier 1 cross-family judge check** — generator and judge are both Claude, so the same-family inflation noted under Judge prompt applies to every run. Once a judge-v3 baseline exists, re-score the same cases with a non-Anthropic judge and compare case rankings rather than absolute means. Anthropic ran the equivalent check on its political even-handedness study, grading a subsample with GPT-5 and reporting 92 percent per-sample agreement and r = 0.86 (https://www.anthropic.com/news/political-even-handedness , verified 2026-09-09).
 
 ## Related
 
@@ -360,5 +432,29 @@ A cost alert (per `architecture.md` AI cost alerts section) triggers if eval mon
 - `data-model.md` — `ai_request_logs` table that backs cost tracking
 - `eval/s07-analysis/test_cases.json` — actual cases
 - `eval/s07-analysis/judge_prompt.md` — judge rubric
+- `docs/exec-plans/2026-09-06-eval-case-criteria-revision.md` — why the criteria were
+  rewritten, the twins added, and the report-only metrics introduced
+
+### References (all verified 2026-09-06)
+
+- Anthropic, "Demystifying evals for AI agents", 2026-01. Step 2 (reference solutions),
+  Step 3 (balanced problem sets).
+  https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents
+- Nasim et al., "Do LLMs Use Cultural Knowledge Without Being Told? A Multilingual
+  Evaluation of Implicit Pragmatic Adaptation", arXiv 2604.17718, 2026-04. Section 3.2
+  triad design, 4.1 PCS, 4.2 authority cues transfer best. Korean was not tested; used as
+  a design reference, not as a Korean measurement. https://arxiv.org/abs/2604.17718
+- Lin, Ngo, and Chen, "Comparative Analysis of LLM-Based Writing Tools for Error
+  Correction and Feedback", English Teaching and Learning, 2026-06-08. Data Analysis:
+  false alarm vs accurate non-intervention. A grammar-correction study; only the
+  classification is borrowed. https://link.springer.com/article/10.1007/s42321-026-00236-4
+- Park and Trisnadi, "The transition of legal status among Korean immigrants in the United
+  States", Journal of Migration and Health, 2025-09-20. Sections 3.4.2.1 (respect toward
+  elders) and 3.4.2.2 (friendly strangers) describe felt differences, not rules; cultural
+  criteria are worded as safe defaults, not absolutes, for that reason.
+  https://pmc.ncbi.nlm.nih.gov/articles/PMC12508842/
+- Indeed Engineering, "Bootstrap Confidence Intervals for LLM Evaluation", 2026-07-08.
+  Assumptions: inputs must be an iid sample from the target distribution.
+  https://engineering.indeedblog.com/blog/2026/07/bootstrap-confidence-intervals-for-llm-evaluation/
 - `eval/s07-analysis/run_eval.py` — runner script
 - `prompts/s07/v{N}.md` — prompts being evaluated

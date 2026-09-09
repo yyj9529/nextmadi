@@ -31,6 +31,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r eval/s07-analysis/requirements.txt
 
+      # EVAL_PLAN.md CI integration step 1: deterministic checks on the case set, no API
+      # calls. Runs first so a malformed or lopsided test_cases.json fails in seconds
+      # instead of after a full paid run.
+      - name: Run no-API unit tests
+        run: python -m unittest discover -s eval/s07-analysis -p 'test_*.py' -v
+
       - name: Locate latest baseline artifact
         id: baseline
         run: |
@@ -45,16 +51,31 @@ jobs:
           echo "Default branch: ${DEFAULT_BRANCH}"
           echo "Baseline: ${BASE:-<none>}"
 
+      # The runner needs a key to call the API at all. Without this guard the job
+      # reports success on a run that never happened (2026-09-06: the secret was
+      # unset, so every eval CI run had been a no-op).
+      - name: Require an API key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY secret is not set; the S07 eval cannot run."
+            exit 1
+          fi
+
       - name: Run S07 eval
+        # pipefail matters here: without it the pipeline's status is tee's, so a
+        # failing runner is reported as a passing step.
+        shell: bash -euo pipefail {0}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           if [ -n "${{ steps.baseline.outputs.path }}" ] \
              && git show "origin/${{ steps.baseline.outputs.default_branch }}:${{ steps.baseline.outputs.path }}" > /tmp/baseline.json 2>/dev/null; then
-            python eval/s07-analysis/run_eval.py --baseline /tmp/baseline.json | tee /tmp/eval_out.txt
+            python eval/s07-analysis/run_eval.py --baseline /tmp/baseline.json 2>&1 | tee /tmp/eval_out.txt
           else
             echo "No baseline found; running without regression gate."
-            python eval/s07-analysis/run_eval.py | tee /tmp/eval_out.txt
+            python eval/s07-analysis/run_eval.py 2>&1 | tee /tmp/eval_out.txt
           fi
 
       - name: Post result as PR comment
