@@ -133,6 +133,8 @@ def cost_usd(model: str, usage) -> float:  # 모델 이름과 API 토큰 사용�
 
 def validate_schema(output: dict) -> list[str]:  # 모델 출력 딕셔너리를 받아 스키마 위반 목록을 반환하는 함수
     """Return a list of schema violations. Empty list == valid s07_analysis_v1."""  # 스키마 위반 목록 반환. 빈 목록이면 s07_analysis_v1로 유효
+    if not isinstance(output, dict):   # 모델이 객체가 아닌 JSON(배열·문자열·null)을 반환한 경우
+        return [f"top-level output is {type(output).__name__}, expected an object"]  # 이 함수는 try 밖에서 호출되므로, 여기서 예외를 내면 실행 전체가 죽는다. 스키마 위반으로 기록하고 넘어간다
     errors: list[str] = []             # 오류 메시지를 담을 빈 리스트 초기화
     variants = output.get("expressions")  # 출력 딕셔너리에서 "expressions" 키의 값 가져오기
     if not isinstance(variants, list):    # expressions 값이 리스트가 아니면 (아예 없거나 타입 오류)
