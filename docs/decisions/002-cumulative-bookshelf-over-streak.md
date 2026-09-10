@@ -7,9 +7,14 @@ Status: Accepted
 
 Many language learning apps use consecutive-day streak as an engagement mechanism. Initially considered for PhraseLog.
 
-User research in Q1 2026 — Threads survey of Korean immigrants in the US (3 posts: `jungin_yoonjaemom` 10,900 views, `ggogi.eun` 17,845 views, `wooju504` 4,271 views; ~91 comments combined) plus 5 offline interviews in the Atlanta area — surfaced post-failure self-blame as the dominant emotional pattern. Sample comment:
+User research in Q1 2026 — Threads survey of Korean immigrants in the US (3 posts,
+33,016 combined views, ~91 comments) plus 5 offline interviews in the Atlanta area —
+surfaced post-failure self-blame as the dominant emotional pattern. A representative
+comment, paraphrased (respondent handles and verbatim text are held in the private
+research notes, not in this repo):
 
-> "집에 와서 내가 뭘 잘못했을까 곱씹어봄. 영어 서투른 게 문제인 거 같아."
+> 집에 돌아와 그 상황에서 내가 뭘 잘못했는지 계속 되짚게 되고, 결국 영어가 서툰 탓이라고
+> 결론짓게 된다.
 
 PhraseLog's product promise is "confidence to respond without script." Adding a "you broke your streak" failure state on top of existing self-blame works against that promise for this specific user segment.
 
