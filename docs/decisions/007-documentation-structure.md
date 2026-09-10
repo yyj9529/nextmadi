@@ -25,7 +25,6 @@ Public repo:
 │   ├── data-model.md           DB schema + ERD
 │   ├── ops-cost-report.md      W17+
 │   ├── launch-validation.md    W9+
-│   ├── portfolio-case-study.md W13+
 │   ├── decisions/              ADRs
 │   ├── screens/                per-screen specs (full G-W-T + UI)
 │   ├── api/                    OpenAPI contracts
@@ -36,13 +35,13 @@ Public repo:
 └── .github/workflows/
 ```
 
-Private workspace (Notion): resume versions, interview story bank, raw user research with identifying information, weekly delta log, company-specific notes.
+Private workspace (Notion): personal career material, raw user research with identifying information, weekly delta log.
 
 Three operational rules:
 
 1. **G-W-T placement.** `docs/screens/sNN.md` is the single source of truth. PRD contains only User Story plus 1-2 line acceptance summary per feature.
 2. **Screen spec granularity at W1-3.** Full specs for S02, S05a, S07, S08, S10, S12, S12b. Slim specs (User Story + 3-5 key behaviors) for the remaining seven screens. Slim specs upgrade to full just-in-time before coding that screen.
-3. **Post-launch doc timing.** `ops-cost-report.md`, `launch-validation.md`, and `portfolio-case-study.md` are not created until their underlying data exists.
+3. **Post-launch doc timing.** `ops-cost-report.md` and `launch-validation.md` are not created until their underlying data exists.
 
 ## Why
 
@@ -87,6 +86,22 @@ operational artifacts. Under `docs/`: `exec-plans/` (implementation plans and re
 `AGENTS.md` (Codex protocol pointer, ADR-008) and `SECURITY.md` (always-load boundaries).
 These extend, not replace, the structure; the single-source-of-truth rule applies to
 them unchanged. `docs/harness.md` is the canonical reference for why these exist.
+
+## Amendment (2026-09-10)
+
+Applied this ADR's own privacy rule to its own text. The public tree no longer plans a
+portfolio case study, and the private-workspace contents are now named by category
+rather than itemized.
+
+The original wording listed specific career artifacts and planned a public document
+whose purpose was presentational rather than operational. That is the exact personal
+context this ADR says cannot live in public commits, and CLAUDE.md separately forbids
+portfolio framing in technical docs. The boundary was correct; this ADR was on the wrong
+side of it.
+
+Nothing about the public/private split itself changes. Post-launch write-ups of measured
+cost and launch validation are unaffected — they document the system, and their timing
+rule stands.
 
 ## Related
 
