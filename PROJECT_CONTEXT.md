@@ -42,13 +42,14 @@ User research surfaced five recurring patterns, each present across both the Thr
 
 5. **ChatGPT as the de facto current solution.** "I ask ChatGPT and then say it" appears as actual reported behavior. Whatever PhraseLog offers must outperform this ad-hoc workflow on the Korean-immigrant use case specifically.
 
-Representative quotes from the research:
+Representative responses from the research, paraphrased (verbatim text is held in the
+private research notes, not in this repo):
 
-> "집에 와서 내가 뭘 잘못했을까 곱씹어봄. 영어 서투른 게 문제인 거 같아."
+> 대화가 끝나고 집에 오면 내가 뭘 잘못했는지 계속 되짚고, 결국 영어가 부족한 탓으로 돌린다.
 
-> "스크립트 만들어 연습하고 간다. 정작 연습한 문장은 못 써보고 나오는 날이 많다."
+> 미리 스크립트를 만들어 연습해 가지만, 실제 대화에서는 연습한 문장을 쓸 기회가 거의 없다.
 
-> "강의 결제했지만 꾸준히 못함. 여행 갈 때마다 후회하고 돌아오면 흐지부지."
+> 강의를 결제해도 꾸준히 이어가지 못하고, 필요한 순간이 올 때마다 후회만 반복한다.
 
 The emotional pattern is post-failure self-blame. Product decisions throughout v1 are oriented around not amplifying this pattern (see ADR-002 for the streak/bookshelf decision derived from this research).
 
