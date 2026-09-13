@@ -235,5 +235,5 @@ behavioral gain, so they were left alone.
 
 ## Author
 
-WooJu Lee (이우주) — Powder Springs, GA
+WooJu Lee (이우주)
 garethgates88@gmail.com · [github.com/yyj9529](https://github.com/yyj9529)
