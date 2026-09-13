@@ -101,7 +101,7 @@ The `feature_name` enum from `data-model.md` determines which model is called an
 
 | `feature_name`             | Model       | Prompt template ref        | Timeout | Output JSON schema |
 |----------------------------|-------------|----------------------------|---------|--------------------|
-| `s07_analysis`             | Sonnet 4.6  | `prompts/s07/v{N}.md`      | 30s     | `s07_analysis_v1`  |
+| `s07_analysis`             | Sonnet 4.6  | `prompts/s07/v{N}.md`      | 60s     | `s07_analysis_v1`  |
 | `roleplay_session_init`    | Sonnet 4.6  | `prompts/roleplay/init/v{N}.md` | 30s | `roleplay_session_init_v1` |
 | `roleplay_turn_response`   | Sonnet 4.6  | `prompts/roleplay/turn/v{N}.md` | 15s | `roleplay_turn_response_v1` |
 | `roleplay_turn_feedback`   | Haiku 4.5   | `prompts/roleplay/feedback/v{N}.md` | 10s | `roleplay_turn_feedback_v1` |
@@ -309,6 +309,8 @@ S12 specifically: TTS failure mid-session continues the session in text-only mod
 | Claude Sonnet 4.6 (output) | per MTok | $15.00 | same |
 | Claude Haiku 4.5 (input) | per MTok | $1.00 | same |
 | Claude Haiku 4.5 (output) | per MTok | $5.00 | same |
+| Claude Opus 5 (input), eval judge only | per MTok | $5.00 | same, verified 2026-09-05 |
+| Claude Opus 5 (output), eval judge only | per MTok | $25.00 | same, verified 2026-09-05 |
 | Prompt cache read | per MTok | 0.1× base input | same |
 | Prompt cache write (5min) | per MTok | 1.25× base input | same |
 | Batch API discount | per request | 50% off | same |

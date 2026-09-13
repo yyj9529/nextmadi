@@ -16,7 +16,7 @@ const BASE = {
 
 const USER = {
   id: "11111111-1111-1111-1111-111111111111",
-  email: "jiyoung@gmail.com",
+  email: "jiyoung@example.com",
   display_name: "지영",
   selected_coach_id: "22222222-2222-2222-2222-222222222222",
   is_onboarded: true,

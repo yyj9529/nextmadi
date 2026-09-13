@@ -1,7 +1,7 @@
 # PhraseLog — Product Requirements Document (v1)
 
 Last updated: 2026-05-13
-Status: Draft, planning phase (W1~3). Items marked TBD finalize before W4.
+Status: Living spec for the implemented v1 (`src/`, `backend/`). Items marked TBD are open decisions, not deadlines.
 
 ## 1. Overview
 
@@ -32,7 +32,7 @@ v1 must achieve all of the following:
 - Terms of Service and Privacy Policy are owner-approved, published at `/terms` and `/privacy`, and linked from S03; non-production placeholders are not launchable
 - Seed data is loaded: `coach_profiles` (Mia/David/Sarah) and `landing_examples`
 
-Additional criteria TBD by W3.
+Additional criteria TBD (open).
 
 ### 3.2 Post-launch metrics
 
@@ -195,9 +195,9 @@ Removing a loop stage (Save, Review, or Roleplay entirely) requires a supersedes
 
 ## 9. Open questions
 
-Resolve by W3 unless noted.
+Open unless marked resolved.
 
-1. **v1.1+ deferral list** — ongoing classification before W4 (4.3)
+1. **v1.1+ deferral list** — ongoing classification (4.3)
 2. **Additional launch criteria** beyond the core set (3.1)
 3. **Success metric thresholds** — pre-launch baseline vs post-launch (3.2)
 4. **Private validation participants** — count and recruitment method

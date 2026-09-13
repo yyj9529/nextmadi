@@ -123,7 +123,7 @@ Only feedback passing all three goes into docs. Authority-sounding details that 
 
 ### 7. Senior solo pattern
 - "Spec on demand, not preemptively."
-- Solo founders (Pieter Levels, Marc Lou) ship with minimal documentation. We document more because the owner explicitly chose learning + portfolio path. But the same principle applies: don't pre-spec what implementation will resolve naturally.
+- Solo founders (Pieter Levels, Marc Lou) ship with minimal documentation. We document more because a solo project with AI collaborators needs the context written down — an agent starting a session has no memory of last week's reasoning, and the owner returning after a gap has little more. But the same principle applies: don't pre-spec what implementation will resolve naturally.
 - When tempted to add more detail to an existing doc, ask: "is this a decision being recorded, or implementation being pre-specified?" Only the former.
 
 ### 8. Autonomous bug fixing (effective W4+)
