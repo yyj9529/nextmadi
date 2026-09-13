@@ -1,143 +1,131 @@
 # PhraseLog
 
-AI English coaching for Korean immigrants in the US. Built around one conviction — that responding with confidence in real conversations matters more than producing textbook-perfect English.
+AI English coaching for Korean immigrants in the US — built around one conviction: that
+responding with confidence in a real conversation matters more than producing
+textbook-perfect English.
+
+**Stack:** Next.js (App Router) · Spring Boot 3 / Java 21 · PostgreSQL · AWS S3 ·
+NextAuth · Anthropic Claude · OpenAI Whisper & TTS
+
+---
 
 ## Status
 
-Planning phase. v1 implementation begins week 4 of the 12-week build cycle. No deployed product yet.
+**In active development.** The v1 product loop is implemented end-to-end across the
+frontend, backend, and AI pipeline, and runs locally without API keys (mock AI clients +
+filesystem audio storage). Not yet publicly deployed — v1 launch is targeted for week 12
+of a 12-week cycle.
 
-What exists now: the planning document set — PRD, ADRs, screen specs, data model, AI pipeline, API contract, architecture, working agreement, and the agent harness docs (harness, quality gates, security, decision index). What does not exist yet: the codebase, deployed services, or eval results from real users.
-
-Target v1 launch: week 12. Target v1.1+ (operations and refinement): weeks 13–24.
+| Area | State |
+|---|---|
+| Frontend | 15 pages + 18 BFF API routes (Next.js App Router, PWA-installable) |
+| Backend | Spring Boot service, 15 feature packages, 10 Flyway migrations |
+| Auth | NextAuth — Google, Kakao, and email magic-link over Amazon SES |
+| AI pipeline | Claude analysis + roleplay, OpenAI STT/TTS, schema validation, per-call cost logging |
+| Eval | LLM-as-judge harness, 82 cases, N=3 trials, enforced as a CI regression gate |
+| Tests | 121 test files across TypeScript and Java |
+| CI | `lint-test.yml` (typecheck, lint, unit tests) · `eval.yml` (prompt regression gate) |
 
 ## What the product does
 
-User loop:
-
 1. **Describe a situation in Korean** — "친구가 약속에 늦었는데 화내지 않고 표현하고 싶어요."
-2. **AI returns 3 English variants** — each with tone, IPA, Korean phonetic guide, and a cultural tip.
+   (voice or text; voice goes through Whisper).
+2. **Claude returns 3 English variants** — each with tone, IPA, a Korean phonetic guide,
+   and a cultural tip.
 3. **Save to the library** — expressions accumulate as a personal bookshelf.
-4. **Practice via roleplay** — a chosen AI coach (Mia / David / Sarah) leads a 3–10 turn conversation using the saved expression.
-5. **Review via active recall** — Korean situation appears first; user attempts English from memory; rating schedules the next review.
+4. **Practice via roleplay** — a chosen AI coach (Mia / David / Sarah) runs a 3–10 turn
+   conversation that forces the saved expression into use.
+5. **Review via active recall** — the Korean situation appears first; the user attempts
+   the English from memory; the rating schedules the next review.
 
-Closed loop: save → practice → review. No streak shaming. No absence-based decay. Documented in ADR-002.
+Closed loop: save → practice → review. No streaks, no absence-based decay — user research
+found that streak-shaming works against this segment's dominant emotional pattern
+([ADR-002](docs/decisions/002-cumulative-bookshelf-over-streak.md)).
 
-## Stack
+## Engineering notes
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js (Vercel, PWA-installable) |
-| Backend | Spring Boot 3.x on Java 21 (AWS EC2) |
-| Database | PostgreSQL on AWS RDS |
-| Storage | S3 (audio cache via content-hash) |
-| Auth | NextAuth (Google, Kakao, email magic-link) |
-| LLM | Anthropic Claude — model routing in `docs/AI_PIPELINE.md` |
-| STT / TTS | OpenAI Whisper / TTS-1 |
-| Observability | CloudWatch + per-call logging in `ai_request_logs` |
+The parts most likely to be interesting to another engineer:
 
-Stack rationale: ADR-005. Pipeline rationale: ADR-001.
+**The AI layer is treated as production infrastructure, not as an API call.**
 
-## Documentation hierarchy
+- **Prompts are versioned artifacts** — `prompts/{feature}/v{N}.md`, referenced by
+  `prompt_version` on every request, so output changes are attributable to a diff.
+- **Evaluation gates prompt changes in CI.** `eval/s07-analysis/` runs an LLM-as-judge
+  over 82 cases with a 4-dimension rubric and N=3 trials per case; a prompt change that
+  regresses the aggregate score fails the PR
+  ([ADR-009](docs/decisions/009-eval-trial-repetition.md),
+  [EVAL_PLAN.md](docs/EVAL_PLAN.md)).
+- **Structured output is enforced, not hoped for.** `JsonSchemaValidator` validates every
+  model response server-side, with a single constrained retry before failing.
+- **Cost and failure are observable per call.** `AiRequestLogger` + `AiCostCalculator`
+  write one `ai_request_logs` row per *attempt* — not per call — so retries stay visible
+  ([ADR-011](docs/decisions/011-per-attempt-ai-request-logging.md)).
+- **Model routing is a config surface.** `FeatureRouting` maps each feature to a model
+  tier, so routing is re-evaluated with data rather than rewritten in code.
+- **AI is testable offline.** `MockAnthropicClient` / `MockOpenAiTtsClient` /
+  `MockOpenAiTranscriptionClient` let the whole stack run and be tested without keys or
+  spend.
 
-For AI collaborators (Claude Code, Codex, ChatGPT review sessions): start with `CLAUDE.md` (Codex reads `AGENTS.md`, which points there). It defines the working agreement.
+**Other decisions worth a look:** a BFF layer in Next.js route handlers holding the
+signed internal-auth boundary to Spring ([ADR-010](docs/decisions/010-bff-auth-handoff.md));
+idempotency keys on analysis, practice sessions, and roleplay results; an
+account-deletion grace period rather than an immediate hard delete; per-IP daily quotas
+on anonymous analysis and transcription, kept in separate budgets so a bad transcription
+cannot burn an analysis attempt.
 
-Always loaded (every session):
-- `CLAUDE.md` / `AGENTS.md` — working agreement, language norms, workflow patterns
-- `START_HERE.md` — general orientation pointer
-- `PROJECT_CONTEXT.md` — product identity, target user pain, positioning
-- `SECURITY.md` — forbidden areas and approval matrix
-- `docs/decisions/INDEX.md` — one-line ADR summaries
+## Running it locally
 
-Read on demand per task:
-- `docs/PRD.md` — v1 scope, 14 screens, open questions
-- `docs/architecture.md` — system architecture, deploy, networking, observability
-- `docs/data-model.md` — database schema, indexes, FK relationships
-- `docs/AI_PIPELINE.md` — STT → LLM → TTS routing, JSON schemas, cost, latency
-- `docs/EVAL_PLAN.md` — eval strategy and tiers
-- `docs/api/openapi.yaml` — REST API contract
-- `docs/screens/sNN.md` — per-screen User Stories, G-W-T, UI states, edge cases
-- `docs/decisions/NNN-title.md` — full Architecture Decision Records
-- `docs/harness.md`, `docs/quality-gates.md` — agent harness operation and done criteria
-
-Eval and prompts:
-- `eval/s07-analysis/` — Tier 1 mini eval cases and judge prompt
-- `prompts/{feature}/v{N}.md` — versioned LLM prompts
-
-## Project structure
-
-```
-phraselog/
-├── README.md               (this file)
-├── CLAUDE.md               working agreement (both tools)
-├── AGENTS.md               Codex pointer → CLAUDE.md
-├── START_HERE.md           general entry guidance
-├── PROJECT_CONTEXT.md      product identity and target user
-├── SECURITY.md             always-load security boundaries
-├── docs/
-│   ├── PRD.md              v1 scope and screens
-│   ├── architecture.md
-│   ├── data-model.md
-│   ├── AI_PIPELINE.md
-│   ├── EVAL_PLAN.md
-│   ├── harness.md          agent harness operation + task routing
-│   ├── quality-gates.md    per-feature done criteria
-│   ├── harness-investigation.md
-│   ├── decisions/          ADRs (INDEX.md + 001 onward)
-│   ├── api/openapi.yaml    REST contract
-│   ├── screens/            sNN.md per screen
-│   ├── exec-plans/         implementation plans (handoff)
-│   ├── reviews/            two-gate review records (handoff)
-│   └── solutions/          durable learnings (/ce-compound)
-├── eval/
-│   └── s07-analysis/       Tier 1 eval cases
-├── prompts/                versioned LLM prompts
-└── .github/workflows/      CI/CD
+```bash
+bun install
+cp .env.example .env   # mock AI clients are the default; no API keys required
+bun run dev
 ```
 
-Note: as of W1–3, only the documentation tree exists. Source code (`frontend/`, `backend/`) appears starting W4.
+```bash
+cd backend && ./gradlew bootRun --args='--spring.profiles.active=local'
+```
 
-## Local development
+The frontend must run on port 3000 — the Google OAuth callback is registered against
+`localhost:3000`, and any other port fails with `redirect_uri_mismatch`. The `local`
+Spring profile substitutes mock AI clients and filesystem audio storage, so the loop is
+exercisable without provider keys or spend.
 
-Will be filled in starting W4 when the codebase exists. Expected setup at that point:
+Quality gates:
 
-- Node 20+ and pnpm for the frontend
-- JDK 21 and Gradle for the backend
-- PostgreSQL 16 locally via Docker
-- AWS credentials for S3 (optional during local dev — TTS cache reads can fall back to direct API calls)
-- Environment variables loaded from a `.env.local` that is never committed
+```bash
+bun run typecheck && bun run lint && bun run test
+```
 
-Setup script (`scripts/dev-setup.sh`) will be added with the first backend commit.
+```bash
+cd backend && ./gradlew spotlessCheck test build
+```
 
-## Project decisions
+## Repository map
 
-Each non-trivial architectural decision lives in `docs/decisions/`:
+| Path | Contents |
+|---|---|
+| `src/` | Next.js app — pages, BFF route handlers, client libraries |
+| `backend/` | Spring Boot service — controllers, services, repositories, migrations |
+| `prompts/` | Versioned LLM prompts (`{feature}/v{N}.md`) |
+| `eval/` | S07 analysis eval harness, case set, judge rubric |
+| `docs/` | PRD, architecture, data model, AI pipeline, API contract, screen specs |
+| `docs/decisions/` | Architecture Decision Records — start at [`INDEX.md`](docs/decisions/INDEX.md) |
+| `docs/solutions/` | Recurring-mistake ledger and the automated guards added for each |
 
-| ADR | Topic |
-|-----|-------|
-| 001 | Split AI pipeline (Whisper + Claude + OpenAI TTS) over a single Realtime API |
-| 002 | Cumulative bookshelf, no streak system |
-| 003 | Eval system in three tiers (S07 mini, S12 roleplay, golden dataset) |
-| 004 | 24-week roadmap split into 12-week build and 12-week operate |
-| 005 | Stack choice (Spring Boot + Next.js + RDS PostgreSQL) |
-| 006 | Loop coherence — save, practice, review as inseparable v1 components |
-| 007 | Documentation structure and division of responsibility |
-| 008 | AGENTS.md as the canonical agent-rules source for both tools (proposed) |
-| 009 | Eval trial repetition for variance measurement (proposed) |
-| 010 | BFF auth handoff — browser to Next.js to Spring Boot with a signed internal token |
-| 011 | `ai_request_logs` records one row per attempt, so retries are billed and countable |
+## On the documentation volume
 
-Each ADR is 300–500 words, follows Drew DeVault's sourcehut style.
+This repository carries an unusually large specification set for a solo project. The
+reason is operational: development runs with AI coding agents, and an agent opening a
+session has no memory of last week's reasoning. Written specs, ADRs, and explicit quality
+gates are what make an agent's output reviewable instead of merely plausible-looking.
+`CLAUDE.md` is the working agreement the tooling loads; `docs/harness.md` and
+`docs/quality-gates.md` define how a change gets from plan to merge.
 
-## Who is this for
+`docs/solutions/` is the other half of that: every mistake that recurred got a note, and
+by the third recurrence an automated guard — a hook, a test, or a CI check — rather than
+an intention to be more careful.
 
-- **AI collaborators** — every Claude Code or Codex session starts by reading `CLAUDE.md`. The repo is structured to be re-entrant: any session can pick up where another left off by reading the relevant doc per the file responsibility map in `CLAUDE.md`.
-- **Future maintainer** — the documentation is dense enough that the project can be paused and resumed without context loss. This is the explicit reason for the documentation volume during the planning phase.
-- **The owner himself** — 이우주, six months from now, returning to debug something at 2am.
+## Author
 
-## License
-
-Solo development project. License model not decided. Documentation is currently visible for AI collaboration; this may change before launch.
-
-## Contact
-
-이우주 — contact details intentionally omitted from the repo. Reach the owner through whatever channel led you here.
+이우주 — contact details intentionally omitted from the repo. Reach the owner through
+whatever channel led you here.

@@ -106,7 +106,7 @@ phraselog/
 │   └─ docs/solutions/                 (reusable learning records)
 │
 ├─ [5] Learning / Meta — ★ authored by me
-│   ├─ COURSE_APPLICATION_PLAN.md
+│   ├─ docs/ai-capability-roadmap.md
 │   ├─ SOURCES.md
 │   ├─ PROJECT_MAP.md          (this file)
 │   └─ image.png               (VS Code screenshot — looks like stray file, consider cleanup)
@@ -193,7 +193,7 @@ Note: the actual repo lives under `docs/` (per README). Even if things look flat
 
 | File path | Role |
 |---|---|
-| `COURSE_APPLICATION_PLAN.md` | Course-to-project application timeline |
+| `docs/ai-capability-roadmap.md` | AI-pipeline capability sequencing and build timing |
 | `SOURCES.md` | Honest attribution of output sources |
 | `PROJECT_MAP.md` | This map |
 | `image.png` | VS Code screenshot (non-essential) |

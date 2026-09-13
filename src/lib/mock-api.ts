@@ -284,7 +284,7 @@ export const mockReviewQueue: { cards: ReviewCard[]; total_due: number } = {
 // DELETE /me → 확인 후 / 라우팅. POST /me/cancel-deletion은 v1 목 범위 밖.
 export const mockMe = {
   id: "mock-user-1",
-  email: "jiyoung@gmail.com",
+  email: "jiyoung@example.com",
   display_name: "지영",
   selected_coach_id: "mock-coach-david",
   is_onboarded: true,
