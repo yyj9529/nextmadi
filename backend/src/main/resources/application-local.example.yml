@@ -1,0 +1,25 @@
+# Local development profile. Copy to application-local.yml (git-ignored), adjust the
+# connection settings, and start with --spring.profiles.active=local.
+#
+# With this profile the AI clients are mocks (no provider keys, no spend) and TTS audio is
+# written to the local filesystem instead of S3.
+
+spring:
+  datasource:
+    # A local PostgreSQL. Create the database first, e.g. `createdb phraselog`.
+    url: jdbc:postgresql://localhost:5432/phraselog
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    # Applies db/migration on startup; a no-op once the schema is current.
+    enabled: true
+
+anthropic:
+  mock:
+    enabled: true
+
+# Covers both the Whisper transcription mock and the TTS mock.
+openai:
+  mock:
+    enabled: true
