@@ -318,9 +318,46 @@ def evaluate_pass(cases: list[dict]) -> tuple[bool, list[str]]:  # 전체 케이
     return (len(reasons) == 0), reasons  # 실패 이유가 없으면 True(통과), 이유 목록과 함께 튜플로 반환
 
 
-def check_regression(current: dict, baseline_path: Path) -> tuple[bool, list[str]]:  # 현재 결과와 기준 파일을 비교해 회귀 없으면 True, 이유 목록을 반환하는 함수
-    """CI gate vs a baseline run artifact (EVAL_PLAN regression criteria)."""  # 기준 실행 결과 대비 CI 게이트 (EVAL_PLAN 회귀 기준)
+def case_ids(artifact: dict) -> set[str]:  # 실행 결과(artifact)에 들어 있는 케이스 ID 집합을 반환하는 함수
+    """Case ids present in a run artifact."""  # 실행 결과 파일에 포함된 케이스 ID 목록
+    return {c["id"] for c in artifact.get("cases", [])}  # cases 배열의 각 항목에서 id만 뽑아 집합으로 반환
+
+
+def check_regression(current: dict, baseline_path: Path) -> tuple[str, list[str]]:  # 현재 결과와 기준 파일을 비교해 판정 상태 문자열과 이유 목록을 반환하는 함수
+    """CI gate vs a baseline run artifact (EVAL_PLAN regression criteria).
+
+    Returns one of three states, not a pass/fail boolean:
+    # 통과/실패 두 값이 아니라 세 가지 상태 중 하나를 반환한다:
+      "ok"             - comparable baseline, no regression
+      #                  비교 가능한 기준이고 회귀 없음
+      "regressed"      - comparable baseline, scores dropped past a threshold
+      #                  비교 가능한 기준인데 점수가 임계값 넘게 하락함
+      "stale_baseline" - the two runs cover different case sets, so their
+                         aggregate scores are means over different populations
+                         and subtracting them says nothing about quality
+      #                  두 실행의 케이스 집합이 다르다. 전체 점수는 서로 다른 모집단의
+      #                  평균이므로 빼도 품질에 대해 아무것도 말해주지 않는다
+    """
     base = json.loads(baseline_path.read_text(encoding="utf-8"))  # 기준 실행 결과 JSON 파일을 읽어 딕셔너리로 파싱
+
+    current_ids, base_ids = case_ids(current), case_ids(base)  # 현재 실행과 기준 실행의 케이스 ID 집합을 각각 계산
+    if current_ids != base_ids:  # 두 집합이 다르면 회귀 판정 자체가 성립하지 않으므로
+        stale_reasons = [        # 재생성이 필요한 이유를 담을 리스트를 만들고 첫 줄에 규모 차이를 적음
+            f"case sets differ: baseline has {len(base_ids)} cases, "  # 기준 실행의 케이스 수 표시
+            f"current run has {len(current_ids)}"                       # 현재 실행의 케이스 수 표시
+        ]
+        added = sorted(current_ids - base_ids)    # 현재 실행에만 있는 케이스 ID를 정렬해 목록화
+        removed = sorted(base_ids - current_ids)  # 기준 실행에만 있는 케이스 ID를 정렬해 목록화
+        if added:    # 현재 실행에만 있는 케이스가 있으면
+            stale_reasons.append(f"only in current run: {', '.join(added)}")  # 해당 ID 목록을 이유에 추가
+        if removed:  # 기준 실행에만 있는 케이스가 있으면
+            stale_reasons.append(f"only in baseline: {', '.join(removed)}")   # 해당 ID 목록을 이유에 추가
+        stale_reasons.append(  # 마지막으로 사람이 취해야 할 조치를 안내
+            "regenerate the baseline on the current case set and promote it "  # 현재 케이스 집합으로 기준을 다시 만들고
+            "with 'git add -f' (see eval/runs/README.md)"                      # git add -f로 승격하라는 안내 (eval/runs/README.md 참고)
+        )
+        return "stale_baseline", stale_reasons  # 회귀 판정 대신 "기준 재생성 필요" 상태로 반환
+
     reasons = []  # 회귀 이유 메시지를 담을 빈 리스트 초기화
     if base["aggregate_score"] - current["aggregate_score"] > REGRESSION_AGGREGATE_DROP:  # 기준 전체 점수와 현재 점수의 차이가 허용 하락폭 초과하면
         reasons.append(              # 회귀 이유 문자열 생성 후 리스트에 추가
@@ -338,7 +375,7 @@ def check_regression(current: dict, baseline_path: Path) -> tuple[bool, list[str
             f"catastrophic cases increased "                                      # 심각 실패 케이스 증가 표시
             f"{base.get('catastrophic_count', 0)} -> {current['catastrophic_count']}"  # 기준 수 → 현재 수 표시
         )
-    return (len(reasons) == 0), reasons  # 회귀 이유가 없으면 True(통과), 이유 목록과 함께 튜플로 반환
+    return ("ok" if not reasons else "regressed"), reasons  # 회귀 이유가 없으면 "ok", 있으면 "regressed"를 이유 목록과 함께 반환
 
 
 # --- Main --------------------------------------------------------------------  # 메인 실행 함수 섹션 구분선
@@ -422,10 +459,17 @@ def main() -> int:  # 프로그램 진입점 함수. 실행 성공 시 0, 실패
 
     exit_code = 0 if passed else 1  # 통과하면 종료 코드 0(성공), 실패하면 1(실패)
     if args.baseline:  # --baseline 인수가 제공된 경우 (CI 회귀 검사 모드)
-        ok, reg_reasons = check_regression(artifact, args.baseline)  # 기준 파일 대비 회귀 여부 확인
-        print(f"REGRESSION_OK={ok}" + ("" if ok else f"  reasons={reg_reasons}"))  # 회귀 검사 결과 출력, 회귀 발생 시 이유도 함께 출력
-        if not ok:      # 회귀가 발생했으면 (기준보다 성능이 떨어졌으면)
-            exit_code = 1  # 종료 코드를 1(실패)로 설정
+        status, reg_reasons = check_regression(artifact, args.baseline)  # 기준 파일 대비 판정 상태와 이유 확인
+        if status == "stale_baseline":  # 케이스 집합이 달라 회귀 판정이 성립하지 않는 경우
+            print("REGRESSION_CHECK=SKIPPED  BASELINE_REGENERATION_REQUIRED")  # 회귀 검사를 건너뛰었고 기준 재생성이 필요함을 출력
+            for reason in reg_reasons:      # 재생성이 필요한 이유를 한 줄씩 순회
+                print(f"  - {reason}")      # 사람이 읽을 수 있도록 들여쓰기해 출력
+            exit_code = 1  # 게이트가 조용히 통과하지 않도록 종료 코드를 1(실패)로 설정
+        else:  # 케이스 집합이 같아 회귀 판정이 성립하는 경우
+            ok = status == "ok"  # 상태가 "ok"이면 회귀 없음
+            print(f"REGRESSION_OK={ok}" + ("" if ok else f"  reasons={reg_reasons}"))  # 회귀 검사 결과 출력, 회귀 발생 시 이유도 함께 출력
+            if not ok:      # 회귀가 발생했으면 (기준보다 성능이 떨어졌으면)
+                exit_code = 1  # 종료 코드를 1(실패)로 설정
     return exit_code  # 최종 종료 코드 반환 (0=성공, 1=실패)
 
 

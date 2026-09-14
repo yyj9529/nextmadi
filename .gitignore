@@ -21,6 +21,9 @@ eval/runs/*.json
 
 *.log
 
+# Python bytecode cache from the eval runner and its tests.
+__pycache__/
+
 # Local Claude/Codex permission allowlists are machine-specific.
 **/.claude/settings.local.json
 
