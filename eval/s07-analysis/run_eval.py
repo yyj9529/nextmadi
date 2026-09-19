@@ -48,6 +48,8 @@ Usage:
 from __future__ import annotations  # 파이썬 3.9 이전 버전에서도 최신 타입 힌트 문법 사용 허용
 
 import argparse   # 커맨드라인 인수(--trials 등)를 파싱하는 표준 라이브러리
+import hashlib
+import math
 import json       # JSON 데이터 읽기/쓰기 표준 라이브러리
 import os         # 운영체제 기능(환경변수 조회 등) 표준 라이브러리
 import re         # 정규표현식(패턴 매칭) 표준 라이브러리
@@ -60,12 +62,12 @@ from pathlib import Path               # 파일·폴더 경로를 객체로 다�
 try:  # 아래 코드 실행을 시도하고 오류가 나면 except로 이동
     from anthropic import Anthropic  # Anthropic API 클라이언트 클래스 가져오기
 except ImportError:  # anthropic 패키지가 설치되지 않았으면 실행
-    sys.exit("Missing dependency. Run: pip install anthropic python-dotenv")  # 안내 메시지 출력 후 프로그램 종료
+    Anthropic = None  # Offline grading tests do not need the API SDK.
 
 try:
     from dotenv import load_dotenv  # .env 파일을 환경변수로 로드하는 함수
 except ImportError:
-    sys.exit("Missing dependency. Run: pip install python-dotenv")
+    load_dotenv = None
 
 # --- Config ------------------------------------------------------------------  # 전역 설정값 섹션 구분선
 
@@ -146,12 +148,46 @@ def validate_schema(output: dict) -> list[str]:  # 모델 출력 딕셔너리를
             errors.append(f"variant {i} is not an object")  # 오류 메시지 추가
             continue                   # 아래 필드 검사를 건너뛰고 다음 변형으로 이동
         for field in REQUIRED_VARIANT_FIELDS:  # 필수 필드 목록을 하나씩 순회
-            if not v.get(field):               # 해당 필드가 없거나 빈 값이면
+            if not isinstance(v.get(field), str) or not v[field].strip():
                 errors.append(f"variant {i} missing/empty field '{field}'")  # 오류 메시지 추가
     return errors  # 수집된 오류 메시지 목록 반환 (없으면 빈 리스트 = 유효)
 
 
 # --- Model calls -------------------------------------------------------------  # AI 모델 API 호출 섹션 구분선
+
+class ResponseFailure(ValueError):
+    """A received response failed validation; keep cost, never its body."""
+
+    def __init__(self, code: str, cost: float, stop_reason: str | None):
+        super().__init__(code)
+        self.cost = cost
+        self.stop_reason = stop_reason
+
+
+def checked_response(resp, model: str) -> tuple[str, float]:
+    cost = cost_usd(model, resp.usage)
+    stop = getattr(resp, "stop_reason", None)
+    if stop != "end_turn":
+        raise ResponseFailure("incomplete_response", cost, stop)
+    try:
+        return response_text(resp), cost
+    except ValueError:
+        raise ResponseFailure("missing_text", cost, stop) from None
+
+
+def record_failure(trial: dict, stage: str, error: Exception) -> dict:
+    # Exception strings from providers can contain request/response text or secrets.
+    trial["error"] = f"{stage} failed: {type(error).__name__}"
+    trial["error_stage"] = stage
+    trial["score_source"] = "failure_penalty"
+    # Preserve historical conservative scoring; explicitly label these as penalties.
+    trial["scores"] = {d: 1 for d in DIMENSIONS}
+    if isinstance(error, ResponseFailure):
+        trial["cost_usd"] += error.cost
+        trial["stop_reason"] = error.stop_reason
+        trial["error_code"] = str(error)
+    return trial
+
 
 def response_text(resp) -> str:  # API 응답에서 텍스트 블록만 골라 이어붙여 반환하는 함수
     """Join the text blocks of a response.
@@ -173,7 +209,7 @@ def generate(client: Anthropic, system_prompt: str, input_text: str) -> tuple[st
         system=system_prompt,       # 시스템 프롬프트 전달 (S07 동작 지침)
         messages=[{"role": "user", "content": input_text}],  # 유저 입력 메시지를 리스트 형태로 전달
     )
-    return response_text(resp), cost_usd(GEN_MODEL, resp.usage)  # 첫 번째 응답 텍스트와 달러 비용을 튜플로 반환
+    return checked_response(resp, GEN_MODEL)
 
 
 def judge(client: Anthropic, judge_prompt: str, case: dict, output: dict) -> tuple[dict, float]:  # 판정 모델을 호출해 점수 딕셔너리와 비용을 묶음으로 반환하는 함수
@@ -195,7 +231,11 @@ def judge(client: Anthropic, judge_prompt: str, case: dict, output: dict) -> tup
         system=judge_prompt,               # 판정 기준이 담긴 시스템 프롬프트 전달
         messages=[{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],  # payload를 JSON 문자열로 변환해 유저 메시지로 전달 (한국어 보존)
     )
-    return extract_json(response_text(resp)), cost_usd(JUDGE_MODEL, resp.usage)  # 판정 JSON 파싱 결과와 달러 비용을 튜플로 반환
+    raw, cost = checked_response(resp, JUDGE_MODEL)
+    try:
+        return extract_json(raw), cost
+    except (ValueError, TypeError):
+        raise ResponseFailure("invalid_json", cost, resp.stop_reason) from None
 
 
 # --- One trial ---------------------------------------------------------------  # 단일 시험 실행 섹션 구분선
@@ -206,11 +246,14 @@ def run_trial(client, system_prompt, judge_prompt, case) -> dict:  # 한 케이�
     try:  # 생성·파싱 오류가 발생할 수 있는 코드 실행 시도
         raw, gen_cost = generate(client, system_prompt, case["input_text"])  # S07 모델 호출 → 원시 응답 텍스트와 생성 비용 받기
         trial["cost_usd"] += gen_cost   # 생성 비용을 이 시험의 총비용에 누적
+        trial["response_chars"] = len(raw)
+        trial["response_shape"] = (
+            "json_prefix" if raw.lstrip().startswith("{") else
+            "fenced" if raw.lstrip().startswith("```") else "non_json_prefix"
+        )
         output = extract_json(raw)      # 원시 응답 텍스트에서 JSON 파싱해 딕셔너리로 변환
     except Exception as e:              # 생성 API 호출 또는 JSON 파싱이 실패한 경우
-        trial["error"] = f"generation/parse failed: {e}"  # 오류 내용을 문자열로 저장
-        trial["scores"] = {d: 1 for d in DIMENSIONS}      # 모든 평가 차원 점수를 최저값 1로 설정
-        return trial                    # 채점 단계를 건너뛰고 조기 반환
+        return record_failure(trial, "generation", e)
 
     schema_errors = validate_schema(output)   # 생성된 출력이 스키마를 준수하는지 검사
     trial["schema_errors"] = schema_errors    # 스키마 오류 목록을 시험 결과에 저장
@@ -218,13 +261,17 @@ def run_trial(client, system_prompt, judge_prompt, case) -> dict:  # 한 케이�
     try:  # 채점(판정) 오류가 발생할 수 있는 코드 실행 시도
         verdict, judge_cost = judge(client, judge_prompt, case, output)  # 판정 모델 호출 → 점수 딕셔너리와 비용 받기
         trial["cost_usd"] += judge_cost                                   # 채점 비용을 총비용에 누적
-        trial["scores"] = {d: float(verdict[d]) for d in DIMENSIONS}     # 각 차원 점수를 실수(float)로 변환해 저장
+        scores = {d: verdict[d] for d in DIMENSIONS}
+        if any(isinstance(v, bool) or not isinstance(v, (int, float))
+               or not math.isfinite(v) or not 1 <= v <= 5 for v in scores.values()):
+            raise ValueError("invalid_judge_scores")
+        trial["scores"] = {d: float(v) for d, v in scores.items()}
+        trial["score_source"] = "judge"
         trial["failure_modes_observed"] = verdict.get("failure_modes_observed", [])  # 판정 모델이 관찰한 실패 패턴 목록 저장
         trial["rationale"] = verdict.get("rationale", {})                 # 판정 근거 딕셔너리 저장
         trial["draft_handling"] = verdict.get("draft_handling", "n/a")    # check_it 초안 처리: kept / rewritten / n/a (judge-v3)
     except Exception as e:                  # 채점 API 호출 또는 파싱이 실패한 경우
-        trial["error"] = f"judge failed: {e}"           # 오류 내용을 문자열로 저장
-        trial["scores"] = {d: 1 for d in DIMENSIONS}   # 모든 평가 차원 점수를 최저값 1로 설정
+        record_failure(trial, "judge", e)
     return trial  # 완성된 시험 결과 딕셔너리 반환
 
 
@@ -303,7 +350,13 @@ def summarize_pairs(results: list[dict]) -> list[dict]:
 
 
 def evaluate_pass(cases: list[dict]) -> tuple[bool, list[str]]:  # 전체 케이스 결과를 받아 통과 여부(True/False)와 실패 이유 목록을 반환하는 함수
+    if not cases:
+        return False, ["no cases evaluated"]
     reasons = []  # 실패 이유 메시지를 담을 빈 리스트 초기화
+    for c in cases:
+        for index, trial in enumerate(c.get("trials", []), 1):
+            if trial.get("error") or trial.get("schema_errors"):
+                reasons.append(f"invalid trial: {c['id']} trial {index}")
     aggregate = statistics.mean(c["aggregate"]["case_score"] for c in cases)  # 모든 케이스 종합 점수의 전체 평균 계산
     if aggregate < PASS_AGGREGATE_MIN:  # 전체 평균이 최소 통과 기준 미만이면
         reasons.append(f"aggregate {aggregate:.3f} < {PASS_AGGREGATE_MIN}")  # 실패 이유를 리스트에 추가
@@ -348,7 +401,12 @@ def main() -> int:  # 프로그램 진입점 함수. 실행 성공 시 0, 실패
     ap.add_argument("--trials", type=int, default=3, help="trials per case (ADR-009, default 3)")  # --trials: 케이스당 반복 횟수 옵션 (정수, 기본값 3)
     ap.add_argument("--prompt-version", default="v1", help="S07 prompt version under prompts/s07/")  # --prompt-version: 사용할 프롬프트 파일 버전 옵션 (기본값 v1)
     ap.add_argument("--baseline", type=Path, default=None, help="baseline run artifact for CI gate")  # --baseline: CI 회귀 비교용 기준 실행 결과 파일 경로 옵션
+    ap.add_argument("--case-ids", nargs="+", help="diagnostic subset; never a full-suite pass")
     args = ap.parse_args()  # 실제 커맨드라인에서 입력된 인수들을 파싱해 args 객체에 저장
+    if args.trials < 1:
+        ap.error("--trials must be positive")
+    if Anthropic is None or load_dotenv is None:
+        ap.error("Missing dependency. Install eval/s07-analysis/requirements.txt")
 
     load_dotenv(REPO_ROOT / ".env")  # 리포지토리 루트의 .env 파일을 환경변수로 로드 (파일 없으면 무시)
 
@@ -363,6 +421,20 @@ def main() -> int:  # 프로그램 진입점 함수. 실행 성공 시 0, 실패
         (EVAL_DIR / "judge_prompt.md").read_text(encoding="utf-8")  # judge_prompt.md 파일을 UTF-8로 읽기
     )
     cases = json.loads((EVAL_DIR / "test_cases.json").read_text(encoding="utf-8"))["cases"]  # test_cases.json을 읽어 파싱한 뒤 "cases" 키의 값(케이스 목록) 가져오기
+
+    all_case_ids = {c["id"] for c in cases}
+    if args.case_ids:
+        unknown = set(args.case_ids) - all_case_ids
+        if unknown:
+            ap.error(f"unknown case ids: {sorted(unknown)}")
+        cases = [c for c in cases if c["id"] in args.case_ids]
+    if args.baseline:
+        base = json.loads(args.baseline.read_text(encoding="utf-8"))
+        if ({c["id"] for c in base["cases"]} != {c["id"] for c in cases}
+                or base.get("gen_model") != GEN_MODEL
+                or base.get("judge_model") != JUDGE_MODEL
+                or base.get("trials_per_case") != args.trials):
+            ap.error("baseline case IDs, models and trial count must match before paid evaluation")
 
     print(f"Running {len(cases)} cases x {args.trials} trials "   # 실행 케이스 수 × 시험 횟수 정보 출력
           f"(prompt s07/{args.prompt_version}, judge {JUDGE_MODEL})\n")  # 프롬프트 버전과 판정 모델 이름 출력 후 빈 줄 삽입
@@ -408,6 +480,15 @@ def main() -> int:  # 프로그램 진입점 함수. 실행 성공 시 0, 실패
         "draft_summary": summarize_drafts(results),       # check_it false_alarm / missed_flaw 집계 (보고용)
         "pair_deltas": summarize_pairs(results),          # 암시 단서 쌍둥이 vs 원본 tone_match 차이 (보고용)
         "cases": results,                   # 케이스별 상세 결과 목록 저장
+        "scope": "full" if {c["id"] for c in cases} == all_case_ids else "subset",
+        "full_suite_passed": passed and {c["id"] for c in cases} == all_case_ids,
+        "execution_error_trials": sum(bool(t.get("error")) for r in results for t in r["trials"]),
+        "schema_error_trials": sum(bool(t.get("schema_errors")) for r in results for t in r["trials"]),
+        "provenance": {
+            "prompt_sha256": hashlib.sha256(system_prompt.encode("utf-8")).hexdigest(),
+            "judge_sha256": hashlib.sha256(judge_prompt.encode("utf-8")).hexdigest(),
+            "cases_sha256": hashlib.sha256((EVAL_DIR / "test_cases.json").read_bytes()).hexdigest(),
+        },
     }
 
     RUNS_DIR.mkdir(parents=True, exist_ok=True)  # runs 디렉토리가 없으면 생성 (이미 있어도 오류 없음, 상위 폴더도 자동 생성)
@@ -420,6 +501,7 @@ def main() -> int:  # 프로그램 진입점 함수. 실행 성공 시 0, 실패
     print(f"cost=${total_cost:.4f}  artifact={out_path.relative_to(REPO_ROOT)}")  # 총 비용(달러)과 저장된 파일의 상대 경로 출력
     print(f"PASS={passed}" + ("" if passed else f"  reasons={pass_reasons}"))  # 통과 여부 출력, 실패하면 이유도 함께 출력
 
+    print(f"SCOPE={artifact['scope']} FULL_SUITE_PASS={artifact['full_suite_passed']}")
     exit_code = 0 if passed else 1  # 통과하면 종료 코드 0(성공), 실패하면 1(실패)
     if args.baseline:  # --baseline 인수가 제공된 경우 (CI 회귀 검사 모드)
         ok, reg_reasons = check_regression(artifact, args.baseline)  # 기준 파일 대비 회귀 여부 확인
