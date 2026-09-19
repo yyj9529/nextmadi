@@ -144,7 +144,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/Error"
         "422":
           description: |
             The audio was well-formed but no speech was recognised
@@ -154,7 +154,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/Error"
         "429":
           $ref: "#/components/responses/RateLimitExceeded"
 
@@ -163,8 +163,9 @@ paths:
       tags: [analysis]
       summary: Submit a Korean situation for AI analysis
       description: |
-        Creates an `analysis_requests` row, calls the S07 LLM pipeline, returns the
-        analysis with 3 variants. The Next.js BFF supplies `X-Internal-Auth`.
+        Creates an `analysis_requests` row, calls the S07 LLM pipeline, returns
+        an expressions, needs_context, or word result. Only expressions has 3 variants.
+        The Next.js BFF supplies `X-Internal-Auth`.
         Signed-in calls carry `user_id`; pre-signup S02 calls carry
         `session_token` and are subject to `anonymous_analysis_usage` rate
         limits.
@@ -189,6 +190,10 @@ paths:
                   type: string
                   format: uuid
                   description: Optional reference if user clicked an S01 example card.
+                input_mode:
+                  type: string
+                  enum: [expressions, word]
+                  description: Defaults to expressions for clear input. Bare words without a choice return input_choice_required before AI. Obvious nonsense returns invalid_input before AI.
       responses:
         "201":
           description: Analysis created
@@ -198,6 +203,12 @@ paths:
                 $ref: "#/components/schemas/AnalysisRequest"
         "400":
           $ref: "#/components/responses/ValidationError"
+        "409":
+          description: idempotency_conflict — the same request key was used with different input or mode.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "429":
           $ref: "#/components/responses/RateLimitExceeded"
 
@@ -206,7 +217,7 @@ paths:
       tags: [analysis]
       summary: Read a previously created analysis
       description: |
-        S07 page entry. Returns the input + 3 variants. Spring Boot authorizes by
+        S07 page entry. Returns the input and the expressions, word, or needs_context branch. Spring Boot authorizes by
         `user_id` claim when authenticated, or by `session_token` claim for
         pre-signup access.
       security:
@@ -1504,7 +1515,59 @@ components:
     AnalysisRequest:
       type: object
       required: [id, input_text, variants, created_at]
+      oneOf:
+        - properties:
+            result_type:
+              enum: [expressions]
+            variants:
+              minItems: 3
+              maxItems: 3
+        - required: [result_type, question]
+          properties:
+            result_type:
+              enum: [needs_context]
+            question:
+              type: string
+              minLength: 1
+            variants:
+              maxItems: 0
+        - required: [result_type, word]
+          properties:
+            result_type:
+              enum: [word]
+            word:
+              type: object
+              required: [english, meaning_ko]
+            variants:
+              maxItems: 0
       properties:
+        result_type:
+          type: string
+          enum: [expressions, needs_context, word]
+          description: Absent in legacy responses means expressions. Non-expression results cannot be saved or practiced.
+        assessment:
+          type: object
+          nullable: true
+          required: [verdict, summary, reason]
+          properties:
+            verdict:
+              type: string
+              enum: [suggestion, appropriate, needs_adjustment]
+            summary:
+              type: string
+            reason:
+              type: string
+        question:
+          type: string
+          nullable: true
+        word:
+          type: object
+          nullable: true
+          properties:
+            english:
+              type: string
+            meaning_ko:
+              type: string
         id:
           type: string
           format: uuid
@@ -1514,7 +1577,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ExpressionVariant"
-          minItems: 3
+          minItems: 0
           maxItems: 3
         prompt_version:
           type: string

@@ -13,6 +13,7 @@ import {
   getAnalysis,
 } from "@/lib/analysis/get-analysis";
 import { ResultActions } from "./ResultActions";
+import { AnalysisFollowUp } from "@/components/app/AnalysisFollowUp";
 
 export const metadata: Metadata = {
   title: "분석 결과",
@@ -84,8 +85,28 @@ export default async function AnalysisResultPage({
           </header>
 
           <p className="input-summary">&ldquo;{analysis.input_text}&rdquo;</p>
+          {analysis.result_type === "needs_context" ? (
+            <section aria-label="입력 보충">
+              <h2>조금만 더 알려주세요</h2>
+              <p>{analysis.question}</p>
+              <AnalysisFollowUp inputText={analysis.input_text} />
+            </section>
+          ) : analysis.result_type === "word" ? (
+            <section aria-label="단어 뜻">
+              <h2>{analysis.word?.english}</h2>
+              <p>{analysis.word?.meaning_ko}</p>
+              <AnalysisFollowUp inputText={analysis.input_text} />
+            </section>
+          ) : analysis.assessment ? (
+            <section className="analysis-assessment" aria-label="분석과 이유">
+              <h2>{analysis.assessment.summary}</h2>
+              <p>{analysis.assessment.reason}</p>
+              {analysis.assessment.verdict === "appropriate" ? <p>원문도 적절해요. 아래는 다른 말투의 선택지예요.</p> : null}
+            </section>
+          ) : null}
         </main>
 
+        {(!analysis.result_type || analysis.result_type === "expressions") && variants.length === 3 ? <>
         <aside className="result-side-column">
           <ul className="expression-list" aria-label="추천 표현">
             {variants.map((variant) => (
@@ -98,6 +119,7 @@ export default async function AnalysisResultPage({
           analysisRequestId={analysisRequestId}
           isAuthenticated={isAuthenticated}
         />
+        </> : null}
       </div>
     </div>
   );

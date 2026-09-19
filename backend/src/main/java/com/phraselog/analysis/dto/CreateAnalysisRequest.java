@@ -13,4 +13,9 @@ import com.phraselog.analysis.service.AnalysisService;
  */
 public record CreateAnalysisRequest(
     @JsonProperty("input_text") String inputText,
-    @JsonProperty("landing_example_id") String landingExampleId) {}
+    @JsonProperty("landing_example_id") String landingExampleId,
+    @JsonProperty("input_mode") String inputMode) {
+  public CreateAnalysisRequest(String inputText, String landingExampleId) {
+    this(inputText, landingExampleId, null);
+  }
+}

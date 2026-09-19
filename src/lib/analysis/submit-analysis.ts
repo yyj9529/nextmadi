@@ -23,6 +23,7 @@ export type FetchLike = (request: Request) => Promise<Response>;
 
 export type SubmitAnalysisInput = {
   inputText: string;
+  inputMode?: "expressions" | "word";
   /** S01 예시 카드로 진입했을 때의 선택 참조. */
   landingExampleId?: string;
   /** 인증 사용자. sessionToken과 정확히 하나만 준다(XOR). */
@@ -97,6 +98,7 @@ export async function submitAnalysis(
   );
 
   const body: Record<string, unknown> = { input_text: input.inputText };
+  if (input.inputMode) body.input_mode = input.inputMode;
   if (input.landingExampleId) {
     body.landing_example_id = input.landingExampleId;
   }

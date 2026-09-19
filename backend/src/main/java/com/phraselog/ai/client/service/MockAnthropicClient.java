@@ -84,6 +84,13 @@ public class MockAnthropicClient implements AnthropicClient {
       return ROLEPLAY_RESULT;
     }
     // Default: S07 analysis (the primary local-verification target).
+    if (prompt.contains("PhraseLog S07 communication coach")) {
+      return S07_ANALYSIS.replaceFirst(
+          "\\{",
+          "{\"result_type\":\"expressions\","
+              + "\"assessment\":{\"verdict\":\"suggestion\",\"summary\":\"[MOCK] 분석 예시\","
+              + "\"reason\":\"[MOCK] 실제 AI 평가가 아닌 화면 확인용 응답이에요.\"},");
+    }
     return S07_ANALYSIS;
   }
 

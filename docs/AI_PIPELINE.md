@@ -1,5 +1,19 @@
 # AI Pipeline
 
+## S07 contract update — 2026-09-19 (implemented candidate, not quality-approved)
+
+S07 now loads `prompts/s07/v3.md` with `s07_analysis_v2.json`. This section supersedes older S07 always-three-expression descriptions below. Other pipelines are unchanged.
+
+- Preflight shares lexical/utterance rules in `backend/src/main/resources/s07_input_policy.json`. Short clear speech proceeds. Bare-word candidates request a choice before generation. Obvious non-language input is rejected. These conservative rules are not a complete semantic classifier; residual ambiguity is handled by the same generation call.
+- Input adds optional `input_mode`: `expressions` (default for clear requests) or `word`. No separate classifier call, dictionary service, dependency, or migration was added. The existing generation provider supplies the explicitly selected word lookup; it therefore costs an AI call and is not an authoritative external dictionary.
+- `expressions`: assessment (`verdict`, `summary`, `reason`) followed by exactly three expressions. An appropriate quoted original remains first. Alternatives preserve all supplied facts and intent, including refusal and uncertainty.
+- `needs_context`: one necessary `question`; no expression cards, save, TTS or practice. `word`: `english` and `meaning_ko`, distinct from expression cards and likewise not saveable as an expression.
+- Existing JSONB stores all branches. Missing `result_type` on old rows means `expressions`. No data rewrite. Save rejects non-expression results with `analysis_not_saveable`; existing ownership checks remain.
+- Input edits create a new request key; network retries reuse a key. Same-process concurrent duplicates serialize before quota and generation. Database uniqueness still protects rows across instances, but this does not guarantee a single AI call across replicas or after losing the initial anonymous cookie.
+- Anonymous accounting retains the existing two successful AI responses per IP/day: word and clarification each count, as does a later successful supplemented request. Preflight/choice costs zero slots; a retrieved retry costs no new slot; failed generation releases the slot. This conservative recommendation protects the existing cost ceiling. A policy that exempts clarification needs a separate bounded paid-call allowance and explicit product approval.
+
+Verification and remaining gates: [execution record](exec-plans/2026-09-18-s07-evaluation-alignment.md). Prompt changes are implemented but real generation quality and judge calibration remain unverified. Rolling back only the backend to the old always-expression parser is unsafe for newly stored word/clarification rows; retain the compatible reader during rollback.
+
 Source of truth for the AI pipeline that powers PhraseLog v1. Whisper STT → Claude LLM → OpenAI TTS, split (ADR-001). This document defines per-stage behavior, JSON schemas, routing logic, logging contract, and timeout/fallback policy.
 
 Stack overview lives in `architecture.md`. Database structure for AI-related tables lives in `data-model.md`. Decision rationale for the split pipeline lives in ADR-001.

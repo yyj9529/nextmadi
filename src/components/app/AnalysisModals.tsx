@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { CloseIcon } from "@/components/app/icons";
+import { AnalysisInputGuidance } from "./AnalysisInputGuidance";
+import { checkAnalysisInput, type InputMode } from "@/lib/analysis/input-policy";
+import { AnalysisOperation, postAnalysisRequest, type AnalysisClientOptions } from "@/lib/analysis/client-request";
 import {
   clearDraftInput,
   readDraftInput,
@@ -96,6 +99,7 @@ export type AnalysisSubmitResult = {
 export type AnalysisSubmitter = (
   inputText: string,
   signal: AbortSignal,
+  options?: AnalysisClientOptions,
 ) => Promise<AnalysisSubmitResult>;
 
 // S02 TryExperience와 동일한 정규화: BFF가 429를 rate_limit_exceeded로 내려준다(ADR-010).
@@ -112,26 +116,9 @@ function isRateLimitExceededError(error: unknown): boolean {
 async function postAnalysis(
   inputText: string,
   signal: AbortSignal,
+  options?: AnalysisClientOptions,
 ): Promise<AnalysisSubmitResult> {
-  const response = await fetch("/api/analysis", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    credentials: "same-origin",
-    body: JSON.stringify({ input_text: inputText }),
-    signal,
-  });
-
-  if (!response.ok) {
-    let errorBody: unknown = null;
-    try {
-      errorBody = await response.json();
-    } catch {
-      // 본문 파싱 실패: 네트워크 에러로 취급(아래 throw).
-    }
-    throw errorBody ?? new Error(`analysis failed: ${response.status}`);
-  }
-
-  return (await response.json()) as AnalysisSubmitResult;
+  return postAnalysisRequest(inputText, signal, options);
 }
 
 type TextInputSheetProps = {
@@ -185,6 +172,17 @@ function TextInputSheetBody({
   const [rateLimited, setRateLimited] = useState(false);
   const [networkError, setNetworkError] = useState(false);
   const [pasteToast, setPasteToast] = useState(false);
+  const [inputMode, setInputMode] = useState<InputMode>();
+  const operation = useRef(new AnalysisOperation());
+  const submitLock = useRef(false);
+  const inputCheck = checkAnalysisInput(text);
+  const canSubmit = inputCheck !== "invalid" && (inputCheck !== "choose_word_intent" || inputMode === "word");
+  const changeText = (next: string) => {
+    operation.current.reset();
+    setInputMode(undefined);
+    setNetworkError(false);
+    setText(next);
+  };
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -234,15 +232,16 @@ function TextInputSheetBody({
     const next = text.slice(0, start) + pasted + text.slice(end);
     if (next.length > MAX_INPUT_LENGTH) {
       event.preventDefault();
-      setText(next.slice(0, MAX_INPUT_LENGTH));
+      changeText(next.slice(0, MAX_INPUT_LENGTH));
       showPasteToast();
     }
   };
 
   const handleSubmit = async () => {
-    if (text.length === 0 || submitting || rateLimited) {
+    if (!canSubmit || submitting || rateLimited || submitLock.current) {
       return;
     }
+    submitLock.current = true;
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -250,7 +249,7 @@ function TextInputSheetBody({
     setSubmitting(true);
 
     try {
-      const result = await submitAnalysis(text, controller.signal);
+      const result = await submitAnalysis(text, controller.signal, { inputMode, idempotencyKey: operation.current.current() });
       if (controller.signal.aborted) {
         return;
       }
@@ -270,6 +269,7 @@ function TextInputSheetBody({
       }
       setSubmitting(false);
     } finally {
+      submitLock.current = false;
       if (abortRef.current === controller) {
         abortRef.current = null;
       }
@@ -335,7 +335,7 @@ function TextInputSheetBody({
                   "마트에서 줄 새치기한 사람한테\n한마디 하고 싶었는데 영어가\n안 떠올랐어요..."
                 }
                 onChange={(event) =>
-                  setText(event.target.value.slice(0, MAX_INPUT_LENGTH))
+                  changeText(event.target.value.slice(0, MAX_INPUT_LENGTH))
                 }
                 onPaste={handlePaste}
               />
@@ -349,6 +349,10 @@ function TextInputSheetBody({
               ) : null}
             </div>
 
+            <AnalysisInputGuidance text={text} mode={inputMode} disabled={submitting} onMode={(mode) => {
+              operation.current.reset(); setInputMode(mode); textareaRef.current?.focus();
+            }} />
+
             {networkError ? (
               <p className="sheet-error-toast" role="alert">
                 연결이 불안정해요. 다시 시도해주세요.
@@ -358,7 +362,7 @@ function TextInputSheetBody({
             <button
               className="primary-button"
               type="button"
-              disabled={text.length === 0 || submitting}
+              disabled={!canSubmit || submitting}
               onClick={handleSubmit}
             >
               {submitting ? (

@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "S07 Analysis v2",
+  "oneOf": [
+    {
+      "type": "object", "additionalProperties": false,
+      "required": ["result_type", "assessment", "expressions"],
+      "properties": {
+        "result_type": {"const": "expressions"},
+        "assessment": {
+          "type": "object", "additionalProperties": false,
+          "required": ["verdict", "summary", "reason"],
+          "properties": {
+            "verdict": {"enum": ["suggestion", "appropriate", "needs_adjustment"]},
+            "summary": {"type": "string", "minLength": 1, "pattern": "\\S"},
+            "reason": {"type": "string", "minLength": 1, "pattern": "\\S"}
+          }
+        },
+        "expressions": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["english", "tone_label", "ipa", "korean_pronunciation", "pronunciation_tip", "cultural_tip"],
+            "properties": {
+              "english": {"type": "string", "minLength": 1, "pattern": "\\S"},
+              "tone_label": {"type": "string", "minLength": 1, "pattern": "\\S"},
+              "ipa": {"type": "string", "minLength": 1, "pattern": "\\S"},
+              "korean_pronunciation": {"type": "string", "minLength": 1, "pattern": "\\S"},
+              "pronunciation_tip": {"type": "string", "minLength": 1, "pattern": "\\S"},
+              "cultural_tip": {"type": "string", "minLength": 1, "pattern": "\\S"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object", "additionalProperties": false,
+      "required": ["result_type", "question"],
+      "properties": {
+        "result_type": {"const": "needs_context"},
+        "question": {"type": "string", "minLength": 1, "pattern": "\\S"}
+      }
+    },
+    {
+      "type": "object", "additionalProperties": false,
+      "required": ["result_type", "word"],
+      "properties": {
+        "result_type": {"const": "word"},
+        "word": {
+          "type": "object", "additionalProperties": false,
+          "required": ["english", "meaning_ko"],
+          "properties": {
+            "english": {"type": "string", "minLength": 1, "pattern": "\\S"},
+            "meaning_ko": {"type": "string", "minLength": 1, "pattern": "\\S"}
+          }
+        }
+      }
+    }
+  ]
+}

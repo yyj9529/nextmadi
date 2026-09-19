@@ -1,3 +1,22 @@
+.analysis-input-guidance {
+  margin: 16px 0;
+  color: var(--app-ink);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.analysis-intent-options { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.analysis-intent-options button {
+  border: 1px solid var(--app-border); border-radius: 12px; background: white;
+  color: var(--app-ink); padding: 10px 12px; font: inherit; cursor: pointer;
+}
+.analysis-intent-options button[aria-pressed="true"] {
+  border-color: var(--app-blue); background: var(--app-banner-bg); color: var(--app-blue-deep);
+}
+.analysis-intent-options button:focus-visible { outline: 2px solid var(--app-blue); outline-offset: 2px; }
+.analysis-intent-options button:disabled { opacity: .5; cursor: default; }
+.analysis-assessment { margin: 20px 0; line-height: 1.7; }
+.analysis-assessment h2 { font-size: 20px; margin-bottom: 12px; }
+
 /* PPT 충실도 패스용 앱 셸 스타일 — docs/design/PPT_FIDELITY_SPEC.md
    레퍼런스: docs/design/reference/ppt/s04_home.PNG, s07_result.PNG */
 
@@ -621,10 +640,11 @@
 
   .result-desktop-grid {
     display: grid;
-    grid-template-columns: minmax(280px, 0.82fr) minmax(0, 1.18fr);
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "result-main result-side"
-      "result-actions result-side";
+      "result-main"
+      "result-side"
+      "result-actions";
     gap: 24px 28px;
     align-items: start;
   }

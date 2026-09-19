@@ -15,6 +15,7 @@ let headerMap = new Map<string, string>();
 // submitAnalysis 더블: 호출 인자를 기록하고, 미리 정한 결과를 돌려주거나 던진다.
 let submitImpl: (input: unknown) => Promise<{ analysisRequestId: string }>;
 const submitCalls: unknown[] = [];
+const submitOptions: unknown[] = [];
 
 class FakeSubmitAnalysisError extends Error {
   readonly status: number;
@@ -49,8 +50,9 @@ mock.module("@/auth", () => ({
 }));
 
 mock.module("@/lib/analysis/submit-analysis", () => ({
-  submitAnalysis: async (input: unknown) => {
+  submitAnalysis: async (input: unknown, options: unknown) => {
     submitCalls.push(input);
+    submitOptions.push(options);
     return submitImpl(input);
   },
   SubmitAnalysisError: FakeSubmitAnalysisError,
@@ -72,6 +74,7 @@ beforeEach(() => {
   cookieSets.length = 0;
   headerMap = new Map();
   submitCalls.length = 0;
+  submitOptions.length = 0;
   submitImpl = async () => ({ analysisRequestId: "analysis-1" });
 });
 
@@ -134,6 +137,32 @@ describe("POST /api/analysis", () => {
     expect(await response.json()).toMatchObject({
       error_code: "rate_limit_exceeded",
     });
+  });
+
+  test("preflight blocks nonsense and unselected words without backend calls", async () => {
+    for (const input_text of ["ㅁㅈㅇㅁㅇㄴㅁㅇ추더러", "집주인"]) {
+      const response = await POST(jsonRequest({ input_text }));
+      expect(response.status).toBe(400);
+    }
+    expect(submitCalls).toHaveLength(0);
+  });
+
+  test("short clear input proceeds and word mode plus retry key are forwarded", async () => {
+    for (const input_text of ["물 주세요", "고마워", "나 집주인 히터 고장 말해"]) {
+      expect((await POST(jsonRequest({ input_text }))).status).toBe(201);
+    }
+    const request = jsonRequest({ input_text: "집주인", input_mode: "word" });
+    const key = "11111111-1111-4111-8111-111111111111";
+    request.headers.set("idempotency-key", key);
+    expect((await POST(request)).status).toBe(201);
+    expect(submitCalls.at(-1)).toMatchObject({ inputMode: "word" });
+    expect(submitOptions.at(-1)).toEqual({ idempotencyKey: key });
+  });
+
+  test("null body and invalid modes do not throw or call backend", async () => {
+    expect((await POST(jsonRequest(null))).status).toBe(400);
+    expect((await POST(jsonRequest({ input_text: "물 주세요", input_mode: "unknown" }))).status).toBe(400);
+    expect(submitCalls).toHaveLength(0);
   });
 
   test("rejects empty and over-long input with 400", async () => {

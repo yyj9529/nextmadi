@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 
 import { auth } from "@/auth";
 import { ANON_SESSION_COOKIE } from "@/lib/anon-session";
+import { checkAnalysisInput, REENTER_MESSAGE } from "@/lib/analysis/input-policy";
 import {
   SubmitAnalysisError,
   submitAnalysis,
@@ -23,6 +24,7 @@ const MAX_INPUT_LENGTH = 500;
 type AnalysisRequestBody = {
   input_text?: unknown;
   landing_example_id?: unknown;
+  input_mode?: unknown;
 };
 
 function jsonError(status: number, errorCode: string, userMessage: string) {
@@ -68,13 +70,27 @@ export async function POST(request: Request): Promise<Response> {
     return jsonError(400, "validation_failed", "요청을 확인해주세요.");
   }
 
-  const inputText = body.input_text;
+  const inputText = body?.input_text;
   if (
     typeof inputText !== "string" ||
     inputText.length === 0 ||
     inputText.length > MAX_INPUT_LENGTH
   ) {
     return jsonError(400, "validation_failed", "입력을 확인해주세요.");
+  }
+
+  const inputMode = body.input_mode;
+  if (inputMode !== undefined && inputMode !== "expressions" && inputMode !== "word") {
+    return jsonError(400, "validation_failed", "입력 목적을 확인해주세요.");
+  }
+  const check = checkAnalysisInput(inputText);
+  if (check === "invalid") return jsonError(400, "invalid_input", REENTER_MESSAGE);
+  if (check === "choose_word_intent" && inputMode === undefined) {
+    return jsonError(400, "input_choice_required", "단어 뜻이 궁금한지, 할 말을 만들고 싶은지 선택해주세요.");
+  }
+  const idempotencyKey = request.headers.get("idempotency-key") ?? undefined;
+  if (idempotencyKey && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+    return jsonError(400, "validation_failed", "요청을 확인해주세요.");
   }
 
   const landingExampleId =
@@ -104,10 +120,11 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const result = await submitAnalysis({
       inputText,
+      ...(inputMode ? { inputMode } : {}),
       landingExampleId,
       clientIp,
       ...(userId ? { userId } : { sessionToken }),
-    });
+    }, { idempotencyKey });
 
     const response = Response.json(
       { analysis_request_id: result.analysisRequestId },
@@ -132,7 +149,10 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
     if (error instanceof SubmitAnalysisError && error.status === 400) {
-      return jsonError(400, "validation_failed", "입력을 확인해주세요.");
+      return jsonError(400, error.errorCode, error.userMessage ?? "입력을 확인해주세요.");
+    }
+    if (error instanceof SubmitAnalysisError && error.status === 409) {
+      return jsonError(409, error.errorCode, "입력이 바뀌었어요. 새 요청으로 다시 제출해주세요.");
     }
     // 그 외(백엔드 오류/네트워크)는 일반 오류로. 원문/토큰은 로깅하지 않는다.
     return jsonError(502, "analysis_failed", "분석에 실패했어요. 다시 시도해주세요.");

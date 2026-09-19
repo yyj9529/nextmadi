@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { AnalysisLoadingModal } from "@/components/app/AnalysisModals";
+import { AnalysisInputGuidance } from "@/components/app/AnalysisInputGuidance";
+import { checkAnalysisInput, type InputMode } from "@/lib/analysis/input-policy";
+import { AnalysisOperation, postAnalysisRequest, type AnalysisClientOptions } from "@/lib/analysis/client-request";
 import { BackIcon } from "@/components/app/icons";
 import { VoiceInput } from "@/components/app/VoiceInput";
 import { useVoiceRecorder } from "@/lib/voice/use-voice-recorder";
@@ -27,6 +30,7 @@ export type TryAnalysisResult = {
 
 export type TryAnalysisSubmitter = (
   inputText: string,
+  options?: AnalysisClientOptions,
 ) => Promise<TryAnalysisResult>;
 
 type TryExperienceProps = {
@@ -56,26 +60,8 @@ const REQUEST_TIMEOUT_MS = ANALYSIS_SERVER_BUDGET_MS + TRANSPORT_MARGIN_MS;
 
 // 실제 제출: BFF 라우트로 input_text를 보낸다. 비-ok 응답은 본문 JSON(있으면 error_code 포함)을
 // throw해 handleSubmit의 rate-limit / 네트워크 에러 분기가 그대로 동작하게 한다.
-async function postTryAnalysis(inputText: string): Promise<TryAnalysisResult> {
-  const response = await fetch("/api/analysis", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    credentials: "same-origin",
-    body: JSON.stringify({ input_text: inputText }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-
-  if (!response.ok) {
-    let errorBody: unknown = null;
-    try {
-      errorBody = await response.json();
-    } catch {
-      // 본문 파싱 실패: 네트워크 에러로 취급(아래 throw).
-    }
-    throw errorBody ?? new Error(`analysis failed: ${response.status}`);
-  }
-
-  return (await response.json()) as TryAnalysisResult;
+async function postTryAnalysis(inputText: string, options?: AnalysisClientOptions): Promise<TryAnalysisResult> {
+  return postAnalysisRequest(inputText, AbortSignal.timeout(REQUEST_TIMEOUT_MS), options);
 }
 
 export function TryExperience({
@@ -89,6 +75,14 @@ export function TryExperience({
   const [networkError, setNetworkError] = useState(false);
   const activeSubmitRef = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [inputMode, setInputMode] = useState<InputMode>();
+  const operation = useRef(new AnalysisOperation());
+  const submitLock = useRef(false);
+  const inputCheck = checkAnalysisInput(text);
+  const canSubmit = inputCheck !== "invalid" && (inputCheck !== "choose_word_intent" || inputMode === "word");
+  const changeText = (next: string) => {
+    operation.current.reset(); setInputMode(undefined); setNetworkError(false); setText(next);
+  };
 
   const counterClass =
     text.length >= MAX_INPUT_LENGTH
@@ -99,13 +93,14 @@ export function TryExperience({
 
   // 전사문은 제출하지 않고 입력창에 채우기만 한다 — 사용자가 확인·수정한 뒤 직접 제출한다.
   const recorder = useVoiceRecorder({
-    onTranscript: (transcript) => setText(transcript.slice(0, MAX_INPUT_LENGTH)),
+    onTranscript: (transcript) => changeText(transcript.slice(0, MAX_INPUT_LENGTH)),
   });
 
   const handleSubmit = async () => {
-    if (text.length === 0 || analyzing || rateLimited) {
+    if (!canSubmit || analyzing || rateLimited || submitLock.current) {
       return;
     }
+    submitLock.current = true;
 
     const submitId = activeSubmitRef.current + 1;
     activeSubmitRef.current = submitId;
@@ -113,7 +108,7 @@ export function TryExperience({
     setAnalyzing(true);
 
     try {
-      const result = await submitAnalysis(text);
+      const result = await submitAnalysis(text, { inputMode, idempotencyKey: operation.current.current() });
       if (activeSubmitRef.current !== submitId) {
         return;
       }
@@ -130,6 +125,8 @@ export function TryExperience({
         setNetworkError(true);
       }
       setAnalyzing(false);
+    } finally {
+      submitLock.current = false;
     }
   };
 
@@ -176,13 +173,17 @@ export function TryExperience({
                 placeholder="예: 친구한테 서운한 마음을 정중하게 표현하고 싶어요"
                 readOnly={analyzing}
                 onChange={(event) =>
-                  setText(event.target.value.slice(0, MAX_INPUT_LENGTH))
+                  changeText(event.target.value.slice(0, MAX_INPUT_LENGTH))
                 }
               />
               <span className={`char-counter${counterClass}`}>
                 {text.length} / {MAX_INPUT_LENGTH}
               </span>
             </div>
+
+            <AnalysisInputGuidance text={text} mode={inputMode} disabled={analyzing} onMode={(mode) => {
+              operation.current.reset(); setInputMode(mode); textareaRef.current?.focus();
+            }} />
 
             {networkError ? (
               <p className="try-error-toast" role="alert">
@@ -203,7 +204,7 @@ export function TryExperience({
             <button
               className="primary-button try-submit"
               type="button"
-              disabled={text.length === 0 || analyzing}
+              disabled={!canSubmit || analyzing}
               onClick={handleSubmit}
             >
               분석 요청

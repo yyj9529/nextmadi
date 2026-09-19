@@ -56,7 +56,7 @@ class AnalysisServiceTests {
     repository.stubLogId = LOG_ID;
     anthropicService = mock(AnthropicService.class);
     promptLoader = mock(PromptLoader.class);
-    when(promptLoader.load("s07", 1)).thenReturn(promptDefinition());
+    when(promptLoader.load("s07", 3)).thenReturn(promptDefinition());
     when(anthropicService.callClaude(eq(AiFeature.S07_ANALYSIS), any(), anyString(), any(), any()))
         .thenReturn(threeExpressions());
 
@@ -264,7 +264,82 @@ class AnalysisServiceTests {
   }
 
   private static CreateAnalysisRequest body(String inputText) {
-    return new CreateAnalysisRequest(inputText, null);
+    return new CreateAnalysisRequest(inputText, null, "expressions");
+  }
+
+  @Test
+  void clarificationIsReadableWithoutVariantsAndRetryDoesNotSpendAgain() throws Exception {
+    when(anthropicService.callClaude(eq(AiFeature.S07_ANALYSIS), any(), anyString(), any(), any()))
+        .thenReturn(
+            MAPPER.readTree("{\"result_type\":\"needs_context\",\"question\":\"어떤 말을 하고 싶으세요?\"}"));
+    String key = UUID.randomUUID().toString();
+    var first = service.create(anonymous("clarification"), body("집주인"), key, IP);
+    var retry = service.create(anonymous("clarification"), body("집주인"), key, IP);
+    assertThat(first.resultType()).isEqualTo("needs_context");
+    assertThat(first.variants()).isEmpty();
+    assertThat(service.get(anonymous("clarification"), first.id().toString()).question())
+        .isNotBlank();
+    assertThat(retry.id()).isEqualTo(first.id());
+    assertThat(usageRepository.currentCount(IP, LocalDate.now())).isEqualTo(1);
+    verify(anthropicService, times(1)).callClaude(any(), any(), anyString(), any(), any());
+  }
+
+  @Test
+  void wordResultIsSeparateAndHasNoVariants() throws Exception {
+    when(anthropicService.callClaude(eq(AiFeature.S07_ANALYSIS), any(), anyString(), any(), any()))
+        .thenReturn(
+            MAPPER.readTree(
+                "{\"result_type\":\"word\",\"word\":{\"english\":\"landlord\",\"meaning_ko\":\"집주인\"}}"));
+    var result =
+        service.create(
+            anonymous("word"),
+            new CreateAnalysisRequest("집주인", null, "word"),
+            UUID.randomUUID().toString(),
+            IP);
+    assertThat(result.resultType()).isEqualTo("word");
+    assertThat(result.word().path("english").asText()).isEqualTo("landlord");
+    assertThat(result.variants()).isEmpty();
+  }
+
+  @Test
+  void invalidAndUnselectedWordInputsDoNotCallAiOrConsumeQuota() {
+    for (String text : new String[] {"ㅁㅈㅇㅁㅇㄴㅁㅇ추더러", "집주인"}) {
+      assertThatThrownBy(
+              () ->
+                  service.create(
+                      anonymous("bad"),
+                      new CreateAnalysisRequest(text, null),
+                      UUID.randomUUID().toString(),
+                      IP))
+          .isInstanceOf(ApiErrorException.class);
+    }
+    org.mockito.Mockito.verifyNoInteractions(anthropicService);
+    assertThat(usageRepository.currentCount(IP, LocalDate.now())).isZero();
+  }
+
+  @Test
+  void changedInputCannotReuseACompletedKey() {
+    String key = UUID.randomUUID().toString();
+    service.create(anonymous("edit"), body("물 주세요"), key, IP);
+    assertThatThrownBy(() -> service.create(anonymous("edit"), body("고마워"), key, IP))
+        .isInstanceOfSatisfying(
+            ApiErrorException.class,
+            e -> assertThat(e.errorCode()).isEqualTo("idempotency_conflict"));
+    verify(anthropicService, times(1)).callClaude(any(), any(), anyString(), any(), any());
+  }
+
+  @Test
+  void concurrentSameKeyUsesOneGeneration() throws Exception {
+    String key = UUID.randomUUID().toString();
+    try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+      var first =
+          executor.submit(() -> service.create(anonymous("concurrent"), body("물 주세요"), key, IP));
+      var second =
+          executor.submit(() -> service.create(anonymous("concurrent"), body("물 주세요"), key, IP));
+      assertThat(first.get().id()).isEqualTo(second.get().id());
+    }
+    verify(anthropicService, times(1)).callClaude(any(), any(), anyString(), any(), any());
+    assertThat(usageRepository.currentCount(IP, LocalDate.now())).isEqualTo(1);
   }
 
   private static PromptDefinition promptDefinition() {

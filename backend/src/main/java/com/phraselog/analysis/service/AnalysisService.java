@@ -1,6 +1,7 @@
 package com.phraselog.analysis.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.phraselog.ai.client.service.AnthropicService;
 import com.phraselog.ai.logging.dto.AiFeature;
 import com.phraselog.ai.prompt.dto.PromptDefinition;
@@ -44,8 +45,14 @@ import org.springframework.util.StringUtils;
 public class AnalysisService {
 
   private static final String PROMPT_PATH = "s07";
-  private static final int PROMPT_VERSION = 1;
+  private static final int PROMPT_VERSION = 3;
   private static final int MAX_INPUT_LENGTH = 500;
+  // Per-process protection. The unique DB key guards writes, not cross-instance AI calls.
+  private static final Object[] REQUEST_LOCKS = new Object[256];
+
+  static {
+    java.util.Arrays.setAll(REQUEST_LOCKS, i -> new Object());
+  }
 
   private final AnalysisRepository repository;
   private final AnthropicService anthropicService;
@@ -73,12 +80,44 @@ public class AnalysisService {
       String idempotencyKeyHeader,
       String clientIpHeader) {
 
+    String caller = principal.isAuthenticatedUser() ? principal.userId() : principal.sessionToken();
+    int slot =
+        Math.floorMod(java.util.Objects.hash(caller, idempotencyKeyHeader), REQUEST_LOCKS.length);
+    synchronized (REQUEST_LOCKS[slot]) {
+      return createLocked(principal, body, idempotencyKeyHeader, clientIpHeader);
+    }
+  }
+
+  private AnalysisResponse createLocked(
+      InternalAuthPrincipal principal,
+      CreateAnalysisRequest body,
+      String idempotencyKeyHeader,
+      String clientIpHeader) {
+
     String inputText = validatedInput(body);
+    String inputMode = body.inputMode() == null ? "expressions" : body.inputMode();
+    if (!inputMode.equals("expressions") && !inputMode.equals("word")) {
+      throw validationFailed("input_mode must be expressions or word.");
+    }
     UUID idempotencyKey = parseIdempotencyKey(idempotencyKeyHeader);
 
     Optional<AnalysisRequestRow> existing =
         repository.findByCallerAndKey(principal, idempotencyKey);
     if (existing.isPresent()) {
+      if (!existing.get().inputText().equals(inputText)
+          || !existing
+              .get()
+              .outputJson()
+              .path("_input_mode")
+              .asText("expressions")
+              .equals(inputMode)) {
+        throw new ApiErrorException(
+            HttpStatus.CONFLICT,
+            "idempotency_conflict",
+            "입력이 바뀌었어요. 새 요청으로 다시 제출해주세요.",
+            "Idempotency key was already used for different input.",
+            false);
+      }
       return toResponse(existing.get());
     }
 
@@ -97,7 +136,13 @@ public class AnalysisService {
                 clientIpHeader,
                 () ->
                     runAnalysis(
-                        principal, inputText, idempotencyKey, userId, sessionToken, ipAddress));
+                        principal,
+                        inputText,
+                        inputMode,
+                        idempotencyKey,
+                        userId,
+                        sessionToken,
+                        ipAddress));
 
     return toResponse(row);
   }
@@ -114,6 +159,7 @@ public class AnalysisService {
   private AnalysisRequestRow runAnalysis(
       InternalAuthPrincipal principal,
       String inputText,
+      String inputMode,
       UUID idempotencyKey,
       UUID userId,
       String sessionToken,
@@ -122,11 +168,23 @@ public class AnalysisService {
     PromptDefinition prompt = promptLoader.load(PROMPT_PATH, PROMPT_VERSION);
     UUID correlationId = UUID.randomUUID();
 
-    // callClaude validates s07_analysis_v1 (exactly 3 expressions) and logs success/failure to
+    // callClaude validates the versioned branch schema and logs success/failure to
     // ai_request_logs internally; it throws ApiErrorException on provider/schema failure.
     JsonNode output =
         anthropicService.callClaude(
-            AiFeature.S07_ANALYSIS, prompt, inputText, userId, correlationId);
+            AiFeature.S07_ANALYSIS,
+            prompt,
+            JsonNodeFactory.instance
+                .objectNode()
+                .put("input_text", inputText)
+                .put("input_mode", inputMode)
+                .toString(),
+            userId,
+            correlationId);
+
+    // Private request metadata is outside the model output schema.
+    output = output.deepCopy();
+    ((com.fasterxml.jackson.databind.node.ObjectNode) output).put("_input_mode", inputMode);
 
     UUID aiRequestLogId = repository.findLogIdByCorrelation(correlationId).orElse(null);
 
@@ -150,6 +208,19 @@ public class AnalysisService {
   }
 
   private AnalysisResponse toResponse(AnalysisRequestRow row) {
+    String resultType = row.outputJson().path("result_type").asText("expressions");
+    if (resultType.equals("needs_context") || resultType.equals("word")) {
+      return new AnalysisResponse(
+          row.id(),
+          row.inputText(),
+          List.of(),
+          row.promptVersion(),
+          row.createdAt(),
+          resultType,
+          null,
+          textOrNull(row.outputJson(), "question"),
+          row.outputJson().get("word"));
+    }
     JsonNode expressions = row.outputJson().get("expressions");
     if (expressions == null || !expressions.isArray()) {
       throw new ApiErrorException(
@@ -180,7 +251,15 @@ public class AnalysisService {
     }
 
     return new AnalysisResponse(
-        row.id(), row.inputText(), variants, row.promptVersion(), row.createdAt());
+        row.id(),
+        row.inputText(),
+        variants,
+        row.promptVersion(),
+        row.createdAt(),
+        resultType,
+        row.outputJson().get("assessment"),
+        null,
+        null);
   }
 
   private static String textOrNull(JsonNode node, String field) {
@@ -194,6 +273,23 @@ public class AnalysisService {
     }
     if (inputText.length() > MAX_INPUT_LENGTH) {
       throw validationFailed("input_text must be at most " + MAX_INPUT_LENGTH + " characters.");
+    }
+    String check = AnalysisInputPolicy.check(inputText);
+    if (check.equals("invalid")) {
+      throw new ApiErrorException(
+          HttpStatus.BAD_REQUEST,
+          "invalid_input",
+          "뜻을 이해할 수 있도록 단어나 하고 싶은 말을 다시 적어주세요.",
+          "Input failed the deterministic preflight.",
+          false);
+    }
+    if (check.equals("choose_word_intent") && body.inputMode() == null) {
+      throw new ApiErrorException(
+          HttpStatus.BAD_REQUEST,
+          "input_choice_required",
+          "단어 뜻이 궁금한지, 할 말을 만들고 싶은지 선택해주세요.",
+          "Choose an input mode before generation.",
+          false);
     }
     return inputText;
   }

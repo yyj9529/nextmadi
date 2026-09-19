@@ -32,6 +32,11 @@ export type AnalysisResult = {
   variants: AnalysisVariant[];
   prompt_version?: string;
   created_at: string;
+  /** Absent for existing v1 results. */
+  result_type?: "expressions" | "needs_context" | "word";
+  assessment?: { verdict: "suggestion" | "appropriate" | "needs_adjustment"; summary: string; reason: string } | null;
+  question?: string | null;
+  word?: { english: string; meaning_ko: string } | null;
 };
 
 export type GetAnalysisInput = {
