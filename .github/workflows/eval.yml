@@ -1,99 +1,30 @@
-name: S07 eval
+name: S07 offline checks
 
-# EVAL_PLAN.md Tier 1 CI integration.
-# Triggers on PRs that could change S07 output quality.
+# Pull requests never invoke paid models. See the cost-control execution plan.
 on:
   pull_request:
     paths:
       - "prompts/s07/**"
       - "eval/s07-analysis/**"
-      - "backend/**/analysis/**"   # adjust to the real analysis service path in W4
+      - "backend/**/analysis/**"
+      - "backend/**/schemas/s07*"
+      - ".github/workflows/eval.yml"
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
 
 jobs:
-  s07-eval:
+  s07-offline:
+    name: S07 offline checks
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # need history to fetch the main baseline
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Install dependencies
+      - name: Install existing evaluation test dependencies
         run: pip install -r eval/s07-analysis/requirements.txt
-
-      # EVAL_PLAN.md CI integration step 1: deterministic checks on the case set, no API
-      # calls. Runs first so a malformed or lopsided test_cases.json fails in seconds
-      # instead of after a full paid run.
       - name: Run no-API unit tests
         run: python -m unittest discover -s eval/s07-analysis -p 'test_*.py' -v
-
-      - name: Locate latest baseline artifact
-        id: baseline
-        run: |
-          # Most recent committed JSON run artifact on the repository default branch.
-          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
-          BASE=$(git ls-tree -r --name-only "origin/${DEFAULT_BRANCH}" -- eval/runs \
-                 | grep -E '^eval/runs/.*\.json$' \
-                 | sort \
-                 | tail -n 1 || true)
-          echo "default_branch=${DEFAULT_BRANCH}" >> "$GITHUB_OUTPUT"
-          echo "path=${BASE}" >> "$GITHUB_OUTPUT"
-          echo "Default branch: ${DEFAULT_BRANCH}"
-          echo "Baseline: ${BASE:-<none>}"
-
-      # The runner needs a key to call the API at all. Without this guard the job
-      # reports success on a run that never happened (2026-09-06: the secret was
-      # unset, so every eval CI run had been a no-op).
-      - name: Require an API key
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          if [ -z "$ANTHROPIC_API_KEY" ]; then
-            echo "::error::ANTHROPIC_API_KEY secret is not set; the S07 eval cannot run."
-            exit 1
-          fi
-
-      - name: Run S07 eval
-        # pipefail matters here: without it the pipeline's status is tee's, so a
-        # failing runner is reported as a passing step.
-        shell: bash -euo pipefail {0}
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          if [ -n "${{ steps.baseline.outputs.path }}" ] \
-             && git show "origin/${{ steps.baseline.outputs.default_branch }}:${{ steps.baseline.outputs.path }}" > /tmp/baseline.json 2>/dev/null; then
-            python eval/s07-analysis/run_eval.py --baseline /tmp/baseline.json 2>&1 | tee /tmp/eval_out.txt
-          else
-            echo "No baseline found; running without regression gate."
-            python eval/s07-analysis/run_eval.py 2>&1 | tee /tmp/eval_out.txt
-          fi
-
-      - name: Post result as PR comment
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const outputPath = '/tmp/eval_out.txt';
-            const output = fs.existsSync(outputPath)
-              ? fs.readFileSync(outputPath, 'utf8')
-              : 'Eval did not produce output. Check the workflow logs for setup or dependency failures.';
-            const body = '### S07 eval result\n```\n'
-              + output
-              + '\n```';
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body,
-            });
+      - name: Record verification scope
+        run: echo "Offline tests only. Actual model quality and paid evaluation were not run."
