@@ -380,7 +380,7 @@ Resolve before launch:
 1. **PWA service worker caching strategy** — exact cache scope (UI shell only? icons/fonts?). Affects bundle size and update behavior.
 2. **`INTERNAL_AUTH_SECRET` rotation** — manual annual rotation acceptable for v1 (tokens are minutes-lived, so a leaked old secret ages out fast once rotated). Document the two-secret overlap procedure before first rotation.
 3. **S3 lifecycle policy** — 180-day Glacier transition is a default; confirm based on TTS reuse patterns.
-4. **Custom domain vs Vercel default** — `phraselog.app` (or similar) requires DNS setup. Vercel-provided URL works for v1.
+4. **Custom domain DNS** — `nextmadi.com` is registered; DNS records for Vercel (frontend) and the API subdomain still need setting up. Vercel-provided URL works until then.
 5. **Slack webhook for alerts** — workspace provisioning needed.
 6. **AI cost alert thresholds** — `$T_daily` and `$T_per_user` values. Initial guess from `AI_PIPELINE.md` per-action estimates × expected daily volume × 2 safety factor; finalize during W1-3.
 

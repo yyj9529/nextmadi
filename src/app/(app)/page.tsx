@@ -10,7 +10,9 @@ import {
 } from "@/lib/user/account-deleted-notice";
 
 export const metadata: Metadata = {
-  title: "PhraseLog — 못한 말, 다음엔 할 수 있게",
+  // absolute: 루트 레이아웃의 "%s | NextMadi" 템플릿을 건너뛴다. 랜딩 title에 이미
+  // 브랜드가 들어 있어서 템플릿을 타면 "NextMadi — ... | NextMadi"로 중복된다.
+  title: { absolute: "NextMadi — 못한 말, 다음엔 할 수 있게" },
 };
 
 // S01 랜딩. (#33)
@@ -37,7 +39,7 @@ export default async function LandingPage({ searchParams }: LandingPageProps) {
   return (
     <div className="app-screen landing-screen">
       <header className="app-topbar">
-        <span className="app-logo">PhraseLog</span>
+        <span className="app-logo">NextMadi</span>
         <Link className="landing-login-link" href="/login">
           로그인
         </Link>

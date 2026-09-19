@@ -9,7 +9,7 @@ export default function NotFound() {
           Page not found
         </h1>
         <p className="hero-copy">
-          This route is not part of the current PhraseLog v1 screen map.
+          This route is not part of the current NextMadi v1 screen map.
         </p>
       </div>
       <Link className="route-card" href="/">

@@ -61,7 +61,7 @@ export function HomeDashboard() {
   return (
     <div className="app-screen home-screen has-bottom-nav">
       <header className="app-topbar">
-        <span className="app-logo">PhraseLog</span>
+        <span className="app-logo">NextMadi</span>
         <Link className="icon-button" href="/settings" aria-label="설정">
           <GearIcon />
         </Link>
