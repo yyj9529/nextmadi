@@ -73,6 +73,8 @@
 - 그 외 3건은 2026-08-25 소급 집계분으로, 개별 dev-log에 귀속하지 못했다.
   당시 집계는 7회였고 위 4건이 본문에서 확인된 것이다
 
+- `20260919_0500_s07-alignment.md` (뒤 명령의 성공이 앞 lint 실패를 가리지 않도록 개별 확인; 평가자 판단 불가와 실행 오류를 별도로 검사.)
+
 ## Related
 
 - [testcontainers-skipped-locally](testcontainers-skipped-locally.md) — 같은

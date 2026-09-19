@@ -1,5 +1,9 @@
 # Quality gates
 
+## S07 behavior-v2 candidate gate (2026-09-19)
+
+For this candidate, [EVAL_PLAN.md](EVAL_PLAN.md)'s behavior-v2 section supersedes legacy S07 score-only/always-three assumptions. Mandatory behavior failures cannot be offset by fluent English. Existing numeric thresholds are unchanged. Require calibrated judge fixtures, repeated passing subset, then full 90 × 3 under separately approved budgets, plus schema/API/legacy-result tests, browser flow and independent review. Historical 4.199 is not a comparable baseline. Mock/offline success is not actual AI-quality approval; skipped DB tests are not passed.
+
 Per-change quality gates for PhraseLog. A single project-wide quality score is
 deliberately not used — PhraseLog quality is multi-dimensional (naturalness,
 accuracy, cultural fit, tone, schema validity, cost, latency) and a single number
