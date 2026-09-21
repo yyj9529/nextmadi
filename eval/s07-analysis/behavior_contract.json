@@ -1,0 +1,33 @@
+{
+  "version": "s07-behavior-v2",
+  "schema": "s07_analysis_v2",
+  "prompt": "v3",
+  "judge": "judge_v4.md",
+  "legacy_policy": "Original cases/labels/results remain unchanged. Legacy expectations are historical only; new checks derive from visible input and the requirements here. No comparison with 4.199.",
+  "overrides": {
+    "s07_018": {"expected_action":"needs_context","requirements":["Ask what intended meaning the user wants to explain; do not invent the misunderstanding."]},
+    "s07_022": {"expected_action":"needs_context","requirements":["Ask which task or understanding the user wants to confirm; do not invent a task."]},
+    "s07_024": {"requirements":["Evaluate the actual request to repeat more slowly. Do not treat sentence length as a mistake. Legacy flawed label was a register opinion and must not force correction; preserve the original if appropriate."]},
+    "s07_029": {"requirements":["Preserve daughter age 4, fever 102 since last night, and Tylenol not helping. Do not diagnose or add doses."]},
+    "s07_035": {"requirements":["Three previous heater repair requests and potential reporting to the city ARE explicitly stated; preserve these without adding more events."]},
+    "s07_042": {"requirements":["Appropriate refusal. Keep original exactly as expression 1; preserve this week, at capacity, and suggestion to check with Sam in all variants. No future availability promise."]},
+    "s07_052": {"requirements":["Provide a safe generic opening describing the stated highway collision. Do not invent location, injuries or number of vehicles; ask for location only if necessary for the requested expression."]},
+    "s07_054": {"expected_action":"needs_context","requirements":["Product preflight offers word/compose choices before AI. This generation-layer test explicitly selects expressions and still supplies only the topic. Ask what they want to say; do not invent repairs, rent or history."]},
+    "s07_058": {"requirements":["Explain possible privacy concerns about age/marital status at a first meeting, do not mind-read. Give three equivalent brief repair expressions, not unrelated conversation starters."]},
+    "s07_064": {"requirements":["The words are grammatical but maybe later conflicts with stated intent never to buy. Explain that mismatch and give clear refusals. Historical good label must not force reassurance."]},
+    "s07_067": {"requirements":["Refuse Sunday-school volunteering now, warmly but clearly. Do not invent a smaller or later contribution."]},
+    "s07_072": {"requirements":["Preserve Friday deadline, expected Tuesday completion, and uncertainty. Do not invent a prioritization decision or a promise of certainty."]},
+    "s07_073": {"requirements":["Refuse lending 500 dollars without inventing financial hardship or a general never-lend policy."]}
+  },
+  "additional_cases": [
+    {"id":"s07_083","input_text":"물 주세요","expected_action":"expressions"},
+    {"id":"s07_084","input_text":"고마워","expected_action":"expressions"},
+    {"id":"s07_085","input_text":"나 집주인 히터 고장 말해","expected_action":"expressions"},
+    {"id":"s07_086","input_text":"집주인에게 히터가 고장 났다고 수리를 요청하고 싶어","expected_action":"expressions"},
+    {"id":"s07_087","input_text":"이번 주에는 도와줄 수 없다고 말하고 싶어","expected_action":"expressions"},
+    {"id":"s07_088","input_text":"집주인","input_mode":"word","expected_action":"word"},
+    {"id":"s07_089","input_text":"추더러 무나바 도라수","expected_action":"needs_context"},
+    {"id":"s07_090","input_text":"Please tell my landlord the heater is broken and ask for a repair.","expected_action":"expressions"}
+  ],
+  "subset": ["s07_042","s07_058","s07_054","s07_088","s07_083","s07_084","s07_085","s07_086","s07_087","s07_089","s07_029","s07_090"]
+}

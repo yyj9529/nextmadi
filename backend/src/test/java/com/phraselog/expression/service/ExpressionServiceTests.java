@@ -82,6 +82,38 @@ class ExpressionServiceTests {
   }
 
   @Test
+  void clarificationAndWordCannotBeSavedEvenWithDirectApiCalls() throws Exception {
+    UUID userId = UUID.randomUUID();
+    var principal = new InternalAuthPrincipal(userId.toString(), null);
+    for (String resultType : new String[] {"needs_context", "word"}) {
+      UUID id = UUID.randomUUID();
+      var row =
+          new AnalysisRequestRow(
+              id,
+              userId,
+              null,
+              "집주인",
+              MAPPER.readTree("{\"result_type\":\"" + resultType + "\"}"),
+              "s07-v3",
+              null,
+              OffsetDateTime.now());
+      when(expressionRepository.findByAnalysisIdForUser(id, userId)).thenReturn(Optional.empty());
+      when(analysisRepository.findByIdForOwner(id, principal)).thenReturn(Optional.of(row));
+      assertThatThrownBy(
+              () ->
+                  service.create(
+                      principal,
+                      new CreateExpressionRequest(id, null, null),
+                      UUID.randomUUID().toString()))
+          .isInstanceOfSatisfying(
+              ApiErrorException.class,
+              e -> assertThat(e.errorCode()).isEqualTo("analysis_not_saveable"));
+    }
+    Mockito.verify(expressionRepository, Mockito.never())
+        .createFromAnalysis(ArgumentMatchers.any());
+  }
+
+  @Test
   void selectedVariantOrderCanBeChanged() {
     UUID userId = UUID.randomUUID();
     UUID analysisId = UUID.randomUUID();

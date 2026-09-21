@@ -65,6 +65,15 @@ public class ExpressionService {
     AnalysisRequestRow analysis =
         resolveOwnedOrClaimed(analysisRequestId, userId, claimSessionToken);
 
+    if (!analysis.outputJson().path("result_type").asText("expressions").equals("expressions")) {
+      throw new ApiErrorException(
+          HttpStatus.BAD_REQUEST,
+          "analysis_not_saveable",
+          "표현이 완성된 뒤 저장할 수 있어요.",
+          "Clarification and word lookup results cannot be saved as expressions.",
+          false);
+    }
+
     NewExpression command =
         new NewExpression(
             userId,

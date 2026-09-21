@@ -11,6 +11,44 @@ class JsonSchemaValidatorTests {
   private final JsonSchemaValidator validator = new JsonSchemaValidator(objectMapper);
 
   @Test
+  void acceptsAllV2BranchesAndRejectsMixedOrBlankResults() throws Exception {
+    var expressions =
+        (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(validS07Analysis());
+    expressions.put("result_type", "expressions");
+    expressions.set(
+        "assessment",
+        objectMapper.readTree(
+            """
+        {"verdict":"suggestion","summary":"요청 표현이에요","reason":"같은 요청을 전달해요"}
+        """));
+    validator.validate("s07_analysis_v2", expressions);
+    validator.validate(
+        "s07_analysis_v2",
+        objectMapper.readTree(
+            """
+        {"result_type":"needs_context","question":"어떤 말을 하고 싶으세요?"}
+        """));
+    validator.validate(
+        "s07_analysis_v2",
+        objectMapper.readTree(
+            """
+        {"result_type":"word","word":{"english":"landlord","meaning_ko":"집주인"}}
+        """));
+    expressions.put("question", "mixed branch");
+    assertThatThrownBy(() -> validator.validate("s07_analysis_v2", expressions))
+        .isInstanceOf(JsonSchemaValidator.JsonSchemaValidationException.class);
+    assertThatThrownBy(
+            () ->
+                validator.validate(
+                    "s07_analysis_v2",
+                    objectMapper.readTree(
+                        """
+        {"result_type":"needs_context","question":"   "}
+        """)))
+        .isInstanceOf(JsonSchemaValidator.JsonSchemaValidationException.class);
+  }
+
+  @Test
   void acceptsValidS07AnalysisResponseFromClasspathSchema() throws Exception {
     validator.validate("s07_analysis_v1", objectMapper.readTree(validS07Analysis()));
   }

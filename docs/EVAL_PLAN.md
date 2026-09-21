@@ -1,5 +1,19 @@
 # EVAL_PLAN.md
 
+## S07 behavior contract v2 — 2026-09-19
+
+The candidate runner is `eval/s07-analysis/aligned_eval.py`; the legacy runner, cases, baseline and prompt v2 are preserved. `behavior_contract.json` overlays the original 82 IDs and adds eight contrast cases (90 total). Earlier hidden tone expectations and contradictory examples are not judge instructions. Historical 4.199 is not directly comparable to this changed contract.
+
+Evaluation order: valid execution/schema → answer the question, preserve facts and intent, correct branch, minimal necessary clarification and appropriate assessment → expression quality. Every mandatory behavior check must pass; uncertain is not passed. Quality thresholds stay mean >=4.0, each dimension mean >=3.5, no trial dimension <2. Non-expression results have no artificial English-quality score.
+
+`judge_v4.md` returns cited evidence for each behavior check. Thirteen synthetic fixtures in `judge_fixtures.json` test good/bad behavior pairs, including fluent invented facts and judge injection. Fixture labels are behavior expectations, not pronunciation/quality gold scores. No actual judge calibration has run; human review of those labels is still required before paid calibration. Input/expectation conflicts were targeted; a bilingual review of all 82 historical criteria is not claimed complete.
+
+The runner defaults to an offline preview. Execution requires `--execute`, explicit per-model input/output prices, positive `--budget-usd` and `--max-calls`. Before each call it reserves a conservative input-byte/output-token bound; uncertain provider failures retain the reservation. SDK retries are disabled. Model IDs/prices must be verified before approval; configured names alone are not availability evidence.
+
+Paid stages require separate approval: calibration → 12-case generation subset → two additional trials of that unchanged subset → full 90 × 3. Repeat/full require passing matching-hash prerequisite artifacts. Stop on operational errors, schema errors, behavior failures, any quality dimension below 2, or budget/call limit. Other quality thresholds are checked in the stage summary. Subsets always report `full_suite_passed=false`. Outputs and attempts are checkpointed; failed trials are not replaced by favorable reruns. General interrupted-run resume and legacy report-only draft aggregates are not implemented in the new runner.
+
+The generator uses the product prompt, JSON input envelope, 4096 output-token cap and one schema retry. Provider/JSON parsing failures stop conservatively; this runner is not a reproduction of every product transport retry. Saved outputs are fixed synthetic cases only. A passing new full run may establish a new baseline only after browser flow and independent review gates; it does not automatically replace the old CI baseline.
+
 Source of truth for how PhraseLog's AI output quality is measured, regressed against, and improved over time. Implements ADR-003's three-tier eval structure.
 
 This document defines the strategy and conventions. The actual cases, judge prompts, and runner scripts live in `eval/s07-analysis/` (Tier 1) and will live in `eval/s12-roleplay/` (Tier 2, later).
