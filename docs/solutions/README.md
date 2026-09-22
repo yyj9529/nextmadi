@@ -68,7 +68,7 @@
 | 조용한 실패가 성공처럼 보임 | 설계 | 재설계 | 부분 | [silent-failure-looks-like-success](silent-failure-looks-like-success.md) |
 | 도구 문법 혼용 (Bash/PowerShell, npx) | 프로세스 | 재설계 | 메모리 1건 (재발함) | [tool-syntax-mixing](tool-syntax-mixing.md) |
 | Spring `@ConditionalOnBean` 순서 함정 | 코드 | 재설계 | 없음 | [spring-conditional-bean-ordering](spring-conditional-bean-ordering.md) |
-| stale `.next` 캐시 → 404/타입 오류 | 환경 | 재설계 | 메모리 1건 | [stale-next-cache](stale-next-cache.md) |
+| stale `.next` 캐시 → 404/타입 오류 | 환경 | 재설계 | 메모리 1건 + `bun run dev:clean` | [stale-next-cache](stale-next-cache.md) |
 | effect 내 동기 setState (lint) | 코드 | 자동화 | 관행만 (문서 없음) | [set-state-in-effect](set-state-in-effect.md) |
 | 목 데이터 ↔ 실데이터 계약 드리프트 | 코드 | 노트 | 없음 | [mock-to-real-drift](mock-to-real-drift.md) |
 | 테스트가 앰비언트 env를 읽어 로컬/CI가 갈림 | 검증 | 노트 | 공유 `withoutEnv` 헬퍼 | [ambient-env-in-tests](ambient-env-in-tests.md) |
