@@ -3,8 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "PhraseLog",
-    template: "%s | PhraseLog",
+    default: "NextMadi",
+    template: "%s | NextMadi",
   },
   description:
     "AI communication coach for turning hard-to-say moments into reusable English practice.",

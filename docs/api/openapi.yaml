@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: PhraseLog API
+  title: NextMadi API
   version: 1.0.0
   description: |
     Internal REST contract for PhraseLog v1 — the Next.js BFF ↔ Spring Boot
@@ -17,7 +17,7 @@ info:
     flow: docs/screens/sNN.md.
 
 servers:
-  - url: https://api.phraselog.app/api/v1
+  - url: https://api.nextmadi.com/api/v1
     description: Production
   - url: http://localhost:8080/api/v1
     description: Local dev

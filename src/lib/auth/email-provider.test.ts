@@ -123,7 +123,7 @@ describe("with SMTP configured", () => {
       }),
     );
 
-    expect(configured(provider).options.from).toBe("PhraseLog <dev@localhost>");
+    expect(configured(provider).options.from).toBe("NextMadi <dev@localhost>");
   });
 });
 
@@ -162,7 +162,7 @@ describe("the SES send path", () => {
     const mail = lastMail!;
     expect(mail.to).toBe("woojoo@phraselog.test");
     expect(mail.from).toBe("PhraseLog <noreply@phraselog.test>");
-    expect(mail.subject).toBe("PhraseLog 로그인 링크");
+    expect(mail.subject).toBe("NextMadi 로그인 링크");
     // 본문이 영어 기본값으로 돌아가면 여기서 걸린다.
     expect(mail.text).toContain("아래 링크를 열면 로그인됩니다.");
     expect(mail.text).toContain(

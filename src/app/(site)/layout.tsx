@@ -9,7 +9,7 @@ export default function SiteLayout({
     <>
       <header className="shell site-header">
         <Link className="brand" href="/">
-          PhraseLog
+          NextMadi
         </Link>
         <nav className="nav-links" aria-label="Primary">
           <Link className="nav-link" href="/try">

@@ -97,7 +97,7 @@ export function buildEmailProvider(options: BuildEmailProviderOptions = {}) {
 
   return Nodemailer({
     server: PLACEHOLDER_SMTP,
-    from: "PhraseLog <dev@localhost>",
+    from: "NextMadi <dev@localhost>",
     maxAge: EMAIL_LINK_MAX_AGE_SECONDS,
     sendVerificationRequest: underSendQuota(
       quota,
@@ -184,7 +184,7 @@ async function sendKoreanVerificationRequest(
   const result = await transport.sendMail({
     to: identifier,
     from: provider.from,
-    subject: "PhraseLog 로그인 링크",
+    subject: "NextMadi 로그인 링크",
     text: `아래 링크를 열면 로그인됩니다.\n\n${url}\n\n24시간 후 만료돼요. 본인이 요청한 게 아니라면 이 메일은 무시하셔도 됩니다.`,
     html: koreanHtml(url),
   });
@@ -207,7 +207,7 @@ function koreanHtml(url: string) {
     <tr><td align="center">
       <table width="420" cellpadding="0" cellspacing="0" role="presentation"
              style="background:#ffffff;border-radius:12px;padding:32px">
-        <tr><td style="font-size:20px;font-weight:700;color:#111;padding-bottom:8px">PhraseLog</td></tr>
+        <tr><td style="font-size:20px;font-weight:700;color:#111;padding-bottom:8px">NextMadi</td></tr>
         <tr><td style="font-size:15px;color:#444;line-height:1.6;padding-bottom:24px">
           아래 버튼을 누르면 로그인됩니다.
         </td></tr>
