@@ -11,6 +11,9 @@
   네이티브 호출에서 사라져 jq가 깨진 식을 받았다
 - `npx tsc`가 엉뚱한 패키지를 받아와 실행. `./node_modules/.bin/tsc`를 써야 했다
 - slash command에서 `$1`이 비어 `gh issue view` 가 "accepts 1 arg(s), received 0"
+- Git Bash에서 `git cat-file -e origin/main:.env.example`, `git show origin/main:.env.example`이
+  실패했다. MSYS가 `:`가 든 인자를 Windows 경로로 바꿔 git에 `origin\main;.env.example`이
+  전달됐다. 실패를 "main에 파일 없음"으로 읽어 이미 main에 있는 변경을 오너 결정 항목으로 올렸다
 
 ## 근본 원인
 
@@ -32,6 +35,8 @@
   네이티브 명령에 넘기지 말고, `gh`는 `--template`이나 기본 표 출력을 쓴다
 - 로컬 바이너리는 `npx`가 아니라 `./node_modules/.bin/<name>`으로 직접 호출
 - slash command 위치 인자는 0-based. 인자가 하나면 `$ARGUMENTS`를 쓴다
+- Git Bash에서 `<rev>:<path>` 인자를 쓰는 git 명령은 `MSYS_NO_PATHCONV=1`을 붙인다.
+  존재 확인이 실패하면 "없다"로 결론 내기 전에 에러 문구부터 본다
 
 ## 자동화 후보
 
@@ -59,3 +64,4 @@
 - `20260714_1156`
 - `20260804_0600`
 - `20260830_0420_ticket-19-followup-o5-o6`
+- `20260922_0625_public-release-prep-cleanup` (MSYS 경로 변환으로 `rev:path` 조회 실패를 "파일 없음"으로 오판)

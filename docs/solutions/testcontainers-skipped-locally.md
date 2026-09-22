@@ -54,6 +54,9 @@ Gradle의 up-to-date 재사용이 이걸 한 겹 더 가린다. 입력이 안 �
 - `20260802_0830` (CI 로그에 컨테이너 흔적 0건)
 - `20260828_ticket-19-u6-u7-review` (`Task :build UP-TO-DATE`로 0건 실행)
 - `20260901_ticket-24-account-deletion` (신규 리포지터리 테스트 10건 전부 skipped)
+- `20260912_0924_readme-public-release-rename` (`BUILD SUCCESSFUL`인데 445건 중 117건
+  skipped — 공개 README에 테스트 수를 적으려고 XML 리포트를 파싱하다 발견. 게이트
+  출력만 봤으면 못 봤다)
 
 ## Related
 
