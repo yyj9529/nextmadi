@@ -17,4 +17,14 @@ public record InternalAuthProperties(List<String> secrets, long skewLeewaySecond
 
   /** HS256은 키 길이가 최소 256비트(32바이트)여야 한다. 짧은 비밀은 시작 시점에 거부한다. */
   public static final int MIN_SECRET_BYTES = 32;
+
+  /**
+   * application.yml에 커밋된 개발용 폴백 비밀. 저장소가 공개되면 누구나 아는 값이라 {@link #DEVELOPMENT_PROFILES}에서만 받아준다
+   * (#175).
+   */
+  public static final String DEVELOPMENT_SECRET =
+      "dev-placeholder-internal-auth-secret-do-not-use-in-prod";
+
+  /** {@link #DEVELOPMENT_SECRET}으로 기동해도 되는 프로필. */
+  public static final String[] DEVELOPMENT_PROFILES = {"local", "test"};
 }
