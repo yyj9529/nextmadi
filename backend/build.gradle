@@ -51,6 +51,11 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 
+    // Tests run under the `test` profile. Without a development profile the backend refuses to
+    // start with the committed development internal auth secret (#175), and any
+    // @SpringBootTest that relies on the application.yml default would fail to load.
+    systemProperty 'spring.profiles.active', 'test'
+
     // Print the pass/fail/SKIPPED tally. The Testcontainers suites are annotated
     // @Testcontainers(disabledWithoutDocker = true), so on a machine without Docker they are
     // silently skipped and the build still reports SUCCESS. Without this summary a green CI run

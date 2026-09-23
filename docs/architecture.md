@@ -264,6 +264,7 @@ No separate staging environment in v1. Add when test cycles outgrow local dev (l
 
 - **Frontend**: `git push origin main` → Vercel webhook → automatic build + deploy. Preview deploys for every PR.
 - **Backend (v1)**: GitHub Actions builds JAR, uploads to S3 artifact bucket, single EC2 instance pulls and restarts via systemd. Brief downtime during restart (a few seconds) — acceptable at v1 traffic. Exact workflow: `.github/workflows/backend-deploy.yml` (forthcoming).
+- **Backend profile**: the systemd unit `backend/deploy/systemd/phraselog-backend.service` sets `SPRING_PROFILES_ACTIVE=prod`. Any replacement unit, container, or launch script must set it too. Without a development profile (`local`, `test`), the backend refuses to start with the committed development internal auth secret (#175), so a launch that drops the profile fails at boot instead of accepting a publicly known secret.
 - **Backend evolution (v1.1+)**: When uptime requirements exceed v1 tolerance, evolve to two-instance ALB target group with rolling restart. Not built upfront — added when actual downtime complaints or contractual SLAs appear.
 
 The v1 choice is deliberate: solo-developer MVPs gain little from zero-downtime deploy infrastructure before there is a user base whose experience degrades during restarts. Pre-building the rolling-restart pattern is the kind of pre-spec'd operational sophistication that delays shipping without measurable benefit at v1 scale.
