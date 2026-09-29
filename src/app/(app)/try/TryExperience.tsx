@@ -28,8 +28,11 @@ export type TryAnalysisResult = {
   analysis_request_id: string;
 };
 
+// signal은 사용자 취소(handleCancel)용. AnalysisModals의 AnalysisSubmitter와 같은 모양으로
+// 맞춰 두 제출 경로가 취소를 다루는 방식을 일치시킨다.
 export type TryAnalysisSubmitter = (
   inputText: string,
+  signal: AbortSignal,
   options?: AnalysisClientOptions,
 ) => Promise<TryAnalysisResult>;
 
@@ -60,8 +63,13 @@ const REQUEST_TIMEOUT_MS = ANALYSIS_SERVER_BUDGET_MS + TRANSPORT_MARGIN_MS;
 
 // 실제 제출: BFF 라우트로 input_text를 보낸다. 비-ok 응답은 본문 JSON(있으면 error_code 포함)을
 // throw해 handleSubmit의 rate-limit / 네트워크 에러 분기가 그대로 동작하게 한다.
-async function postTryAnalysis(inputText: string, options?: AnalysisClientOptions): Promise<TryAnalysisResult> {
-  return postAnalysisRequest(inputText, AbortSignal.timeout(REQUEST_TIMEOUT_MS), options);
+async function postTryAnalysis(
+  inputText: string,
+  signal: AbortSignal,
+  options?: AnalysisClientOptions,
+): Promise<TryAnalysisResult> {
+  // 타임아웃과 사용자 취소 둘 다 유효해야 한다 — 먼저 발동하는 쪽이 fetch를 abort한다.
+  return postAnalysisRequest(inputText, AbortSignal.any([AbortSignal.timeout(REQUEST_TIMEOUT_MS), signal]), options);
 }
 
 export function TryExperience({
@@ -74,6 +82,7 @@ export function TryExperience({
   const [rateLimited, setRateLimited] = useState(false);
   const [networkError, setNetworkError] = useState(false);
   const activeSubmitRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [inputMode, setInputMode] = useState<InputMode>();
   const operation = useRef(new AnalysisOperation());
@@ -104,11 +113,13 @@ export function TryExperience({
 
     const submitId = activeSubmitRef.current + 1;
     activeSubmitRef.current = submitId;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setNetworkError(false);
     setAnalyzing(true);
 
     try {
-      const result = await submitAnalysis(text, { inputMode, idempotencyKey: operation.current.current() });
+      const result = await submitAnalysis(text, controller.signal, { inputMode, idempotencyKey: operation.current.current() });
       if (activeSubmitRef.current !== submitId) {
         return;
       }
@@ -132,6 +143,7 @@ export function TryExperience({
 
   const handleCancel = () => {
     activeSubmitRef.current += 1;
+    abortRef.current?.abort();
     setAnalyzing(false);
   };
 

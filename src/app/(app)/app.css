@@ -2199,6 +2199,13 @@
   gap: 6px;
   font-size: 0.9375rem;
   font-weight: 700;
+  min-width: 0;
+}
+
+.settings-row-value-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .settings-row-value.is-muted {
@@ -2208,6 +2215,7 @@
 
 .nickname-pencil {
   display: inline-flex;
+  flex-shrink: 0;
   border: none;
   background: transparent;
   color: var(--app-faint);

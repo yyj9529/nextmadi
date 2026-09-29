@@ -232,7 +232,7 @@ export function SettingsExperience({
                   </span>
                 ) : (
                   <span className="settings-row-value">
-                    {nickname}{" "}
+                    <span className="settings-row-value-text">{nickname}</span>
                     <button
                       className="nickname-pencil"
                       type="button"
