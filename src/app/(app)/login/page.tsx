@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
+import { auth } from "@/auth";
 import {
   getOAuthCallbackErrorMessage,
   shouldPromptEmailRetry,
@@ -21,6 +23,12 @@ type LoginPageProps = {
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
+  // 이미 로그인된 사용자는 로그인 화면을 볼 이유가 없다 (S03 엣지 케이스, C2-07).
+  const session = await auth();
+  if (session?.user?.id) {
+    redirect("/home");
+  }
+
   const resolvedSearchParams = await searchParams;
 
   return (
