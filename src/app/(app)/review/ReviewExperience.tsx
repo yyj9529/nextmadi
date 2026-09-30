@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { BottomNav } from "@/components/app/BottomNav";
 import { CloseIcon } from "@/components/app/icons";
 import { PlayButton } from "@/components/app/PlayButton";
 import { type ReviewRating, useReview } from "./useReview";
@@ -142,9 +143,10 @@ export function ReviewExperience() {
   }
 
   // ---- 첫 배치 로드 실패 ----
+  // 재시도 버튼 하나뿐이라 계속 실패하면 갇힌다 — 에러 상태만 BottomNav로 탈출구를 둔다 (D-02).
   if (errorInitial) {
     return (
-      <div className="app-screen review-screen">
+      <div className="app-screen review-screen has-bottom-nav">
         <main className="review-complete">
           <p className="review-complete-emoji" aria-hidden="true">
             😵
@@ -161,6 +163,7 @@ export function ReviewExperience() {
             다시 시도
           </button>
         </main>
+        <BottomNav active="review" />
       </div>
     );
   }
