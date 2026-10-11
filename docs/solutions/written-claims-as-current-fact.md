@@ -43,6 +43,8 @@
 - `20260829_0555_ticket-131-dev-hmr-origin` (#131 본문의 관찰이 repro를 오도)
 - `20260922_0625_public-release-prep-cleanup` (PR 본문의 케이스 수 22와 6월 비용 $1.17을
   현재 값으로 설명, 실제는 90케이스·$16.52)
+- `20261012_0523_roleplay-voice-turn` (BFF가 신뢰도를 버린다고 코드 주석만 읽고 단정, 코드는
+  `stt_confidence`를 돌려주고 버리는 곳은 브라우저 컨트롤러)
 
 ## Related
 
