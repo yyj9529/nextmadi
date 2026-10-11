@@ -429,7 +429,12 @@ CREATE INDEX idx_practice_turn_requests_session_status
 
 Lightweight idempotency table for `POST /practice/sessions/{id}/turns`. It links a
 client retry key to the stored user/coach turn pair, or to a no-turn retry response
-when STT was blank or low-confidence. It intentionally stores no raw audio,
+when STT was low-confidence. A blank transcript is rejected before a turn is recorded, so the
+request ends `failed`. Status moves `processing` to `completed`, `no_turn` or `failed`. A `failed`
+row is reopened to `processing` when the client retries the same key (nothing was produced for
+it, so the retry cannot duplicate a turn), and its `request_correlation_id` is replaced by the new
+attempt's, so the failed attempt stays visible only in `ai_request_logs`. `markFailed` only
+affects a `processing` row, so a finished request is never reopened. It intentionally stores no raw audio,
 transcript, prompt, or model output text; cost and latency aggregation happens via
 `request_correlation_id` in `ai_request_logs`.
 

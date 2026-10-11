@@ -1011,6 +1011,18 @@ paths:
         Accepts user input (voice via audio upload, or text). Runs STT if audio,
         then LLM coach response, then Haiku feedback evaluation, then TTS for coach
         audio. Returns the coach turn and feedback card (if shown).
+
+        Idempotency: a request is stored under `(session_id, Idempotency-Key)`. Retrying a key
+        whose earlier attempt finished replays the stored result (`completed` returns the turn
+        pair, `no_turn` returns the retry response) without calling any model again. A key whose
+        earlier attempt ended `failed` is re-executed under the same key: nothing was produced for
+        it, so the retry cannot duplicate a turn. A key still `processing` returns 409; the client
+        cannot tell that apart from a finished session by status alone (both use `conflict`).
+
+        Voice input: the recording is transcribed by the server in the same request. A blank
+        transcript is a 422, not a 200: no turn is consumed and the same recording would give
+        the same result, so the client asks the user to speak again. A low-confidence transcript
+        (below the confidence threshold) is a 200 with `turn_consumed=false`.
       parameters:
         - $ref: "#/components/parameters/SessionId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -1049,7 +1061,9 @@ paths:
                   retry_prompt:
                     type: string
                     nullable: true
-                    description: Present when turn_consumed=false; UI prompts the user to try again.
+                    description: |
+                      Present when turn_consumed=false. The server text is an English coach line; the S12
+                      UI does not render it and shows the fixed Korean copy from s12.md US2 AC5 instead.
                   user_turn:
                     nullable: true
                     $ref: "#/components/schemas/PracticeTurn"
@@ -1069,8 +1083,38 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "408":
+          description: STT or model call timed out (`timeout`, retryable). The attempt is stored as failed; retry with the same key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "409":
           $ref: "#/components/responses/Conflict"
+        "413":
+          description: Upload exceeds the multipart limit (`payload_too_large`, not retryable). The user records again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Audio was valid but no speech was detected (`empty_transcript`). No turn is consumed; not retryable with the same recording.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Speech provider rate limited (`provider_429`, retryable).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: Speech provider unavailable (`provider_5xx`, retryable).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /practice/sessions/{session_id}/result:
     post:

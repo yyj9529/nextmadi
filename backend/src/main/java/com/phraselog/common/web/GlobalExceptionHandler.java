@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -23,6 +24,23 @@ public class GlobalExceptionHandler {
                 exception.userMessage(),
                 exception.developerHint(),
                 exception.retryable(),
+                requestCorrelationId()));
+  }
+
+  /**
+   * Spring rejects an oversize multipart upload before any controller runs. Without this the
+   * catch-all below turned it into a retryable 500, so the client kept offering a retry that failed
+   * the same way every time.
+   */
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  ResponseEntity<ApiErrorResponse> handleUploadTooLarge(MaxUploadSizeExceededException exception) {
+    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+        .body(
+            new ApiErrorResponse(
+                "payload_too_large",
+                "녹음이 너무 길어요. 다시 녹음해주세요.",
+                "Upload exceeds spring.servlet.multipart.max-file-size or max-request-size.",
+                false,
                 requestCorrelationId()));
   }
 
