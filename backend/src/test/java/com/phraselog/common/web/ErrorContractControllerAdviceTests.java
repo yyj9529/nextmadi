@@ -39,6 +39,21 @@ class ErrorContractControllerAdviceTests {
   }
 
   @Test
+  void oversizeUploadIsAPermanent413NotARetryable500() throws Exception {
+    standaloneSetup(new TestErrorController())
+        .setControllerAdvice(new GlobalExceptionHandler())
+        .addFilter(new RequestCorrelationFilter())
+        .build()
+        .perform(
+            get(ApiPaths.V1 + "/test-errors/413").header("X-Request-Correlation-Id", "request-413"))
+        .andExpect(status().isPayloadTooLarge())
+        .andExpect(jsonPath("$.error_code", equalTo("payload_too_large")))
+        .andExpect(jsonPath("$.user_message", equalTo("녹음이 너무 길어요. 다시 녹음해주세요.")))
+        .andExpect(jsonPath("$.retryable", equalTo(false)))
+        .andExpect(jsonPath("$.request_correlation_id", equalTo("request-413")));
+  }
+
+  @Test
   void knownClientAndDomainErrorsReturnContractForRepresentativeStatuses() throws Exception {
     var mockMvc =
         standaloneSetup(new TestErrorController())
@@ -156,6 +171,11 @@ class ErrorContractControllerAdviceTests {
           "이미 처리된 요청이에요.",
           "Check idempotency key or unique constraint conflict handling.",
           false);
+    }
+
+    @GetMapping(ApiPaths.V1 + "/test-errors/413")
+    void uploadTooLarge() {
+      throw new org.springframework.web.multipart.MaxUploadSizeExceededException(1024);
     }
 
     @GetMapping(ApiPaths.V1 + "/test-errors/429")

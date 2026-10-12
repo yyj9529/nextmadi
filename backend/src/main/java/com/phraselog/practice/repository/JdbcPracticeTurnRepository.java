@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -119,18 +120,40 @@ public class JdbcPracticeTurnRepository implements PracticeTurnRepository {
   @Override
   public PracticeTurnRequestRow reserveRequest(
       UUID sessionId, UUID idempotencyKey, UUID requestCorrelationId) {
-    UUID id = UUID.randomUUID();
-    jdbcTemplate.update(
-        """
-        INSERT INTO practice_turn_requests
-          (id, session_id, idempotency_key, request_correlation_id, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, 'processing', now(), now())
-        """,
-        id,
-        sessionId,
-        idempotencyKey,
-        requestCorrelationId);
-    return new PracticeTurnRequestRow(id, requestCorrelationId);
+    // A key whose earlier attempt ended 'failed' is reopened instead of rejected. markFailed leaves
+    // the row behind so the failure stays visible, but nothing was produced for it (appendTurnPair
+    // is the only writer of turns and runs after every AI call succeeds), so retrying under the
+    // same key cannot duplicate a turn. Without this the retry hit the unique constraint, found
+    // nothing to replay, and surfaced as a 409 that the client reads as "session already over".
+    //
+    // The WHERE clause keeps every other status out: 'processing' may be a live request, and
+    // 'completed' / 'no_turn' are recorded outcomes that findReplay serves. The conflicting row is
+    // locked by the DO UPDATE, so of two concurrent retries only one sees status = 'failed'.
+    List<UUID> reserved =
+        jdbcTemplate.query(
+            """
+            INSERT INTO practice_turn_requests
+              (id, session_id, idempotency_key, request_correlation_id, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'processing', now(), now())
+            ON CONFLICT (session_id, idempotency_key) DO UPDATE
+              SET status = 'processing',
+                  request_correlation_id = EXCLUDED.request_correlation_id,
+                  updated_at = now()
+              WHERE practice_turn_requests.status = 'failed'
+            RETURNING id
+            """,
+            (rs, rowNum) -> rs.getObject("id", UUID.class),
+            UUID.randomUUID(),
+            sessionId,
+            idempotencyKey,
+            requestCorrelationId);
+    if (reserved.isEmpty()) {
+      // Same contract as the plain INSERT used to have: the service turns this into a replay or a
+      // "still processing" conflict.
+      throw new DuplicateKeyException(
+          "Turn request already exists for idempotency key " + idempotencyKey);
+    }
+    return new PracticeTurnRequestRow(reserved.get(0), requestCorrelationId);
   }
 
   @Override
@@ -243,7 +266,11 @@ public class JdbcPracticeTurnRepository implements PracticeTurnRepository {
   @Override
   public void markFailed(UUID requestId) {
     jdbcTemplate.update(
-        "UPDATE practice_turn_requests SET status = 'failed', updated_at = now() WHERE id = ?",
+        // Only an in-flight request can fail. If a commit landed but the driver reported an error,
+        // the row is already 'completed'; overwriting it would let reserveRequest reopen it and
+        // append a second turn pair under the same key.
+        "UPDATE practice_turn_requests SET status = 'failed', updated_at = now() "
+            + "WHERE id = ? AND status = 'processing'",
         requestId);
   }
 

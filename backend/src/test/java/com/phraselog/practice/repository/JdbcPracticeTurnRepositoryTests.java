@@ -157,6 +157,119 @@ class JdbcPracticeTurnRepositoryTests {
         .isInstanceOf(DuplicateKeyException.class);
   }
 
+  @Test
+  void reserveRequestReopensAFailedRequestUnderTheSameIdempotencyKey() {
+    UUID userId = insertUser("owner@example.com");
+    UUID expressionId = insertExpression(userId);
+    UUID sessionId = insertSession(userId, expressionId, 3);
+    insertOpeningTurn(sessionId);
+    UUID idempotencyKey = UUID.randomUUID();
+    PracticeTurnRequestRow failed =
+        repository.reserveRequest(sessionId, idempotencyKey, UUID.randomUUID());
+    repository.markFailed(failed.id());
+    UUID retryCorrelationId = UUID.randomUUID();
+
+    PracticeTurnRequestRow retry =
+        repository.reserveRequest(sessionId, idempotencyKey, retryCorrelationId);
+
+    // Same row, not a second one: the unique (session_id, idempotency_key) pair stays at one row.
+    assertThat(retry.id()).isEqualTo(failed.id());
+    assertThat(retry.requestCorrelationId()).isEqualTo(retryCorrelationId);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT status FROM practice_turn_requests WHERE id = ?", String.class, retry.id()))
+        .isEqualTo("processing");
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM practice_turn_requests WHERE session_id = ?",
+                Integer.class,
+                sessionId))
+        .isEqualTo(1);
+    // A failed attempt never produced a replayable result, and the reopened one has none yet.
+    assertThat(repository.findReplay(sessionId, idempotencyKey)).isEmpty();
+  }
+
+  @Test
+  void reopenedRequestCompletesAndReplaysLikeAFirstAttempt() {
+    UUID userId = insertUser("owner@example.com");
+    UUID expressionId = insertExpression(userId);
+    UUID sessionId = insertSession(userId, expressionId, 3);
+    insertOpeningTurn(sessionId);
+    UUID idempotencyKey = UUID.randomUUID();
+    PracticeTurnRequestRow failed =
+        repository.reserveRequest(sessionId, idempotencyKey, UUID.randomUUID());
+    repository.markFailed(failed.id());
+
+    PracticeTurnRequestRow retry =
+        repository.reserveRequest(sessionId, idempotencyKey, UUID.randomUUID());
+    SubmitPracticeTurnResponse completed =
+        repository.completeWithoutTurn(retry, "I couldn't hear you well. Please say that again");
+
+    assertThat(completed.turnConsumed()).isFalse();
+    Optional<SubmitPracticeTurnResponse> replay = repository.findReplay(sessionId, idempotencyKey);
+    assertThat(replay).isPresent();
+    assertThat(replay.get().turnConsumed()).isFalse();
+  }
+
+  @Test
+  void markFailedDoesNotOverwriteAFinishedRequest() {
+    UUID userId = insertUser("owner@example.com");
+    UUID expressionId = insertExpression(userId);
+    UUID sessionId = insertSession(userId, expressionId, 3);
+    insertOpeningTurn(sessionId);
+    UUID idempotencyKey = UUID.randomUUID();
+    PracticeTurnRequestRow request =
+        repository.reserveRequest(sessionId, idempotencyKey, UUID.randomUUID());
+    repository.appendTurnPair(
+        request, new AppendTurnPairCommand("Hello", null, "Hi there", null, null, false, null));
+
+    // A commit that landed but surfaced as a driver error must not turn the finished row into a
+    // retryable one: a same-key retry would then append a second turn pair.
+    repository.markFailed(request.id());
+
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT status FROM practice_turn_requests WHERE id = ?",
+                String.class,
+                request.id()))
+        .isEqualTo("completed");
+    assertThatThrownBy(
+            () -> repository.reserveRequest(sessionId, idempotencyKey, UUID.randomUUID()))
+        .isInstanceOf(DuplicateKeyException.class);
+    assertThat(repository.findReplay(sessionId, idempotencyKey)).isPresent();
+  }
+
+  @Test
+  void reserveRequestStillRejectsKeysThatAreProcessingOrFinished() {
+    UUID userId = insertUser("owner@example.com");
+    UUID expressionId = insertExpression(userId);
+    UUID sessionId = insertSession(userId, expressionId, 3);
+    insertOpeningTurn(sessionId);
+
+    // processing: a concurrent or crashed attempt must not be taken over.
+    UUID processingKey = UUID.randomUUID();
+    repository.reserveRequest(sessionId, processingKey, UUID.randomUUID());
+    assertThatThrownBy(() -> repository.reserveRequest(sessionId, processingKey, UUID.randomUUID()))
+        .isInstanceOf(DuplicateKeyException.class);
+
+    // no_turn: the retry prompt is the recorded outcome and is replayed, not redone.
+    UUID noTurnKey = UUID.randomUUID();
+    PracticeTurnRequestRow noTurn =
+        repository.reserveRequest(sessionId, noTurnKey, UUID.randomUUID());
+    repository.completeWithoutTurn(noTurn, "say that again");
+    assertThatThrownBy(() -> repository.reserveRequest(sessionId, noTurnKey, UUID.randomUUID()))
+        .isInstanceOf(DuplicateKeyException.class);
+
+    // completed: the consumed turn pair is replayed, never regenerated.
+    UUID completedKey = UUID.randomUUID();
+    PracticeTurnRequestRow completed =
+        repository.reserveRequest(sessionId, completedKey, UUID.randomUUID());
+    repository.appendTurnPair(
+        completed, new AppendTurnPairCommand("Hello", null, "Hi there", null, null, false, null));
+    assertThatThrownBy(() -> repository.reserveRequest(sessionId, completedKey, UUID.randomUUID()))
+        .isInstanceOf(DuplicateKeyException.class);
+  }
+
   private UUID insertUser(String email) {
     UUID id = UUID.randomUUID();
     jdbcTemplate.update(

@@ -14,6 +14,10 @@ import type {
   RoleplayTurn,
   SubmitTurnResult,
 } from "@/lib/practice/types";
+import { isDefiniteTurnOutcome } from "@/lib/practice/turn-outcome";
+import { browserDeps } from "@/lib/voice/recorder-controller";
+import { createRoleplayVoiceDeps } from "@/lib/voice/roleplay-voice-deps";
+import { useVoiceRecorder } from "@/lib/voice/use-voice-recorder";
 import { useRoleplaySession } from "./useRoleplaySession";
 
 // 화면 렌더용 턴: 서버 RoleplayTurn에 표시용 피드백 카드를 붙인다(GET 복원 시엔 없음).
@@ -22,14 +26,74 @@ type DisplayTurn = RoleplayTurn & { feedback: DisplayFeedback | null };
 
 // S12 롤플레이 가이드형 연습. (#61 실데이터 연결)
 // 로드: GET /api/practice/sessions/{id} (useRoleplaySession) → 대화 상태 복원.
-// 턴 제출: POST /api/practice/sessions/{id}/turns { text_content } → user_turn + coach_turn +
-//   feedback. turn_consumed=false면 retry_prompt만 안내(턴 미소비), session_status=completed면
-//   결과 화면으로 자동 이동.
+// 턴 제출: POST /api/practice/sessions/{id}/turns { text_content } 또는 multipart `audio` →
+//   user_turn + coach_turn + feedback. turn_consumed=false면 retry_prompt만 안내(턴 미소비),
+//   session_status=completed면 결과 화면으로 자동 이동.
 // 코치 전환: POST /api/practice/sessions { expression_id, coach_id } → 새 세션으로 라우팅.
-// 음성 캡처(MediaRecorder)는 이번 티켓 범위 밖 — 텍스트 입력이 실경로다(mic 버튼은 비활성 안내).
+// 음성: 공유 녹음 스택(useVoiceRecorder)으로 녹음하고, 전사 대신 녹음 Blob을 그대로 턴 API에 올린다
+//   (전사와 신뢰도 판정은 서버, s12.md US2). 공유 컨트롤러는 건드리지 않고 roleplay-voice-deps
+//   어댑터로 우회한다. 라이브 파형은 #180이라 이번에는 펄스 + 경과시간만 보인다.
 // 참고: 서버측 abandon 엔드포인트가 없어 종료(X)는 클라이언트 홈 복귀만 한다(openapi 갭).
 
 const COMPLETION_ROUTE_MS = 1600;
+
+/** s12.md US2 AC5: 빈 전사와 낮은 신뢰도 모두 같은 안내를 보여준다. */
+const NOT_HEARD_NOTICE = "잘 안 들렸어요. 다시 말해주세요.";
+
+/** BFF(90초)보다 조금 길게 — 한 요청에서 STT + 코치 + 피드백 + TTS를 처리한다. */
+const TURN_REQUEST_TIMEOUT_MS = 100_000;
+
+type TurnPayload =
+  | { kind: "text"; text: string }
+  | { kind: "audio"; audio: Blob };
+
+function formatElapsed(elapsedMs: number): string {
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
+}
+
+type VoiceNotice = {
+  message: string;
+  retryLabel: string | null;
+};
+
+// 컨트롤러가 녹음 단계에서 낼 수 있는 안내. 전사 단계 실패(error_empty 등)는 어댑터가 전사를
+// 대신 응답하므로 일어나지 않는다 — 그래도 어댑터가 깨지면 보이도록 마지막 분기를 둔다.
+function voiceNoticeFor(
+  status: string,
+  unsupportedReason: string | null,
+): VoiceNotice | null {
+  switch (status) {
+    case "permission_denied":
+      return {
+        message: "마이크 권한이 없어요. 브라우저 설정에서 허용하거나 텍스트로 입력해주세요.",
+        retryLabel: "다시 시도",
+      };
+    case "unsupported":
+      return {
+        message:
+          unsupportedReason === "no_webm_opus"
+            ? "이 브라우저는 음성 녹음을 지원하지 않아요. 텍스트로 입력해주세요."
+            : "이 기기에서는 녹음할 수 없어요. 텍스트로 입력해주세요.",
+        retryLabel: null,
+      };
+    case "error_recording":
+      return {
+        message: "녹음이 중단됐어요. 마이크를 확인하고 다시 녹음해주세요.",
+        retryLabel: "다시 녹음",
+      };
+    case "error_empty":
+    case "error_transient":
+    case "error_invalid_audio":
+    case "error_rate_limited":
+      return {
+        message: "음성 입력에 문제가 생겼어요. 텍스트로 입력해주세요.",
+        retryLabel: null,
+      };
+    default:
+      return null;
+  }
+}
 
 type RoleplayExperienceProps = {
   sessionId: string;
@@ -82,10 +146,18 @@ function LoadedRoleplay({ session, coaches }: LoadedRoleplayProps) {
   const sendingRef = useRef(false);
   const turnKeyRef = useRef<string | null>(null);
   const switchKeyRef = useRef<string | null>(null);
+  // 키는 보낸 내용과 묶는다. 같은 내용을 다시 보낼 때만 키를 재사용하고, 내용이 바뀌면(새 녹음,
+  // 다른 문장) 새 키로 시작한다 — 아니면 서버가 이전 요청의 결과를 재생해 준다.
+  const turnPayloadRef = useRef<unknown>(null);
+  // 전송 실패 후 "다시 시도"로 같은 녹음을 재전송하기 위한 보관. 서버가 내용을 거절한 경우
+  // (빈 전사, 규격 오류)에는 비운다 — 같은 녹음은 같은 결과다.
+  const pendingAudioRef = useRef<Blob | null>(null);
+  const [retryableAudio, setRetryableAudio] = useState(false);
+  const [voiceDeps] = useState(() => createRoleplayVoiceDeps(browserDeps()));
 
   const userTurnCount = turns.filter((turn) => turn.speaker === "user").length;
   const progress = Math.min(userTurnCount + 1, session.planned_turns);
-  const inputDisabled = processing || completed;
+  const turnBusy = processing || completed;
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
@@ -131,44 +203,85 @@ function LoadedRoleplay({ session, coaches }: LoadedRoleplayProps) {
     }
   }, [session.turns]);
 
-  const sendTurn = async (text: string) => {
-    const trimmed = text.trim();
+  const discardPendingAudio = () => {
+    pendingAudioRef.current = null;
+    setRetryableAudio(false);
+  };
+
+  const sendTurn = async (payload: TurnPayload) => {
+    const trimmed = payload.kind === "text" ? payload.text.trim() : "";
+    if (completed || (payload.kind === "text" && trimmed.length === 0)) {
+      return;
+    }
     // ref 가드로 같은 tick의 이중 트리거(Enter+클릭)를 확실히 막는다(stale closure 회피).
-    if (sendingRef.current || completed || trimmed.length === 0) {
+    if (sendingRef.current) {
+      if (payload.kind === "audio") {
+        // 다른 전송이 진행 중일 때 끝난 녹음을 조용히 버리지 않는다 — 다시 시도로 남긴다.
+        pendingAudioRef.current = payload.audio;
+        setRetryableAudio(true);
+        setNotice("앞선 메시지를 처리하는 중이에요. 끝나면 다시 시도해주세요.");
+      }
       return;
     }
     sendingRef.current = true;
     // 재시도가 같은 키를 쓰도록 진행 중 키를 유지한다. 서버 응답을 받으면(성공/거절 무관)
     // 논리 턴이 확정되므로 초기화하고, 결과 불명(네트워크 오류)일 때만 키를 남겨 다음
-    // 재시도가 중복 턴 없이 이어지게 한다(s12.md edge case).
+    // 재시도가 중복 턴 없이 이어지게 한다(s12.md edge case). 보낸 내용이 바뀌면 키도 새로 만든다.
+    const identity = payload.kind === "text" ? `text:${trimmed}` : payload.audio;
+    if (turnPayloadRef.current !== identity) {
+      turnKeyRef.current = null;
+      turnPayloadRef.current = identity;
+    }
+    if (payload.kind === "text") {
+      discardPendingAudio();
+    }
     const idempotencyKey = turnKeyRef.current ?? crypto.randomUUID();
     turnKeyRef.current = idempotencyKey;
     setProcessing(true);
     setNotice(null);
 
     try {
+      const headers: Record<string, string> = {
+        "idempotency-key": idempotencyKey,
+      };
+      let body: BodyInit;
+      if (payload.kind === "text") {
+        headers["content-type"] = "application/json";
+        body = JSON.stringify({ text_content: trimmed });
+      } else {
+        // content-type은 fetch가 boundary와 함께 채운다.
+        const form = new FormData();
+        form.append("audio", payload.audio, "recording.webm");
+        body = form;
+      }
+
       const res = await fetch(
         `/api/practice/sessions/${encodeURIComponent(session.id)}/turns`,
         {
           method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "idempotency-key": idempotencyKey,
-          },
-          body: JSON.stringify({ text_content: trimmed }),
+          headers,
+          body,
+          signal: AbortSignal.timeout(TURN_REQUEST_TIMEOUT_MS),
         },
       );
 
-      // 서버 응답 도달 = 이 논리 턴 확정. 다음 전송은 새 키로 시작한다.
-      turnKeyRef.current = null;
+      // 결과가 확정된 응답(성공, 내용/세션 거절)이면 이 논리 턴은 끝났으니 다음 전송은 새 키로 시작한다.
+      // 502/504 같은 실패는 서버가 어디까지 처리했는지 모른다 — BFF가 먼저 포기해도 백엔드는 턴을
+      // 커밋할 수 있다. 키를 남겨 같은 키로 재시도하면 서버가 끝난 결과는 재생하고 실패한 것은
+      // 다시 처리한다.
+      if (isDefiniteTurnOutcome(res.status)) {
+        turnKeyRef.current = null;
+      }
 
       if (res.status === 404) {
+        discardPendingAudio();
         setNotice("세션을 찾지 못했어요. 잠시 후 홈으로 이동할게요.");
         setTimeout(() => router.replace("/home"), COMPLETION_ROUTE_MS);
         return;
       }
       if (res.status === 409) {
         // 세션이 더 이상 active가 아님(완료/포기) — 재시도가 아니라 결과로 보낸다.
+        discardPendingAudio();
         setNotice("이미 끝난 세션이에요. 결과로 이동할게요.");
         setCompleted(true);
         setTimeout(() => {
@@ -176,16 +289,39 @@ function LoadedRoleplay({ session, coaches }: LoadedRoleplayProps) {
         }, COMPLETION_ROUTE_MS);
         return;
       }
+      if (res.status === 422) {
+        // 무발화 — 같은 녹음을 다시 보내도 소용없다. 다시 말해야 한다.
+        discardPendingAudio();
+        setNotice(NOT_HEARD_NOTICE);
+        return;
+      }
+      if (payload.kind === "audio" && (res.status === 400 || res.status === 413)) {
+        discardPendingAudio();
+        setNotice(
+          res.status === 413
+            ? "녹음이 너무 길어요. 다시 녹음해주세요."
+            : "녹음이 올바르지 않아요. 다시 녹음해주세요.",
+        );
+        return;
+      }
       if (!res.ok) {
+        if (payload.kind === "audio") {
+          pendingAudioRef.current = payload.audio;
+          setRetryableAudio(true);
+        }
         setNotice("메시지를 보내지 못했어요. 다시 시도해주세요.");
         return;
       }
 
       const result = (await res.json()) as SubmitTurnResult;
 
+      // 서버가 이 녹음을 처리했다 — 보관해 둘 이유가 없다.
+      discardPendingAudio();
+
       // 빈/저신뢰 입력 → 턴 미소비, 재시도 안내만(s12.md US2 AC5).
+      // 서버의 retry_prompt는 영어 상수라 쓰지 않고 스펙의 한국어 안내를 고정으로 보여준다.
       if (!result.turn_consumed) {
-        setNotice(result.retry_prompt ?? "잘 안 들렸어요. 다시 말해주세요.");
+        setNotice(NOT_HEARD_NOTICE);
         return;
       }
 
@@ -214,12 +350,54 @@ function LoadedRoleplay({ session, coaches }: LoadedRoleplayProps) {
           router.replace(`/practice/${session.id}/result`);
         }, COMPLETION_ROUTE_MS);
       }
-      // 결과 불명(네트워크 오류) — turnKeyRef를 남겨 재시도가 중복 없이 이어지게 한다.
+      // 결과 불명(네트워크 오류·시간 초과) — turnKeyRef를 남겨 재시도가 중복 없이 이어지게 한다.
     } catch {
+      if (payload.kind === "audio") {
+        pendingAudioRef.current = payload.audio;
+        setRetryableAudio(true);
+      }
       setNotice("메시지를 보내지 못했어요. 다시 시도해주세요.");
     } finally {
       sendingRef.current = false;
       setProcessing(false);
+    }
+  };
+
+  // 녹음이 끝나면 컨트롤러가 어댑터를 거쳐 여기로 온다. 전사문은 자리표시이므로 쓰지 않고,
+  // 어댑터가 챙겨 둔 녹음 파일을 올린다.
+  const voice = useVoiceRecorder({
+    deps: voiceDeps.deps,
+    onTranscript: () => {
+      const audio = voiceDeps.takeAudio();
+      if (audio) {
+        void sendTurn({ kind: "audio", audio });
+      }
+    },
+  });
+  const recording = voice.status === "recording" || voice.status === "stopping";
+  const micBusy =
+    recording ||
+    voice.status === "requesting_permission" ||
+    voice.status === "transcribing";
+  const inputDisabled = turnBusy || micBusy;
+  const voiceNotice = voiceNoticeFor(
+    voice.status,
+    voice.machine.unsupportedReason,
+  );
+
+  const toggleMic = () => {
+    if (voice.status === "idle") {
+      // 새 녹음은 새 내용이다 — 남아 있던 재시도용 녹음과 그 키는 버린다.
+      discardPendingAudio();
+      setNotice(null);
+    }
+    voice.tap();
+  };
+
+  const retryAudio = () => {
+    const audio = pendingAudioRef.current;
+    if (audio) {
+      void sendTurn({ kind: "audio", audio });
     }
   };
 
@@ -350,45 +528,99 @@ function LoadedRoleplay({ session, coaches }: LoadedRoleplayProps) {
           ) : null}
         </div>
 
-        {notice ? (
+        {voiceNotice || notice ? (
           <p className="roleplay-notice" role="status">
-            {notice}
+            {voiceNotice ? voiceNotice.message : notice}
           </p>
+        ) : null}
+        {voiceNotice || (retryableAudio && !processing) ? (
+          <div className="voice-input-notice-actions">
+            {voiceNotice?.retryLabel ? (
+              <button
+                className="voice-input-retry"
+                type="button"
+                onClick={voice.retry}
+              >
+                {voiceNotice.retryLabel}
+              </button>
+            ) : null}
+            {!voiceNotice && retryableAudio ? (
+              <button
+                className="voice-input-retry"
+                type="button"
+                onClick={retryAudio}
+              >
+                다시 시도
+              </button>
+            ) : null}
+            {voiceNotice ? (
+              <button
+                className="voice-input-use-text"
+                type="button"
+                // 텍스트로 넘어간 뒤에도 실패 문구가 남아 있으면 어색하다 — 안내를 접는다.
+                onClick={voice.dismiss}
+              >
+                텍스트로 입력하기
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
       <footer className="roleplay-inputbar">
         <button
-          className="icon-button"
+          className={`icon-button${recording ? " is-recording" : ""}`}
           type="button"
-          aria-label="음성 입력 준비 중"
-          title="음성 입력은 곧 제공됩니다"
-          disabled
+          aria-label={recording ? "녹음 멈추기" : "음성으로 말하기"}
+          aria-pressed={recording}
+          // 녹음 중에는 다른 상태와 무관하게 정지를 막지 않는다 — 마이크를 연 채 끄지 못하는
+          // 상태를 만들지 않는다.
+          disabled={
+            !recording &&
+            (turnBusy ||
+              voice.status === "requesting_permission" ||
+              voice.status === "transcribing")
+          }
+          onClick={toggleMic}
         >
           <MicIcon size={22} />
         </button>
         <input
           className="roleplay-text-input"
           type="text"
-          placeholder="영어로 답해보세요"
+          placeholder={
+            recording
+              ? `듣고 있어요 · ${formatElapsed(voice.elapsedMs)}`
+              : "영어로 답해보세요"
+          }
           value={draft}
           disabled={inputDisabled}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
-              void sendTurn(draft);
+              void sendTurn({ kind: "text", text: draft });
             }
           }}
         />
-        <button
-          className="roleplay-mic-button"
-          type="button"
-          aria-label="보내기"
-          disabled={inputDisabled || draft.trim().length === 0}
-          onClick={() => void sendTurn(draft)}
-        >
-          →
-        </button>
+        {recording ? (
+          <button
+            className="roleplay-record-cancel"
+            type="button"
+            onClick={voice.cancel}
+          >
+            취소
+          </button>
+        ) : (
+          <button
+            className="roleplay-mic-button"
+            type="button"
+            aria-label="보내기"
+            disabled={inputDisabled || draft.trim().length === 0}
+            onClick={() => void sendTurn({ kind: "text", text: draft })}
+          >
+            →
+          </button>
+        )}
       </footer>
 
       {pendingCoach ? (

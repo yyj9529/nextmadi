@@ -2555,6 +2555,30 @@
   background: #c6c9d2;
 }
 
+/* 롤플레이 녹음 중: 마이크 펄스는 공유 voice-pulse 키프레임을 쓰고, 취소는 전송 버튼 자리에 둔다. */
+.roleplay-inputbar .icon-button.is-recording {
+  border-radius: 50%;
+  color: var(--app-mic-red);
+  animation: voice-pulse 1.4s ease-in-out infinite;
+}
+
+.roleplay-record-cancel {
+  flex-shrink: 0;
+  height: 48px;
+  border: none;
+  background: none;
+  padding: 0 4px;
+  color: var(--app-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roleplay-inputbar .icon-button.is-recording {
+    animation: none;
+  }
+}
+
 /* ---- S12b: 롤플레이 RESULT ---- */
 
 .encouragement-banner {

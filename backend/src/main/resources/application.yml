@@ -1,6 +1,13 @@
 spring:
   application:
     name: phraselog-backend
+  servlet:
+    multipart:
+      # The BFF caps a recording at 4MB (transcriptions and turns routes). Spring's 1MB default sat
+      # barely above the ~930KB estimate for a 58s recording, so a slightly larger take failed with
+      # a 500 that no retry could fix. Keep these in step with the BFF cap.
+      max-file-size: 4MB
+      max-request-size: 5MB
   flyway:
     enabled: ${PHRASELOG_FLYWAY_ENABLED:false}
     locations: classpath:db/migration
