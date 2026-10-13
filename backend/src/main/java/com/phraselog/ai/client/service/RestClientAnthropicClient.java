@@ -145,7 +145,10 @@ public class RestClientAnthropicClient implements AnthropicClient {
       throw new AnthropicClient.AnthropicClientException(
           "Failed to parse response: " + e.getMessage(), AiErrorCode.UNKNOWN, false, e);
     } catch (Exception e) {
-      log.warn("Unexpected error calling Anthropic API: {}", e.toString());
+      // Pass the Throwable itself (not e.toString()) so SLF4J appends the full stack trace —
+      // that trace is the only way to tell which exception type fell through to UNKNOWN, and it
+      // does not survive past the console session that produced it (#177).
+      log.warn("Unexpected error calling Anthropic API", e);
       throw new AnthropicClient.AnthropicClientException(
           "Unexpected error: " + e.getMessage(), AiErrorCode.UNKNOWN, false, e);
     }
