@@ -46,7 +46,10 @@
 - `20260621_0517`
 - `20260621_0648`
 - `20260906_eval-case-criteria-review` (python print 한글 CP949 깨짐, PYTHONIOENCODING=utf-8로 해결)
+- `20260928_0000_checklist-continue` (Bash 도구로 `python -c "..."`에 한글 문자열을 직접 넣어 SyntaxError, 파일 print도 CP949 UnicodeEncodeError. Write 도구로 .py 파일 작성 후 실행 / 결과는 UTF-8 파일로 저장하는 방식으로 우회)
 - `20260909_1111_s07-eval-judge-v3-baseline` (eval 실행기가 `⚠`를 출력하려다 12번째 케이스에서
   죽어 유료 API 호출분 약 $2를 버렸다. 이 노트의 "항상 `python -X utf8`"을 안 읽고 돌린 결과다)
+- `20261002_0648_opus-interview-tab` (BOM 없는 UTF-8 .ps1을 PowerShell 5.1이 ANSI로 읽어 `•`가 깨지고
+  docx 문자열 치환이 0건 매칭. 매칭 개수 검사로 쓰기 전에 멈췄다. `[char]0x2022`로 우회)
 - 그 외 1건은 2026-08-25 소급 집계분으로, 개별 dev-log에 귀속하지 못했다.
   당시 집계는 9회였고 위 8건이 확인된 것이다
