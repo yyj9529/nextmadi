@@ -1627,6 +1627,12 @@
   list-style: none;
 }
 
+/* 모바일은 열 정의가 없어 그리드 트랙이 내용(nowrap 문장) 너비로 늘어난다. li 의 min-width:auto 를
+   풀어야 카드 말줄임이 동작하고 가로 넘침이 생기지 않는다. (.recent-list > li 와 같은 처리, D-06) */
+.library-list > li {
+  min-width: 0;
+}
+
 .library-card {
   display: flex;
   flex-direction: column;
