@@ -76,6 +76,7 @@
 | 도는 dev 서버의 브랜치를 확인 안 하고 디버깅 | 환경 | 노트 | 없음 | [dev-server-branch-unverified](dev-server-branch-unverified.md) |
 | 시점(TIMESTAMPTZ)을 UTC로 포맷해 날짜가 하루 밀림 | 코드 | 기록 | 없음 | 노트 없음 (1회) |
 | 실행 안 한 검증을 Pass로 기록 | 검증 | 기록 | 없음 | 노트 없음 (1회) |
+| 시뮬레이션 분기와 입력값 불일치 | 코드 | 기록 | 독립 시제품 모델 검사 | [prototype-scenario-state](prototype-scenario-state.md) |
 | 실패할 수 없는 검사를 증거로 제시 | 검증 | 기록 | 없음 | 노트 없음 (1회) |
 | 문서에 적힌 관찰·숫자를 현재 사실로 씀 | 프로세스 | 노트 | 없음 | [written-claims-as-current-fact](written-claims-as-current-fact.md) |
 | 워크트리 전환 후 의존성 재설치 누락 | 환경 | 기록 | 없음 | 노트 없음 (1회) |

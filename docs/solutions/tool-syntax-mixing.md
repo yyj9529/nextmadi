@@ -65,3 +65,5 @@
 - `20260804_0600`
 - `20260830_0420_ticket-19-followup-o5-o6`
 - `20260922_0625_public-release-prep-cleanup` (MSYS 경로 변환으로 `rev:path` 조회 실패를 "파일 없음"으로 오판)
+- `20261009_0751_auth-session-syntax-tab` (PowerShell에서 정규식 `|`와 복잡한 `node -e` 인용이 parser와 충돌)
+- `20261014_0135_nextmadi-opus-call-handoff` (PowerShell `foreach` 결과를 바로 파이프해 parser error; 배열로 감싼 뒤 전달)
